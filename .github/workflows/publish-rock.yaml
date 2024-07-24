@@ -1,0 +1,107 @@
+name: Release
+
+env:
+  CHARM_NAME: test-fast-api
+  OCI_RESOURCE_NAME: cla-service-image
+  CHARMCRAFT_AUTH: "${{ secrets.CHARMCRAFT_TOKEN }}"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Pack Rock image
+    runs-on: ubuntu-latest
+    outputs:
+      rock: ${{ steps.rockcraft.outputs.rock }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pack Rock
+        id: rockcraft
+        uses: canonical/craft-actions/rockcraft-pack@main
+        with:
+          rockcraft-channel: stable
+          verbosity: brief
+      - name: Upload Rock artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rock-image
+          path: ${{ steps.rockcraft.outputs.rock }}
+
+  upload:
+    name: Upload Rock image
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      image_revision_id: ${{ steps.upload_rock.outputs.resource_id }}
+      release_channel: ${{ steps.channel.outputs.name }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Select charmhub channel
+        id: channel
+        uses: canonical/charming-actions/channel@2.4.0
+
+      - name: Setup Charmcraft
+        run: sudo snap install charmcraft --classic
+
+      - name: Download Rock artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rock-image
+
+      - name: Copy Rock to local registry
+        run: /snap/charmcraft/current/libexec/charmcraft/skopeo --insecure-policy copy oci-archive:${{ needs.build.outputs.rock }} docker-daemon:app-image:latest
+
+      - name: Upload Rock to Charmhub
+        id: upload_rock
+        run: |
+          charmcraft upload-resource ${{ env.CHARM_NAME }} ${{ env.OCI_RESOURCE_NAME }} --image app-image 2>&1 | tee -a output.log
+          # extract resource id from the previous output
+          REVISION=$(cat output.log | grep "Status checked:" | tail -n 1 | sed -E "s/.*'revision': ([0-9]+).*/\1/")
+          echo -e "Uploaded image resource: \`${{ env.OCI_RESOURCE_NAME }}\` to charm: \`${{ env.CHARM_NAME }}\` with resource revision id: $REVISION \n\n" >> $GITHUB_STEP_SUMMARY          
+          echo "resource_id=$REVISION" >> $GITHUB_OUTPUT
+
+  release:
+    name: Release Rock to ${{ needs.upload.outputs.release_channel }} channel
+    needs: upload
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Juju
+        run: sudo snap install juju
+
+      - name: Setup Charmcraft
+        run: sudo snap install charmcraft --classic
+
+      - name: Pull latest revision of channel ${{ needs.upload.outputs.release_channel }}
+        id: charm_revision
+        run: |
+          CHANNEL_REVISION=$(juju info ${{ env.CHARM_NAME }} --format=json | jq .channels.latest.edge[0].revision)
+          # Default to 1 if first release
+          CHANNEL_REVISION=$(if [ "${CHANNEL_REVISION}" = "null" ]; then echo 1; else echo $CHANNEL_REVISION; fi)
+          echo "id=$CHANNEL_REVISION" >> $GITHUB_OUTPUT
+
+      - name: Release Rock to channel ${{ needs.upload.outputs.release_channel }}
+        run: |
+          charmcraft release ${{ env.CHARM_NAME }} \
+          --channel=${{ needs.upload.outputs.release_channel }} \
+          --resource ${{ env.OCI_RESOURCE_NAME }}:${{ needs.upload.outputs.image_revision_id }} \
+          --revision ${{ steps.charm_revision.outputs.id }}
+
+      - name: Promote staging to production guide
+        # only show the guide if the action is running on the default branch
+        # and deployed to staging (edge channel)
+        if: ${{ needs.upload.outputs.release_channel == 'latest/edge' }}
+        # TODO: make this automatique by adding a button that would
+        # call a new project that would SSO user and if they are maintainers
+        # run action: realse to prod with parameters
+        run: |
+          echo -e "### Promote staging to production\n\nRun the action \`promote-to-production\` with the given paerameters: \`charm revision id: ${{ steps.charm_revision.outputs.id }}\`, \`image revision id: ${{ needs.upload.outputs.image_revision_id }}\`, \`from channel: edge\`, \`to channel: stable\`" >> $GITHUB_STEP_SUMMARY

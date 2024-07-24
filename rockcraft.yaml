@@ -2,14 +2,27 @@ name: canonical-cla
 summary: Canonical Contribution Licence Agreement (CLA) Service.
 description: OCI image for the Python service - Canonical CLA
 version: "0.1"
-base: ubuntu@22.04
+base: bare
+build-base: ubuntu@22.04
 
 platforms:
   amd64:
   arm64:
 
 parts:
+  install-python:
+    plugin: nil
+    stage-packages:
+      - base-files_base
+      - ca-certificates_data
+      - libc6_libs
+      - libgcc-s1_libs
+      - python3.11_standard
+    override-prime: |
+      craftctl default
+      ln -s /usr/bin/python3.11 $CRAFT_PRIME/usr/bin/python3
   app:
+    after: ["install-python"]
     plugin: python
     source: .
     stage-packages:
