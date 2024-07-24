@@ -1,0 +1,30 @@
+name: canonical-cla
+summary: Canonical Contribution Licence Agreement (CLA) Service.
+description: OCI image for the Python service - Canonical CLA
+version: "0.1"
+base: ubuntu@22.04
+
+platforms:
+  amd64:
+  arm64:
+
+parts:
+  app:
+    plugin: python
+    source: .
+    stage-packages:
+      - python3-venv
+    python-requirements:
+      - requirements.txt
+
+  app-files:
+    plugin: dump
+    source: .
+    override-pull: |
+      craftctl default
+      # Ignored files
+      rm -rf k8s-charms rockcraft.yaml
+    organize:
+      "*": /app/
+    prime:
+      - app
