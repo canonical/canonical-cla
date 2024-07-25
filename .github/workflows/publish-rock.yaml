@@ -18,12 +18,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Rockcraft
+        run: sudo snap install rockcraft --classic
+
       - name: Pack Rock
         id: rockcraft
-        uses: canonical/craft-actions/rockcraft-pack@main
-        with:
-          rockcraft-channel: stable
-          verbosity: brief
+        run: |
+          sudo rockcraft pack -v --destructive-mode 2>&1 | tee rockcraft.log
+          ROCK_IMAGE=$(cat rockcraft.log | sed -nE "s/Exported to OCI archive '(.*)'/\1/p")
+          [ -z "$ROCK_IMAGE" ] && exit 1       
+          echo "rock=$ROCK_IMAGE" >> $GITHUB_OUTPUT
 
       - name: Upload Rock artifact
         uses: actions/upload-artifact@v4
@@ -36,7 +40,7 @@ jobs:
         run: |
           IMAGE_URL=ghcr.io/canonical/canonical-cla:$(date +%s)-${GITHUB_SHA:0:7}
           echo "url=$IMAGE_URL" >> $GITHUB_OUTPUT
-          echo -e "> [!NOTE]\n> The image URL is $IMAGE_URL" >> $GITHUB_STEP_SUMMARY
+          echo -e "> [!NOTE]\n> The image URL is \`$IMAGE_URL\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Push to GHCR
         run: skopeo --insecure-policy copy oci-archive:${{ steps.rockcraft.outputs.rock }} docker://${{ steps.image_url.outputs.url }} --dest-creds "canonical:${{ secrets.GITHUB_TOKEN }}"
