@@ -2,8 +2,7 @@ name: canonical-cla
 summary: Canonical Contribution Licence Agreement (CLA) Service.
 description: OCI image for the Python service - Canonical CLA
 version: "0.1"
-base: bare
-build-base: ubuntu@22.04
+base: ubuntu@22.04
 
 platforms:
   amd64:
