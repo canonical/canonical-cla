@@ -1,0 +1,35 @@
+name: push to charmed-canonical-cla
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main # or whatever branch you want to trigger this action
+
+env:
+  ROCKCRAFT_JSON: rockcraft.json
+  CHARMED_REPO: canonical/charmed-canonical-cla
+
+jobs:
+  update-charmed-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo1
+        uses: actions/checkout@v4
+
+      - name: Checkout ${{ env.CHARMED_REPO }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CHARMED_REPO }}
+          path: charmed-repo
+          ssh-key: ${{ secrets.CHARMED_CANONICAL_CLA_DEPLOY_PRIVATE_KEY }}
+
+      - name: Update rockcraft.json in ${{ env.CHARMED_REPO }}}}
+        run: |
+          cd charmed-repo
+          echo '{"image_id": "abcd.."}' > rockcraft.json
+          git config user.name "${{ github.actor }}-bot"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git add rockcraft.json
+          git commit -m "Update Rock image ID"
+          git push
