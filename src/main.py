@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 
+from connect_db import test_db_connection
+
 app = FastAPI()
 
 
@@ -11,3 +13,6 @@ def read_root():
 @app.get("/healthz")
 def health_check():
     return {"status": "OK"}
+
+
+print(test_db_connection())
