@@ -64,6 +64,6 @@ jobs:
 
           yq e -i '.resources.app-image.upstream-source = "${{ steps.image_url.outputs.url }}"' metadata.yaml
           git add metadata.yaml
-          git commit -m "Update Rock image ID"
+          git commit -m "Update Rock image ID: ${{ github.action_repository }}#${{ github.sha }}"
 
           git push
