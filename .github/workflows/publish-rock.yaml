@@ -7,6 +7,9 @@ on:
       - main
     paths-ignore:
       - ".github/workflows/*.yaml"
+env:
+  ROCKCRAFT_JSON: rockcraft.json
+  CHARMED_REPO: canonical/charmed-canonical-cla
 
 jobs:
   build:
@@ -44,3 +47,23 @@ jobs:
 
       - name: Push to GHCR
         run: skopeo --insecure-policy copy oci-archive:${{ steps.rockcraft.outputs.rock }} docker://${{ steps.image_url.outputs.url }} --dest-creds "canonical:${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Checkout ${{ env.CHARMED_REPO }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CHARMED_REPO }}
+          path: charmed-repo
+          ssh-key: ${{ secrets.CHARMED_CANONICAL_CLA_DEPLOY_PRIVATE_KEY }}
+
+      - name: Update rockcraft.json in ${{ env.CHARMED_REPO }}
+        run: |
+          cd charmed-repo
+
+          git config user.name "${{ github.actor }}-bot"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+          yq e -i '.resources.app-image.upstream-source = "${{ steps.image_url.outputs.url }}"' metadata.yaml
+          git add metadata.yaml
+          git commit -m "Update Rock image ID"
+
+          git push
