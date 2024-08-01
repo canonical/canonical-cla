@@ -1,4 +1,4 @@
-name: Release
+name: Pack Rock image
 
 on:
   workflow_dispatch:
@@ -20,14 +20,33 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Setup Rockcraft
-        run: sudo snap install rockcraft --classic
+      - name: Fetch Rockcraft version
+        run: |
+          ROCKCRAFT_VERSION=$(snap info rockcraft | sed -n 's/^\s*latest\/stable:\s*\([0-9.]*\).*/\1/p')
+          echo "rockcraft_version=$ROCKCRAFT_VERSION" >> $GITHUB_OUTPUT
+        id: rockcraft_version
+
+      - name: Setup cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./rockcraft_*.snap
+            ./rockcraft_*.assert
+          key: rockcraft-${{ steps.rockcraft_version.outputs.rockcraft_version }}
+
+      - name: Setup Rockcraft ${{ steps.rockcraft_version.outputs.rockcraft_version }}
+        run: |
+          snap download rockcraft --channel=latest/stable
+          sudo snap ack rockcraft_*.assert
+          sudo snap install --classic rockcraft_*.snap
 
       - name: Pack Rock
         id: rockcraft
         run: |
-          sudo rockcraft pack -v --destructive-mode 2>&1 | tee rockcraft.log
+          sudo rockcraft pack --destructive-mode -v 2>&1 | tee rockcraft.log
           ROCK_IMAGE=$(cat rockcraft.log | sed -nE "s/Exported to OCI archive '(.*)'/\1/p")
           [ -z "$ROCK_IMAGE" ] && exit 1       
           echo "rock=$ROCK_IMAGE" >> $GITHUB_OUTPUT
@@ -64,6 +83,6 @@ jobs:
 
           yq e -i '.resources.app-image.upstream-source = "${{ steps.image_url.outputs.url }}"' metadata.yaml
           git add metadata.yaml
-          git commit -m "Update Rock image ID: ${{ github.action_repository }}#${{ github.sha }}"
+          git commit -m "Update Rock image ID: ${{ github.repository }}@${{ github.sha }}"
 
           git push

@@ -12,8 +12,13 @@ parts:
   app:
     plugin: python
     source: .
+    build-packages:
+      - libpq-dev
+      - libssl-dev
+      - libffi-dev
     stage-packages:
       - python3-venv
+      - libpq5
     python-requirements:
       - requirements.txt
 
@@ -23,7 +28,7 @@ parts:
     override-pull: |
       craftctl default
       # Ignored files
-      rm -rf k8s-charms rockcraft.yaml
+      rm -rf rockcraft.yaml
     organize:
       "*": /app/
     prime:
