@@ -1,4 +1,3 @@
-
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,4 +14,9 @@ class DatabaseConfig(BaseSettings):
     port: int
     user: str
     password: SecretStr
-    database: str = "canonical_cla"
+    database: str = "canonical-cla"
+
+    @staticmethod
+    def dsn():
+        self = DatabaseConfig()  # type: ignore
+        return f"postgresql+asyncpg://{self.user}:{self.password.get_secret_value()}@{self.host}:{self.port}/{self.database}"

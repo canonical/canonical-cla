@@ -27,8 +27,8 @@ parts:
     source: .
     override-pull: |
       craftctl default
-      # Ignored files
-      rm -rf rockcraft.yaml
+      # Ignored files/directories
+      rm -rf rockcraft.yaml .env .gitignore .git docker-compose.yaml
     organize:
       "*": /app/
     prime:

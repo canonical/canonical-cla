@@ -1,6 +1,11 @@
-from fastapi import FastAPI
+import sqlalchemy
+from fastapi import Depends, FastAPI, HTTPException, status
+from pydantic import ValidationError
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from connect_db import test_db_connection
+from database import get_session
+from models import Individual
 
 app = FastAPI()
 
@@ -15,4 +20,27 @@ def health_check():
     return {"status": "OK"}
 
 
-print(test_db_connection())
+# DB testing routes wil be removed after testing
+@app.post("/individuals/", response_model=Individual)
+async def create_individual(
+    individual: Individual, session: AsyncSession = Depends(get_session)
+):
+    try:
+        db_individual = Individual.model_validate(individual)
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.errors()
+        )
+    session.add(db_individual)
+    try:
+        await session.commit()
+        await session.refresh(db_individual)
+    except sqlalchemy.exc.IntegrityError:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Conflict")
+    return db_individual
+
+
+@app.get("/individuals", response_model=list[Individual])
+async def read_individuals(session: AsyncSession = Depends(get_session)):
+    individuals = (await session.execute(select(Individual))).scalars().all()
+    return individuals
