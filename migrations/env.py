@@ -1,14 +1,53 @@
 import asyncio
 from logging.config import fileConfig
-
-from sqlalchemy_utils import create_database, database_exists
-from sqlmodel import SQLModel
+from sqlite3 import OperationalError
 
 from alembic import context
+from asyncpg import InvalidCatalogNameError
+from sqlalchemy import text
+from sqlalchemy.engine.url import make_url
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlmodel import SQLModel
+
 from database import async_engine
 
-# Important: All models must be imported here to be recognized by Alembic
-from models import Individual, Organization, Revocation
+
+async def create_database_if_not_exists(engine: AsyncEngine):
+    """Check if a database exists.
+
+    :param url: A SQLAlchemy engine URL.
+    """
+
+    url = make_url(engine.url)
+    database = url.database
+    dialect_name = url.get_dialect().name
+    if dialect_name != 'postgresql':
+        raise NotImplementedError(
+            'create_database_if_not_exists is only implemented for PostgreSQL'
+        )
+    try:
+        connection = await engine.connect()
+    except InvalidCatalogNameError as e:
+        if not 'does not exist' in str(e):
+            raise
+    else:
+        await connection.close()
+        return
+    # create the database
+    url = url._replace(database='postgres')
+    engine2 = create_async_engine(url)
+    missing_database = database
+    template = 'template1'
+    async with engine2.connect() as conn:
+        await conn.execution_options(isolation_level="AUTOCOMMIT")
+        create_db_query = "CREATE DATABASE \"{}\" ENCODING '{}' TEMPLATE {}".format(
+            missing_database,
+            'utf8',
+            template
+        )
+        await conn.execute(text(create_db_query))
+    await engine2.dispose()
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -78,12 +117,9 @@ async def run_migrations_online():
     connectable = async_engine
 
     # Ensure the database exists before running migrations
-    if not database_exists(async_engine.url):
-        create_database(async_engine.url)
-
+    await create_database_if_not_exists(async_engine)
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
-
 
 if context.is_offline_mode():
     run_migrations_offline()
