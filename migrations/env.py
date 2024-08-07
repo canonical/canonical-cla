@@ -64,10 +64,6 @@ def do_run_migrations(connection):
         compare_type=True,
     )
 
-    # Ensure the database exists before running migrations
-    if not database_exists(async_engine.url):
-        create_database(async_engine.url)
-
     with context.begin_transaction():
         context.run_migrations()
 
@@ -80,6 +76,10 @@ async def run_migrations_online():
 
     """
     connectable = async_engine
+
+    # Ensure the database exists before running migrations
+    if not database_exists(async_engine.url):
+        create_database(async_engine.url)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
