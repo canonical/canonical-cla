@@ -14,7 +14,7 @@ class DatabaseConfig(BaseSettings):
     port: int
     user: str
     password: SecretStr
-    database: str = "canonical-cla"
+    database: str
 
     @staticmethod
     def dsn():
