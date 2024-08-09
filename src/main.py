@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from database import get_session
+from database import get_session, redis
 from models import Individual
 
 app = FastAPI()
@@ -20,7 +20,14 @@ def health_check():
     return {"status": "OK"}
 
 
+@app.get("/test-redis")
+async def test_redis():
+    await redis.set("test-key", "test-value")
+    return {"value": await redis.get("test-key")}
+
 # DB testing routes wil be removed after testing
+
+
 @app.post("/individuals/", response_model=Individual)
 async def create_individual(
     individual: Individual, session: AsyncSession = Depends(get_session)
@@ -36,7 +43,8 @@ async def create_individual(
         await session.commit()
         await session.refresh(db_individual)
     except sqlalchemy.exc.IntegrityError:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Conflict")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Conflict")
     return db_individual
 
 

@@ -3,6 +3,7 @@ asyncpg==0.29.0
 sqlalchemy[postgresql_asyncpg]
 sqlmodel==0.0.21
 alembic==1.13.2
+redis==5.0.8
 pydantic==2.8.2
 pydantic-settings==2.4.0
 pydantic-extra-types==2.9.0

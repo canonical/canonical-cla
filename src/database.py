@@ -1,10 +1,12 @@
 import logging
 from typing import AsyncIterator
 
+from redis.asyncio import Redis
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
+                                    create_async_engine)
 
-from config import DatabaseConfig
+from config import DatabaseConfig, RedisConfig
 
 logger = logging.getLogger(__name__)
 
@@ -26,3 +28,6 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         except SQLAlchemyError as e:
             logger.error(f"Database error: {e}")
             raise
+
+
+redis = Redis.from_url(RedisConfig.dsn())
