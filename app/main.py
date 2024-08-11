@@ -4,10 +4,12 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from database import get_session, redis
-from models import Individual
+from app.database import get_session, redis
+from app.launchpad.routes import launchpad_router
+from app.models import Individual
 
 app = FastAPI()
+app.include_router(launchpad_router)
 
 
 @app.get("/")
@@ -24,6 +26,7 @@ def health_check():
 async def test_redis():
     await redis.set("test-key", "test-value")
     return {"value": await redis.get("test-key")}
+
 
 # DB testing routes wil be removed after testing
 

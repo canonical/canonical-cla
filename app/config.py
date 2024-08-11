@@ -17,9 +17,7 @@ class DatabaseConfig(BaseSettings):
     password: SecretStr
     database: str
 
-    @staticmethod
-    def dsn():
-        self = DatabaseConfig()  # type: ignore
+    def dsn(self):
         return f"postgresql+asyncpg://{self.username}:{self.password.get_secret_value()}@{self.host}:{self.port}/{self.database}"
 
 
@@ -33,7 +31,20 @@ class RedisConfig(BaseSettings):
     host: str
     port: int
 
-    @staticmethod
-    def dsn():
-        self = RedisConfig()  # type: ignore
+    def dsn(self):
         return f"redis://{self.host}:{self.port}"
+
+
+class Config(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILES,
+        extra="ignore",
+    )
+
+    secret_key: SecretStr
+
+    database: DatabaseConfig = DatabaseConfig()  # type: ignore
+    redis: RedisConfig = RedisConfig()  # type: ignore
+
+
+config = Config()  # type: ignore

@@ -3,15 +3,14 @@ from typing import AsyncIterator
 
 from redis.asyncio import Redis
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
-                                    create_async_engine)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from config import DatabaseConfig, RedisConfig
+from app.config import config
 
 logger = logging.getLogger(__name__)
 
 async_engine = create_async_engine(
-    DatabaseConfig.dsn(),
+    config.database.dsn(),
     pool_pre_ping=True,
 )
 
@@ -30,4 +29,4 @@ async def get_session() -> AsyncIterator[AsyncSession]:
             raise
 
 
-redis = Redis.from_url(RedisConfig.dsn())
+redis = Redis.from_url(config.redis.dsn())
