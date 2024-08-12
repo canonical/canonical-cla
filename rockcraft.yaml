@@ -30,6 +30,6 @@ parts:
       # Ignored files/directories
       rm -rf rockcraft.yaml .env .gitignore .git docker-compose.yaml
     organize:
-      "*": /app/
+      "*": /srv/
     prime:
-      - app
+      - srv

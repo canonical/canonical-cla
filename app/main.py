@@ -46,8 +46,7 @@ async def create_individual(
         await session.commit()
         await session.refresh(db_individual)
     except sqlalchemy.exc.IntegrityError:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Conflict")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Conflict")
     return db_individual
 
 

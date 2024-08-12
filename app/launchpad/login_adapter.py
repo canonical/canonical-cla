@@ -1,5 +1,5 @@
 import json
-from typing import NotRequired, TypedDict
+from typing import TypedDict
 
 from fastapi import Response
 from launchpadlib.credentials import (
