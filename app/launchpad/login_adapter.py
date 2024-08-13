@@ -2,12 +2,9 @@ import json
 from typing import TypedDict
 
 from fastapi import Response
-from launchpadlib.credentials import (
-    AccessToken,
-    Credentials,
-    CredentialStore,
-    RequestTokenAuthorizationEngine,
-)
+from launchpadlib.credentials import (AccessToken, Credentials,
+                                      CredentialStore,
+                                      RequestTokenAuthorizationEngine)
 
 from app.launchpad.literals import ACCESS_LEVELS, CONSUMER_KEY, SERVICE_ROOT
 from app.utils import EncryptedAPIKeyCookie
@@ -106,7 +103,6 @@ class UserCookieCredentialStore(CredentialStore):
         oauth_token = credentials.decode_token()
         self.cookie_session.set_cookie(
             self.response,
-            key=self.cookie_session.model.name,
             value=json.dumps(oauth_token),
             max_age=3600,  # 1 hour
             expires=12 * 3600,  # 12 hours
@@ -133,7 +129,6 @@ class UserCookieCredentialStore(CredentialStore):
         }
         self.cookie_session.set_cookie(
             self.response,
-            key=self.cookie_session.model.name,
             value=json.dumps(user_tokens),
             max_age=12 * 3600,  # 1 hour
             expires=12 * 3600,  # 12 hours
