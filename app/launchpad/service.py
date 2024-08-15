@@ -1,144 +1,184 @@
-import logging
+import json
+import secrets
+import time
+from typing import List
 from urllib.parse import urlencode
 
-from fastapi import Request
-from fastapi.responses import RedirectResponse, Response
-from launchpadlib.launchpad import Launchpad
-from lazr.restfulclient.errors import HTTPError, Unauthorized
+import httpx
+from fastapi import Depends, HTTPException
+from fastapi.responses import RedirectResponse
 
 from app.config import config
-from app.launchpad.literals import (
-    ACCESS_LEVELS,
-    COOKIE_SESSION_NAME,
-    SERVICE_ROOT,
-    WEB_ROOT,
+from app.launchpad.models import (
+    AccessTokenSession,
+    LaunchpadAccessTokenResponse,
+    LaunchpadEmailListResponse,
+    LaunchpadEmailResponse,
+    LaunchpadPersonResponse,
+    LaunchpadRequestTokenResponse,
+    RequestTokenSession,
 )
-from app.launchpad.login_adapter import (
-    ReinitializableCredentials,
-    StoreItem,
-    UserCookieCredentialStore,
-    auth_engine,
-)
-from app.launchpad.models import LPUser
-from app.utils import EncryptedAPIKeyCookie
+from app.utils import EncryptedAPIKeyCookie, http_client
 
 
 class LaunchpadService:
-    _cookie_session = EncryptedAPIKeyCookie(
-        name=COOKIE_SESSION_NAME, secret=config.secret_key.get_secret_value()
-    )
-    _logger = logging.getLogger(__name__)
+    """
+    Launchpad OAuth service.
+    Docs: https://help.launchpad.net/API/SigningRequests
+    """
 
-    def logout(self, response: Response) -> None:
-        """
-        Remove the access token from the cookie session.
+    def __init__(
+        self, cookie_session: EncryptedAPIKeyCookie, http_client: httpx.AsyncClient
+    ):
+        self.cookie_session = cookie_session
+        self.http_client = http_client
 
-        :param response: the response object to remove the cookie.
-        """
-        response.delete_cookie(COOKIE_SESSION_NAME)
+    async def login(self, callback_url: str) -> RedirectResponse:
+        request_token_params = {
+            "oauth_consumer_key": config.launchpad_oauth.application_name,
+            "oauth_signature_method": "PLAINTEXT",
+            "oauth_signature": "&",
+        }
 
-    def login_redirect(self, request: Request) -> RedirectResponse:
-        """
-        Initiate the Launchpad login process.
-
-        :param request: the request object to retrieve the service hostname.
-
-        :return: the redirection response.
-        """
-        credentials = ReinitializableCredentials(auth_engine)
-        request_token = credentials.get_request_token(
-            web_root=WEB_ROOT, token_format=ReinitializableCredentials.DICT_TOKEN_FORMAT
+        response = await self.http_client.post(
+            "https://launchpad.net/+request-token",
+            data=request_token_params,
+            headers={"Accept": "application/json"},
         )
-        oauth_token = request_token["oauth_token"]
-        callback_url = (
-            f"{request.url_for('launchpad_callback')}?request_token={oauth_token}"
+        response_body = response.text
+        if response.status_code != 200 or not response_body:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Failed to get request token from Launchpad",
+            )
+        request_token_response = LaunchpadRequestTokenResponse(
+            **json.loads(response_body)
         )
-
-        params = urlencode(
+        state = secrets.token_urlsafe(16)
+        authorize_token_params = urlencode(
             {
-                "oauth_token": oauth_token,
-                "oauth_callback": callback_url,
-                "allow_permission": ACCESS_LEVELS,
+                "oauth_token": request_token_response["oauth_token"],
+                "oauth_callback": f"{callback_url}?state={state}",
+                "allow_permission": "READ_PRIVATE",
             }
         )
 
         response = RedirectResponse(
-            url=f"https://launchpad.net/+authorize-token?{params}"
+            url=f"https://launchpad.net/+authorize-token?{authorize_token_params}"
         )
-        store = UserCookieCredentialStore(response, self._cookie_session)
-        store.do_save(credentials)
+        request_token_session = RequestTokenSession(
+            oauth_token=request_token_response["oauth_token"],
+            oauth_token_secret=request_token_response["oauth_token_secret"],
+            state=state,
+        )
+
+        self.cookie_session.set_cookie(
+            response,
+            value=json.dumps(request_token_session),
+            max_age=600,
+            httponly=True,
+        )
         return response
 
-    def login_callback(
-        self, user_tokens: StoreItem, callback_token: str, whoami_url: str
+    async def callback(
+        self,
+        session_data: RequestTokenSession,
+        emails_url: str,
     ) -> RedirectResponse:
-        """
-        Save the access token in the cookie session.
-
-        :param user_tokens: the user tokens from the cookie session.
-        :param callback_token: the request token from the callback URL.
-
-        :return: the redirection response.
-        :raises ValueError: if the request token is invalid.
-        """
-        redirect_response = RedirectResponse(url=whoami_url)
-        store = UserCookieCredentialStore(
-            redirect_response, self._cookie_session, user_tokens
+        access_token_params = {
+            "oauth_consumer_key": config.launchpad_oauth.application_name,
+            "oauth_token": session_data["oauth_token"],
+            "oauth_signature_method": "PLAINTEXT",
+            "oauth_signature": f"&{session_data['oauth_token_secret']}",
+        }
+        response = await self.http_client.post(
+            "https://launchpad.net/+access-token",
+            data=access_token_params,
         )
-        credentials = store.do_load()
-        if callback_token != credentials._request_token.key:
-            self._logger.info(
-                f"Invalid request token: {callback_token[:8]}.. != {credentials._request_token.key[:8]}.."
+        response_body = response.text
+        if response.status_code != 200 or not response_body:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Failed to get access token from Launchpad",
             )
-            raise ValueError("Invalid request token")
-        elif credentials.access_token is not None:
-            # already logged in with this request token
-            # continuing further will return an error from the launchpad API
-            return redirect_response
-        try:
-            credentials.exchange_request_token_for_access_token(web_root=WEB_ROOT)
-            store.save_access_token(credentials, credentials.access_token)
-            return redirect_response
-
-        except HTTPError as e:
-            self._logger.info(f"OAuth token exchange failed: {e}")
-            raise ValueError("OAuth token exchange failed")
-
-    def whoami(self, response: Response, user_tokens: StoreItem) -> dict | None:
-        """
-        Get the user details from Launchpad.
-
-        :param response: the response object to store the cookie.
-        :param user_tokens: the user tokens from the cookie session.
-
-        :return: the user details from Launchpad's API.
-        """
-        store = UserCookieCredentialStore(
-            response, LaunchpadService.launchpad_oauth_cookie_session(), user_tokens
+        access_token_response = LaunchpadAccessTokenResponse(
+            **dict([pair.split("=") for pair in response_body.split("&")])
         )
-        credentials = store.do_load()
-        lp = Launchpad(
-            credentials,
-            service_root=SERVICE_ROOT,
-            credential_store=store,
-            authorization_engine=auth_engine,
+        response = RedirectResponse(url=emails_url)
+        self.cookie_session.set_cookie(
+            response,
+            value=json.dumps(access_token_response),
+            httponly=True,
         )
-        try:
-            user = lp.me
-            user_dict: LPUser = {}
-            for key in LPUser.__annotations__:
-                user_dict[key] = getattr(user, key)
-            user_dict["preferred_email_address_link"] = user_dict[
-                "preferred_email_address_link"
-            ].split("/")[-1]
-            return user_dict
-        except Unauthorized as e:
-            self._logger.info(f"Unauthorized: {e}")
-            return None
+        return response
 
-    @staticmethod
-    def launchpad_oauth_cookie_session():
-        """
-        Return the cookie session.
-        """
-        return LaunchpadService._cookie_session
+    async def emails(self, session_data: AccessTokenSession) -> List[str]:
+        # Get user profile
+        response = await self.http_client.get(
+            "https://api.launchpad.net/1.0/people/+me",
+            follow_redirects=True,
+            headers=self.authorization_header(session_data),
+        )
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Failed to get user data from Launchpad",
+            )
+        user = LaunchpadPersonResponse(**response.json())
+
+        # Get primary email
+        response = await self.http_client.get(
+            url=user["preferred_email_address_link"],
+            follow_redirects=True,
+            headers=self.authorization_header(session_data),
+        )
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Failed to get user primary email from Launchpad",
+            )
+        primary_email = LaunchpadEmailResponse(**response.json())["email"]
+
+        # Get additional emails (returns empty list if no additional emails)
+        # TODO: check if people reach pagination limit, which is highly unlikely
+        response = await self.http_client.get(
+            url=user["confirmed_email_addresses_collection_link"],
+            follow_redirects=True,
+            headers=self.authorization_header(session_data),
+        )
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Failed to get user emails from Launchpad",
+            )
+        email_list = LaunchpadEmailListResponse(**response.json())
+        additional_emails = [entry["email"] for entry in email_list["entries"]]
+
+        return [primary_email, *additional_emails]
+
+    def authorization_header(self, session_data: AccessTokenSession) -> str:
+        return {
+            "Authorization": ",".join(
+                [
+                    'OAuth realm="https://api.launchpad.net/"',
+                    f'oauth_consumer_key="{config.launchpad_oauth.application_name}"',
+                    f'oauth_token="{session_data["oauth_token"]}"',
+                    f'oauth_signature_method="PLAINTEXT"',
+                    f'oauth_signature="&{session_data["oauth_token_secret"]}"',
+                    f"oauth_timestamp={int(time.time())}",
+                    f"oauth_nonce={secrets.randbelow(2**50)}",
+                    'oauth_version="1.0"',
+                ]
+            )
+        }
+
+
+launchpad_cookie_session = EncryptedAPIKeyCookie(
+    name="launchpad_oauth_session", secret=config.secret_key.get_secret_value()
+)
+
+
+async def launchpad_service(
+    http_client: httpx.AsyncClient = Depends(http_client),
+) -> LaunchpadService:
+    return LaunchpadService(launchpad_cookie_session, http_client)

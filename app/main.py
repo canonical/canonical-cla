@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 import sqlalchemy
 from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import ValidationError
@@ -5,11 +7,22 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from app.database import get_session, redis
+from app.github.routes import github_router
 from app.launchpad.routes import launchpad_router
+from app.logging import setup_logging
 from app.models import Individual
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_logging()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
 app.include_router(launchpad_router)
+app.include_router(github_router)
 
 
 @app.get("/")

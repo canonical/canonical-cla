@@ -1,8 +1,9 @@
 import base64
 from datetime import datetime
 from hashlib import sha256
-from typing import Literal, ParamSpec, TypeVar
+from typing import AsyncIterator, Literal, ParamSpec, TypeVar
 
+import httpx
 from Crypto import Random
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
@@ -81,3 +82,9 @@ class EncryptedAPIKeyCookie(APIKeyCookie):
     @property
     def cipher(self):
         return AESCipher(self.secret)
+
+
+async def http_client() -> AsyncIterator[httpx.AsyncClient]:
+
+    async with httpx.AsyncClient() as client:
+        yield client

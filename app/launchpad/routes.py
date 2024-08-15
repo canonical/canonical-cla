@@ -1,87 +1,70 @@
 import json
-import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse
 
-from app.launchpad.service import LaunchpadService
+from app.launchpad.models import AccessTokenSession, RequestTokenSession
+from app.launchpad.service import (
+    LaunchpadService,
+    launchpad_cookie_session,
+    launchpad_service,
+)
 
-logger = logging.getLogger(__name__)
 launchpad_router = APIRouter(prefix="/launchpad")
 
 
 @launchpad_router.get("/login")
 async def launchpad_login(
-    request: Request, lp_service: LaunchpadService = Depends(LaunchpadService)
+    request: Request,
+    launchpad_service: LaunchpadService = Depends(launchpad_service),
 ):
-    return lp_service.login_redirect(request)
+
+    return await launchpad_service.login(
+        callback_url=request.url_for("launchpad_callback")
+    )
 
 
 @launchpad_router.get("/callback")
 async def launchpad_callback(
     request: Request,
-    request_token: str,
-    session_tokens: str | None = Depends(
-        LaunchpadService.launchpad_oauth_cookie_session()
-    ),
-    lp_service: LaunchpadService = Depends(LaunchpadService),
+    state: str | None = None,
+    launchpad_session: str | None = Depends(launchpad_cookie_session),
+    launchpad_service: LaunchpadService = Depends(launchpad_service),
 ):
-    if session_tokens is None:
-        return HTTPException(status_code=401, detail="Unauthorized: No user session")
-    try:
-        decoded_session_tokens = json.loads(session_tokens)
-    except ValueError as e:
-        logger.error("Unable to decode user session %s", e)
-        return HTTPException(
-            status_code=500, detail="Internal Server Error: Unable to get user session"
+    if state is None or launchpad_session is None:
+        raise HTTPException(
+            status_code=400, detail="Bad Request: OAuth state is missing"
         )
-    try:
-        return lp_service.login_callback(
-            decoded_session_tokens,
-            callback_token=request_token,
-            whoami_url=request.url_for("launchpad_whoami"),
+    session_data = RequestTokenSession(**json.loads(launchpad_session))
+    if state != session_data["state"]:
+        raise HTTPException(
+            status_code=400, detail="Bad Request: OAuth state does not match"
         )
-    except ValueError as e:
-        return HTTPException(status_code=400, detail=str(e))
+    return await launchpad_service.callback(
+        emails_url=request.url_for("launchpad_emails"), session_data=session_data
+    )
 
 
-@launchpad_router.get("/whoami")
-async def launchpad_whoami(
-    response: Response,
-    session_tokens: str | None = Depends(
-        LaunchpadService.launchpad_oauth_cookie_session()
-    ),
-    lp_service: LaunchpadService = Depends(LaunchpadService),
+@launchpad_router.get("/emails")
+async def launchpad_emails(
+    launchpad_session: str | None = Depends(launchpad_cookie_session),
+    launchpad_service: LaunchpadService = Depends(launchpad_service),
 ):
-
-    if session_tokens is None:
-        return HTTPException(status_code=401, detail="Unauthorized: No user session")
-
-    try:
-        decoded_session_tokens = json.loads(session_tokens)
-    except json.JSONDecodeError:
-        logger.error("Unable to decode user session")
-        return HTTPException(
-            status_code=500, detail="Internal Server Error: Unable to get user session"
+    if launchpad_session is None:
+        raise HTTPException(
+            status_code=400, detail="Bad Request: OAuth session is missing"
         )
-
-    user = lp_service.whoami(response, decoded_session_tokens)
-    if user is None:
-        return HTTPException(
-            status_code=401, detail="Unauthorized: Invalid user session"
-        )
-    return user
+    session_data = AccessTokenSession(**json.loads(launchpad_session))
+    return await launchpad_service.emails(session_data=session_data)
 
 
 @launchpad_router.get("/logout")
-async def launchpad_logout(
-    request: Request, lp_service: LaunchpadService = Depends(LaunchpadService)
-):
+async def launchpad_logout(request: Request):
     response = JSONResponse(
         content={
             "message": "Logged out",
             "login_url": request.url_for("launchpad_login")._url,
         }
     )
-    lp_service.logout(response)
+    response.delete_cookie(launchpad_cookie_session.model.name)
     return response

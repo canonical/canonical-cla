@@ -1,8 +1,7 @@
-from typing import TypedDict
+from typing import List, TypedDict
 
 
-class LPUser(TypedDict):
-
+class LaunchpadPersonResponse(TypedDict):
     self_link: str
     web_link: str
     resource_type_link: str
@@ -55,3 +54,41 @@ class LPUser(TypedDict):
 
     def __str__(self):
         return f"Launchpad User: {self.display_name}"
+
+
+class LaunchpadEmailResponse(TypedDict):
+    self_link: str
+    web_link: str
+    resource_type_link: str
+    email: str
+    person_link: str
+    http_etag: str
+
+
+class LaunchpadEmailListResponse(TypedDict):
+    entries: List[LaunchpadEmailResponse]
+    start: int
+    total_size: int
+    resource_type_link: str
+
+
+class LaunchpadRequestTokenResponse(TypedDict):
+    oauth_token: str
+    oauth_token_secret: str
+    oauth_token_consumer: str
+
+
+class LaunchpadAccessTokenResponse(TypedDict):
+    oauth_token: str
+    oauth_token_secret: str
+
+
+class AccessTokenSession(TypedDict):
+    oauth_token: str
+    oauth_token_secret: str
+
+
+class RequestTokenSession(TypedDict):
+    oauth_token: str
+    oauth_token_secret: str
+    state: str

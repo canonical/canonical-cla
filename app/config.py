@@ -35,6 +35,29 @@ class RedisConfig(BaseSettings):
         return f"redis://{self.host}:{self.port}"
 
 
+class GitHubOAuthConfig(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILES,
+        env_prefix="github_oauth_",
+        extra="ignore",
+    )
+
+    client_id: str
+    client_secret: SecretStr
+    scope: str = "user:email"
+
+
+class LaunchpadOAuthConfig(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILES,
+        env_prefix="launchpad_oauth_",
+        extra="ignore",
+    )
+
+    application_name: str = "Canonical CLA"
+    scope: str = "READ_PRIVATE"
+
+
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_FILES,
@@ -42,6 +65,9 @@ class Config(BaseSettings):
     )
 
     secret_key: SecretStr
+
+    github_oauth: GitHubOAuthConfig = GitHubOAuthConfig()  # type: ignore
+    launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()  # type: ignore
 
     database: DatabaseConfig = DatabaseConfig()  # type: ignore
     redis: RedisConfig = RedisConfig()  # type: ignore
