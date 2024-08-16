@@ -18,7 +18,7 @@ format = "scripts.format_project:run"
 test = "scripts.unit_test:run"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.10"
 fastapi = "0.111.1"
 asyncpg = "0.29.0"
 sqlalchemy = { extras = ["postgresql-asyncpg"], version = "^2.0.32" }
