@@ -1,0 +1,162 @@
+import logging
+
+from fastapi import HTTPException, Depends
+from sqlalchemy.exc import IntegrityError
+
+from app.cla.email_utils import clean_email
+from app.cla.models import IndividualCreateForm, OrganizationCreateForm
+from app.database.models import Individual, Organization
+from app.github.models import GithubProfile
+from app.github.service import GithubService, github_service
+from app.launchpad.models import LaunchpadProfile
+from app.launchpad.service import LaunchpadService, launchpad_service
+from app.repository.individual import IndividualRepository, individual_repository
+from app.repository.organization import OrganizationRepository, organization_repository
+
+logger = logging.getLogger(__name__)
+
+
+class CLAService:
+    def __init__(
+        self,
+        github_service: GithubService,
+        launchpad_service: LaunchpadService,
+        individual_repository: IndividualRepository,
+        organization_repository: OrganizationRepository,
+    ):
+        self.github_service = github_service
+        self.launchpad_service = launchpad_service
+        self.individual_repository = individual_repository
+        self.organization_repository = organization_repository
+
+    async def check_cla(self, emails: list[str]) -> dict[str, bool]:
+        # map given user emails to normalized emails
+        # and respond with user's emails once checked
+        normalized_emails = {raw_email: clean_email(raw_email) for raw_email in emails}
+        emails_set = set(normalized_emails.values())
+        signed_individuals = await self.individuals_signed_cla(list(emails_set))
+        signed_organizations = await self.organizations_signed_cla(
+            # remove who signed from the organization check
+            list(emails_set - signed_individuals)
+        )
+        signed_emails = signed_individuals.union(signed_organizations)
+        # fill not signed emails with False
+        return {
+            raw_email: normalized_email in signed_emails
+            for raw_email, normalized_email in normalized_emails.items()
+        }
+
+    async def individuals_signed_cla(self, emails: list[str]) -> set[str]:
+        individuals = await self.individual_repository.get_individuals(emails=emails)
+        signed_emails = set()
+        for individual in individuals:
+            if individual.github_email and not individual.revoked_at:
+                signed_emails.add(individual.github_email)
+            if individual.launchpad_email and not individual.revoked_at:
+                signed_emails.add(individual.launchpad_email)
+        return signed_emails
+
+    async def organizations_signed_cla(self, emails: list[str]) -> set[str]:
+        # map of email domain to emails
+        email_domains = {}
+        for email in emails:
+            email_domain = email.split("@")[-1]
+            email_domains[email_domain] = email_domains.get(email_domain, set())
+            email_domains[email_domain].add(email)
+
+        organizations = await self.organization_repository.get_organizations(
+            email_domains=list(email_domains.keys())
+        )
+        signed_emails = set()
+        for organization in organizations:
+            print(organization.revoked_at)
+            if not organization.revoked_at:
+                signed_emails.update(email_domains[organization.email_domain])
+
+        return signed_emails
+
+    async def individual_cla_sign(
+        self,
+        individual_form: IndividualCreateForm,
+        gh_session: str | None,
+        lp_session: dict | None,
+    ) -> None:
+        github_profile: GithubProfile | None = None
+        launchpad_profile: LaunchpadProfile | None = None
+        if individual_form.github_email:
+            if not gh_session:
+                raise HTTPException(
+                    status_code=401, detail="GitHub OAuth2 session is required"
+                )
+            github_profile = await self.github_service.profile(gh_session)
+            if individual_form.github_email not in github_profile.emails:
+                raise HTTPException(
+                    status_code=400,
+                    detail="GitHub email does not match the provided email",
+                )
+        if individual_form.launchpad_email:
+            if not lp_session:
+                raise HTTPException(
+                    status_code=401, detail="Launchpad OAuth session is required"
+                )
+            launchpad_profile = await self.launchpad_service.profile(lp_session)
+            if individual_form.launchpad_email not in launchpad_profile.emails:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Launchpad email does not match the provided email",
+                )
+
+        if github_profile is None and launchpad_profile is None:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one email address is required to sign the CLA",
+            )
+
+        individual = Individual(
+            **individual_form.model_dump(),
+            github_username=github_profile.username if github_profile else None,
+            github_account_id=github_profile.id if github_profile else None,
+            launchpad_username=(
+                launchpad_profile.username if launchpad_profile else None
+            ),
+            launchpad_account_id=launchpad_profile.id if launchpad_profile else None,
+        )
+        try:
+            await self.individual_repository.create_individual(individual)
+        except IntegrityError as e:
+            logger.info("Failed to create individual", exc_info=e)
+            provided_account_id: str
+            if not individual.github_account_id:
+                provided_account_id = "Launchpad user id"
+            elif not individual.launchpad_account_id:
+                provided_account_id = "GitHub user id"
+            else:
+                provided_account_id = "GitHub or Launchpad user id"
+            raise HTTPException(
+                status_code=409,
+                detail=f"An individual with the provided {provided_account_id} already signed the CLA",
+            )
+
+    async def organization_cla_sign(self, organization_form: OrganizationCreateForm):
+        organization = Organization(**organization_form.model_dump())
+        try:
+            await self.organization_repository.create_organization(organization)
+        except IntegrityError:
+            raise HTTPException(
+                status_code=409,
+                detail="An organization with the provided email domain already signed the CLA",
+            )
+
+
+async def cla_service(
+    github_service: GithubService = Depends(github_service),
+    launchpad_service: LaunchpadService = Depends(launchpad_service),
+    individual_repository: IndividualRepository = Depends(individual_repository),
+    organization_repository: OrganizationRepository = Depends(organization_repository),
+) -> CLAService:
+    return CLAService(
+        github_service,
+        launchpad_service,
+        individual_repository,
+        organization_repository,
+    )

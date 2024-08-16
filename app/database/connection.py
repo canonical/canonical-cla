@@ -1,7 +1,7 @@
 import logging
-from typing import AsyncIterator
+from typing import Annotated, AsyncIterator
 
-from redis.asyncio import Redis
+from fastapi import Depends
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -15,18 +15,21 @@ async_engine = create_async_engine(
 )
 
 
-async def get_session() -> AsyncIterator[AsyncSession]:
-    async_session = async_sessionmaker(
+def session_maker():
+    return async_sessionmaker(
         bind=async_engine,
         autoflush=False,
         future=True,
+        class_=AsyncSession,
     )
-    async with async_session() as session:
+
+
+async def async_session(
+    make_session: Annotated[async_sessionmaker[AsyncSession], Depends(session_maker)]
+) -> AsyncIterator[AsyncSession]:
+    async with make_session() as session:
         try:
             yield session
         except SQLAlchemyError as e:
             logger.error(f"Database error: {e}")
             raise
-
-
-redis = Redis.from_url(config.redis.dsn())

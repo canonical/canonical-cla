@@ -1,7 +1,8 @@
 import base64
+import json
 from datetime import datetime
 from hashlib import sha256
-from typing import AsyncIterator, Literal, ParamSpec, TypeVar
+from typing import AsyncIterator, Literal, ParamSpec, TypeVar, TypedDict
 
 import httpx
 from Crypto import Random
@@ -50,9 +51,14 @@ class EncryptedAPIKeyCookie(APIKeyCookie):
         if encrypted_api_key is None:
             return None
         try:
-            return self.cipher.decrypt(encrypted_api_key)
+            cookie_value = self.cipher.decrypt(encrypted_api_key)
         except ValueError as e:
             return None
+        #  attempt to parse the value as json
+        try:
+            return json.loads(cookie_value)
+        except json.JSONDecodeError:
+            return cookie_value
 
     def set_cookie(
         self,
@@ -88,3 +94,11 @@ async def http_client() -> AsyncIterator[httpx.AsyncClient]:
 
     async with httpx.AsyncClient() as client:
         yield client
+
+
+class ErrorResponse(TypedDict):
+    detail: str
+
+
+def error_status_codes(status_code: list[int]):
+    return {status: {"model": ErrorResponse} for status in status_code}

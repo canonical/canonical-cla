@@ -1,65 +1,92 @@
-import json
+from typing import Annotated, TypedDict, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import JSONResponse
 
-from app.launchpad.models import AccessTokenSession, RequestTokenSession
+from app.launchpad.models import (
+    AccessTokenSession,
+    RequestTokenSession,
+    LaunchpadProfile,
+)
 from app.launchpad.service import (
     LaunchpadService,
     launchpad_cookie_session,
     launchpad_service,
 )
+from app.utils import error_status_codes
 
-launchpad_router = APIRouter(prefix="/launchpad")
+launchpad_router = APIRouter(prefix="/launchpad", tags=["Launchpad"])
 
 
-@launchpad_router.get("/login")
+@launchpad_router.get(
+    "/login",
+    status_code=307,
+    response_model=TypedDict("Redirection", {"location": Literal["/callback"]}),
+)
 async def launchpad_login(
     request: Request,
     launchpad_service: LaunchpadService = Depends(launchpad_service),
 ):
-
+    """
+    Redirects to Launchpad OAuth login page.
+    """
     return await launchpad_service.login(
-        callback_url=request.url_for("launchpad_callback")
+        callback_url=request.url_for("launchpad_callback")._url
     )
 
 
-@launchpad_router.get("/callback")
+@launchpad_router.get(
+    "/callback",
+    status_code=307,
+    response_model=TypedDict("Redirection", {"location": Literal["/profile"]}),
+    responses=error_status_codes([401]),
+)
 async def launchpad_callback(
     request: Request,
-    state: str | None = None,
-    launchpad_session: str | None = Depends(launchpad_cookie_session),
+    state: Annotated[str, Query(description="The OAuth state returned by Launchpad.")],
+    launchpad_session: dict | None = Depends(launchpad_cookie_session),
     launchpad_service: LaunchpadService = Depends(launchpad_service),
 ):
-    if state is None or launchpad_session is None:
+    """
+    Handles the Launchpad OAuth callback.
+    """
+    if launchpad_session is None:
         raise HTTPException(
-            status_code=400, detail="Bad Request: OAuth state is missing"
+            status_code=401, detail="Unauthorized: OAuth session is missing"
         )
-    session_data = RequestTokenSession(**json.loads(launchpad_session))
+    session_data = RequestTokenSession(**launchpad_session)
     if state != session_data["state"]:
         raise HTTPException(
-            status_code=400, detail="Bad Request: OAuth state does not match"
+            status_code=401, detail="Unauthorized: OAuth state mismatch"
         )
     return await launchpad_service.callback(
-        emails_url=request.url_for("launchpad_emails"), session_data=session_data
+        profile_url=request.url_for("launchpad_profile")._url, session_data=session_data
     )
 
 
-@launchpad_router.get("/emails")
-async def launchpad_emails(
-    launchpad_session: str | None = Depends(launchpad_cookie_session),
+@launchpad_router.get("/profile", responses=error_status_codes([401]))
+async def launchpad_profile(
+    launchpad_session: dict | None = Depends(launchpad_cookie_session),
     launchpad_service: LaunchpadService = Depends(launchpad_service),
-):
+) -> LaunchpadProfile:
+    """
+    Fetches the Launchpad profile of the authenticated user.
+    """
     if launchpad_session is None:
         raise HTTPException(
             status_code=400, detail="Bad Request: OAuth session is missing"
         )
-    session_data = AccessTokenSession(**json.loads(launchpad_session))
-    return await launchpad_service.emails(session_data=session_data)
+    session_data = AccessTokenSession(**launchpad_session)
+    return await launchpad_service.profile(session_data=session_data)
 
 
 @launchpad_router.get("/logout")
-async def launchpad_logout(request: Request):
+async def launchpad_logout(
+    request: Request,
+) -> TypedDict("LogoutResponse", {"message": str, "login_url": str}):
+    """
+    Clears the Launchpad session.
+    """
     response = JSONResponse(
         content={
             "message": "Logged out",

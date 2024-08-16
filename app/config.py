@@ -54,7 +54,6 @@ class LaunchpadOAuthConfig(BaseSettings):
         extra="ignore",
     )
 
-    application_name: str = "Canonical CLA"
     scope: str = "READ_PRIVATE"
 
 
@@ -65,6 +64,8 @@ class Config(BaseSettings):
     )
 
     secret_key: SecretStr
+    app_name: str = "Canonical CLA (dev)"
+    debug_mode: bool = False
 
     github_oauth: GitHubOAuthConfig = GitHubOAuthConfig()  # type: ignore
     launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()  # type: ignore

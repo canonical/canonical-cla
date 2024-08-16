@@ -1,7 +1,6 @@
 import json
 import secrets
 import time
-from typing import List
 from urllib.parse import urlencode
 
 import httpx
@@ -15,6 +14,7 @@ from app.launchpad.models import (
     LaunchpadEmailListResponse,
     LaunchpadEmailResponse,
     LaunchpadPersonResponse,
+    LaunchpadProfile,
     LaunchpadRequestTokenResponse,
     RequestTokenSession,
 )
@@ -35,7 +35,7 @@ class LaunchpadService:
 
     async def login(self, callback_url: str) -> RedirectResponse:
         request_token_params = {
-            "oauth_consumer_key": config.launchpad_oauth.application_name,
+            "oauth_consumer_key": config.app_name,
             "oauth_signature_method": "PLAINTEXT",
             "oauth_signature": "&",
         }
@@ -83,10 +83,10 @@ class LaunchpadService:
     async def callback(
         self,
         session_data: RequestTokenSession,
-        emails_url: str,
+        profile_url: str,
     ) -> RedirectResponse:
         access_token_params = {
-            "oauth_consumer_key": config.launchpad_oauth.application_name,
+            "oauth_consumer_key": config.app_name,
             "oauth_token": session_data["oauth_token"],
             "oauth_signature_method": "PLAINTEXT",
             "oauth_signature": f"&{session_data['oauth_token_secret']}",
@@ -104,7 +104,7 @@ class LaunchpadService:
         access_token_response = LaunchpadAccessTokenResponse(
             **dict([pair.split("=") for pair in response_body.split("&")])
         )
-        response = RedirectResponse(url=emails_url)
+        response = RedirectResponse(url=profile_url)
         self.cookie_session.set_cookie(
             response,
             value=json.dumps(access_token_response),
@@ -112,7 +112,7 @@ class LaunchpadService:
         )
         return response
 
-    async def emails(self, session_data: AccessTokenSession) -> List[str]:
+    async def profile(self, session_data: AccessTokenSession) -> LaunchpadProfile:
         # Get user profile
         response = await self.http_client.get(
             "https://api.launchpad.net/1.0/people/+me",
@@ -154,14 +154,19 @@ class LaunchpadService:
         email_list = LaunchpadEmailListResponse(**response.json())
         additional_emails = [entry["email"] for entry in email_list["entries"]]
 
-        return [primary_email, *additional_emails]
+        all_emails = [primary_email, *additional_emails]
+        return LaunchpadProfile(
+            id=user["id"],
+            username=user["name"],
+            emails=all_emails,
+        )
 
-    def authorization_header(self, session_data: AccessTokenSession) -> str:
+    def authorization_header(self, session_data: AccessTokenSession) -> dict[str, str]:
         return {
             "Authorization": ",".join(
                 [
                     'OAuth realm="https://api.launchpad.net/"',
-                    f'oauth_consumer_key="{config.launchpad_oauth.application_name}"',
+                    f'oauth_consumer_key="{config.app_name}"',
                     f'oauth_token="{session_data["oauth_token"]}"',
                     f'oauth_signature_method="PLAINTEXT"',
                     f'oauth_signature="&{session_data["oauth_token_secret"]}"',
@@ -173,7 +178,11 @@ class LaunchpadService:
         }
 
 
-launchpad_cookie_session = EncryptedAPIKeyCookie(
+class LaunchpadOAuthCookieSession(EncryptedAPIKeyCookie):
+    pass
+
+
+launchpad_cookie_session = LaunchpadOAuthCookieSession(
     name="launchpad_oauth_session", secret=config.secret_key.get_secret_value()
 )
 

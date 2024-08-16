@@ -1,11 +1,10 @@
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 from fastapi import HTTPException
 
-from app.github.models import GitHubAccessTokenResponse, GithubPendingAuthSession
+from app.github.models import GitHubAccessTokenResponse
 from app.github.service import GithubService
 
 
@@ -69,31 +68,47 @@ async def test_callback_bad_request():
 
 
 @pytest.mark.asyncio
-async def test_emails_success():
+async def test_profile_success():
     cookie_session = MagicMock()
-    http_client = MagicMock()
-    http_client.get = AsyncMock(
-        return_value=httpx.Response(
-            status_code=200,
-            json=[
+    mock_responses = {
+        "https://api.github.com/user/emails": {
+            "status_code": 200,
+            "json": [
                 {"email": "email1", "verified": True},
                 {"email": "email2", "verified": False},
                 {"email": "email3", "verified": True},
             ],
+        },
+        "https://api.github.com/user": {
+            "status_code": 200,
+            "json": {"id": 123, "login": "test_user"},
+        },
+    }
+
+    http_client = MagicMock()
+    http_client.get = AsyncMock(
+        side_effect=lambda url, **kwargs: httpx.Response(
+            status_code=mock_responses[url]["status_code"],
+            json=mock_responses[url]["json"],
         )
     )
+
     github_service = GithubService(cookie_session, http_client)
-    response = await github_service.emails("test_access_token")
-    assert response == ["email1", "email3"]
+    response = await github_service.profile("test_access_token")
+    assert response.model_dump() == {
+        "id": 123,
+        "username": "test_user",
+        "emails": ["email1", "email3"],
+    }
     assert cookie_session.set_cookie.called is False
 
 
 @pytest.mark.asyncio
-async def test_emails_failure():
+async def test_profile_failure():
     cookie_session = MagicMock()
     http_client = MagicMock()
     http_client.get = AsyncMock(return_value=httpx.Response(status_code=500))
     github_service = GithubService(cookie_session, http_client)
     with pytest.raises(HTTPException):
-        await github_service.emails("test_access_token")
+        await github_service.profile("test_access_token")
     assert cookie_session.set_cookie.called is False

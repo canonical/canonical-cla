@@ -1,6 +1,5 @@
 import json
 import secrets
-from typing import List
 from urllib.parse import urlencode
 
 import httpx
@@ -8,8 +7,17 @@ from fastapi import Depends, HTTPException
 from fastapi.responses import RedirectResponse
 
 from app.config import config
-from app.github.models import GitHubAccessTokenResponse
+from app.github.models import GitHubAccessTokenResponse, GithubProfile
 from app.utils import EncryptedAPIKeyCookie, http_client
+
+
+class GithubOAuthCookieSession(EncryptedAPIKeyCookie):
+    pass
+
+
+github_cookie_session = GithubOAuthCookieSession(
+    name="github_oauth2_session", secret=config.secret_key.get_secret_value()
+)
 
 
 class GithubService:
@@ -19,13 +27,12 @@ class GithubService:
     """
 
     def __init__(
-        self, cookie_session: EncryptedAPIKeyCookie, http_client: httpx.AsyncClient
+        self, cookie_session: GithubOAuthCookieSession, http_client: httpx.AsyncClient
     ):
         self.cookie_session = cookie_session
         self.http_client = http_client
 
     async def login(self, callback_url: str) -> RedirectResponse:
-        print(callback_url)
         state = secrets.token_urlsafe(16)
         params = urlencode(
             {
@@ -35,7 +42,6 @@ class GithubService:
                 "state": state,
             }
         )
-        print(params)
         response = RedirectResponse(
             url=f"https://github.com/login/oauth/authorize?{params}"
         )
@@ -47,7 +53,7 @@ class GithubService:
         )
         return response
 
-    async def callback(self, code: str, emails_url: str) -> RedirectResponse:
+    async def callback(self, code: str, profile_url: str) -> RedirectResponse:
         access_token_data = {
             "client_id": config.github_oauth.client_id,
             "client_secret": config.github_oauth.client_secret.get_secret_value(),
@@ -65,7 +71,7 @@ class GithubService:
                 status_code=400, detail=f"Bad Request: {response['error_description']}"
             )
         access_token_response = GitHubAccessTokenResponse(**response)
-        emails_response = RedirectResponse(url=emails_url)
+        emails_response = RedirectResponse(url=profile_url)
         self.cookie_session.set_cookie(
             emails_response,
             value=access_token_response["access_token"],
@@ -73,7 +79,7 @@ class GithubService:
         )
         return emails_response
 
-    async def emails(self, access_token: str) -> List[str]:
+    async def profile(self, access_token: str) -> GithubProfile:
         response = await self.http_client.get(
             url="https://api.github.com/user/emails",
             headers={"Authorization": f"bearer {access_token}"},
@@ -84,12 +90,23 @@ class GithubService:
                 detail="Failed to get emails from GitHub",
             )
         emails = response.json()
-        return [email["email"] for email in emails if email["verified"]]
+        all_emails = [email["email"] for email in emails if email["verified"]]
 
-
-github_cookie_session = EncryptedAPIKeyCookie(
-    name="github_oauth2_session", secret=config.secret_key.get_secret_value()
-)
+        user = await self.http_client.get(
+            url="https://api.github.com/user",
+            headers={"Authorization": f"bearer {access_token}"},
+        )
+        if user.status_code != 200:
+            raise HTTPException(
+                status_code=user.status_code,
+                detail="Failed to get user profile from GitHub",
+            )
+        user_data = user.json()
+        return GithubProfile(
+            id=user_data["id"],
+            username=user_data["login"],
+            emails=all_emails,
+        )
 
 
 async def github_service(

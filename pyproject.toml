@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "canonical-cla"
+version = "1.0.0-alpha"
+description = "Canonical Contribution Licence Agreement (CLA) Service."
+homepage = "https://cla.canonical.com"
+documentation = "https://cla.canonical.com/docs"
+repository = "https://github.com/canonical/canonical-cla"
+authors = ["Goulin Khoge <goulin.khoge@canonical.com>"]
+license = "Apache-2.0"
+
+packages = [
+    { include = "scripts" },
+]
+
+[tool.poetry.scripts]
+dev = "scripts.app_start_dev:run"
+format = "scripts.format_project:run"
+test = "scripts.unit_test:run"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "0.111.1"
+asyncpg = "0.29.0"
+sqlalchemy = { extras = ["postgresql-asyncpg"], version = "^2.0.32" }
+alembic = "1.13.2"
+redis = "5.0.8"
+pydantic = "2.8.2"
+pydantic-settings = "2.4.0"
+pydantic-extra-types = "2.9.0"
+pycountry = "24.6.1"
+python-dateutil = "2.9.0"
+pycryptodome = "3.20.0"
+httpx = "0.27.0"
+validators = "^0.33.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.8.0"
+pytest = "^8.3.2"
+pytest-asyncio = "^0.23.8"
+pytest-mock = "^3.14.0"
+isort = "^5.13.2"
+coverage = "^7.6.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

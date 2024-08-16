@@ -1,5 +1,7 @@
 from typing import List, TypedDict
 
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class LaunchpadPersonResponse(TypedDict):
     self_link: str
@@ -92,3 +94,18 @@ class RequestTokenSession(TypedDict):
     oauth_token: str
     oauth_token_secret: str
     state: str
+
+
+class LaunchpadProfile(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "username": "canonical",
+                "id": "123456",
+                "emails": ["contact@canonica.com", "contact@ubuntu.com"],
+            }
+        }
+    )
+    username: str = Field(..., description="Launchpad username")
+    id: str = Field(..., description="Launchpad user ID")
+    emails: list[str] = Field(..., description="List of verified email addresses")

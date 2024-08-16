@@ -8,4 +8,4 @@ def setup_logging():
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter(log_format))
     logger.handlers = [handler]
-    logging.basicConfig(level=logging.INFO, format=log_format)
+    logging.basicConfig(level=logging.INFO, format=log_format, handlers=[handler])

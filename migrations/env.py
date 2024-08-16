@@ -2,9 +2,9 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlmodel import SQLModel
 
-from database import async_engine
+from app.database.connection import async_engine
+from app.database.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -15,7 +15,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = SQLModel.metadata
+target_metadata = Base.metadata
 
 
 def include_object(obj, name, type_, reflected, compare_to):

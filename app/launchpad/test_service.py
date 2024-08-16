@@ -102,13 +102,15 @@ async def test_callback_failure(cookie_session, request_token_session):
 
 
 @pytest.mark.asyncio
-async def test_emails_success(cookie_session, access_token_session):
+async def test_profile_success(cookie_session, access_token_session):
     cookie_session = MagicMock()
     http_client = MagicMock()
     mock_responses = {
         "https://api.launchpad.net/1.0/people/+me": {
             "status_code": 200,
             "json": {
+                "id": "test_id",
+                "name": "test_username",
                 "preferred_email_address_link": "preferred_email_url.com",
                 "confirmed_email_addresses_collection_link": "conformed_email_url.com",
             },
@@ -131,18 +133,22 @@ async def test_emails_success(cookie_session, access_token_session):
         )
     )
     launchpad_service = LaunchpadService(cookie_session, http_client)
-    response = await launchpad_service.emails(access_token_session)
-    assert response == ["primary@email.com", "name1@email.com", "name2@email.com"]
+    response = await launchpad_service.profile(access_token_session)
+    assert response.model_dump() == {
+        "id": "test_id",
+        "username": "test_username",
+        "emails": ["primary@email.com", "name1@email.com", "name2@email.com"],
+    }
     assert http_client.get.call_count == 3
     assert cookie_session.set_cookie.called is False
 
 
 @pytest.mark.asyncio
-async def test_emails_failure(cookie_session, access_token_session):
+async def test_profile_failure(cookie_session, access_token_session):
     cookie_session = MagicMock()
     http_client = MagicMock()
     http_client.get = AsyncMock(return_value=httpx.Response(status_code=500))
     launchpad_service = LaunchpadService(cookie_session, http_client)
     with pytest.raises(HTTPException):
-        await launchpad_service.emails(access_token_session)
+        await launchpad_service.profile(access_token_session)
     assert cookie_session.set_cookie.called is False
