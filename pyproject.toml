@@ -16,6 +16,7 @@ packages = [
 dev = "scripts.app_start_dev:run"
 format = "scripts.format_project:run"
 test = "scripts.unit_test:run"
+migrate = "scripts.migration:run"
 
 [tool.poetry.dependencies]
 python = "^3.10"

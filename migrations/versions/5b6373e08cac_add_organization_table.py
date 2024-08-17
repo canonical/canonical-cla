@@ -28,7 +28,7 @@ def upgrade():
         sa.Column("address", sa.String(length=400), nullable=True),
         sa.Column("country", sa.String(length=50), nullable=False),
         sa.Column("salesforce_url", sa.String(length=255), nullable=True),
-        sa.Column("signed_at", sa.DateTime(), nullable=False),
+        sa.Column("signed_at", sa.DateTime(), nullable=True),
         sa.Column("revoked_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email_domain"),

@@ -89,16 +89,23 @@ async def test_individuals_signed_cla(cla_service, emails):
 async def test_organizations_signed_cla(cla_service, emails):
     cla_service.organization_repository.get_organizations = AsyncMock(
         return_value=[
-            Organization(email_domain="example.com"),
+            # signed
+            Organization(email_domain="example.com", signed_at=datetime.now()),
+            # not signed
             Organization(email_domain="example2.com"),
-            Organization(email_domain="example3.com", revoked_at=datetime.now()),
+            # revoked
+            Organization(
+                email_domain="example3.com",
+                revoked_at=datetime.now(),
+                signed_at=datetime.now(),
+            ),
         ]
     )
     cleaned_emails = [clean_email(email) for email in emails]
     response = await cla_service.organizations_signed_cla(cleaned_emails)
     assert response == {
+        # only emails with domain example.com are signed
         cleaned_emails[0],
-        cleaned_emails[1],
         cleaned_emails[4],
     }
 

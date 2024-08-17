@@ -16,21 +16,32 @@ poetry install
 ## Usage
 
 - Run development server:
+
   ```
   poetry run dev
   ```
+
 - Format code:
+
   ```
   poetry run format
   ```
+
 - Run unit tests:
+
   ```
   poetry run test
   ```
 
 - Run tests with coverage:
+
   ```
   poetry run test --coverage
+  ```
+
+- Run migrations:
+  ```
+  poetry run migrate --apply
   ```
 
 ## Documentation

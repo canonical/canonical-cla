@@ -29,4 +29,4 @@ def run():
         )
     else:
         command = "pytest"
-    process_run(command, shell=True)
+    exit(process_run(command, shell=True).returncode)

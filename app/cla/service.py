@@ -69,8 +69,7 @@ class CLAService:
         )
         signed_emails = set()
         for organization in organizations:
-            print(organization.revoked_at)
-            if not organization.revoked_at:
+            if not organization.revoked_at and organization.signed_at:
                 signed_emails.update(email_domains[organization.email_domain])
 
         return signed_emails

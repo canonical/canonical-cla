@@ -54,9 +54,7 @@ class Organization(Base):
     address: Mapped[str | None] = mapped_column(String(400))
     country: Mapped[str] = mapped_column(String(50))
     salesforce_url: Mapped[str | None] = mapped_column(String(255))
-    signed_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=datetime.datetime.utcnow().replace(tzinfo=None)
-    )
+    signed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime)
     revoked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime)
 
 

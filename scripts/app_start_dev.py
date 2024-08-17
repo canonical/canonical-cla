@@ -8,4 +8,4 @@ from subprocess import run as process_run
 
 def run():
     command = "fastapi dev app/main.py"
-    process_run(command, shell=True)
+    exit(process_run(command, shell=True).returncode)
