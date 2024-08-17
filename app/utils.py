@@ -2,7 +2,7 @@ import base64
 import json
 from datetime import datetime
 from hashlib import sha256
-from typing import AsyncIterator, Literal, ParamSpec, TypeVar, TypedDict
+from typing import AsyncIterator, Literal, ParamSpec, TypeVar
 
 import httpx
 from Crypto import Random
@@ -11,6 +11,7 @@ from Crypto.Util.Padding import pad, unpad
 from fastapi import Request, Response
 from fastapi.security import APIKeyCookie
 from starlette.exceptions import HTTPException
+from typing_extensions import TypedDict
 
 
 class AESCipher(object):

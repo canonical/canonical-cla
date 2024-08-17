@@ -1,7 +1,8 @@
-from typing import Annotated, TypedDict
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import JSONResponse, RedirectResponse
+from typing_extensions import TypedDict
 
 from app.github.models import GithubProfile
 from app.github.service import GithubService, github_cookie_session, github_service

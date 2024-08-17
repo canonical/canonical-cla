@@ -37,7 +37,7 @@ class Individual(Base):
     launchpad_account_id: Mapped[str | None] = mapped_column(String(100), unique=True)
     launchpad_email: Mapped[str | None] = mapped_column(String(100), unique=True)
     signed_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        DateTime, default=datetime.datetime.utcnow().replace(tzinfo=None)
     )
     revoked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime)
 
@@ -55,7 +55,7 @@ class Organization(Base):
     country: Mapped[str] = mapped_column(String(50))
     salesforce_url: Mapped[str | None] = mapped_column(String(255))
     signed_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        DateTime, default=datetime.datetime.utcnow().replace(tzinfo=None)
     )
     revoked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime)
 
@@ -80,7 +80,7 @@ class AuditLog(Base):
     entity_type: Mapped[AuditEntityType]
     entity_id: Mapped[int]
     timestamp: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        DateTime, default=datetime.datetime.utcnow().replace(tzinfo=None)
     )
 
     details: Mapped[dict[str, str] | None] = mapped_column(JSON)

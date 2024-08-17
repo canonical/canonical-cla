@@ -1,6 +1,5 @@
-from typing import TypedDict
-
 from pydantic import BaseModel, Field, ConfigDict
+from typing_extensions import TypedDict
 
 
 class GithubPendingAuthSession(TypedDict):

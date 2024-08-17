@@ -1,7 +1,8 @@
-from typing import Annotated, TypedDict, Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import JSONResponse
+from typing_extensions import TypedDict
 
 from app.launchpad.models import (
     AccessTokenSession,

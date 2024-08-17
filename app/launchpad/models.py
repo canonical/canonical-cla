@@ -1,6 +1,7 @@
-from typing import List, TypedDict
+from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
+from typing_extensions import TypedDict
 
 
 class LaunchpadPersonResponse(TypedDict):

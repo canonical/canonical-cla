@@ -35,11 +35,6 @@ jobs:
       - name: Run tests
         run: poetry run test --coverage
 
-      - name: Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          flags: python
-
   build:
     name: Pack Rock image
     runs-on: ubuntu-latest
