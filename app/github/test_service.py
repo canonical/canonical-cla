@@ -15,7 +15,7 @@ async def test_login_success(token_urlsafe):
     cookie_session = MagicMock()
     http_client = MagicMock()
     github_service = GithubService(cookie_session, http_client)
-    response = await github_service.login("http://test.com")
+    response = await github_service.login("http://test.com", "http://test.com")
     assert cookie_session.set_cookie.called
     assert response.status_code == 307
     assert response.headers["location"].startswith("https://github.com/login")
@@ -44,10 +44,8 @@ async def test_callback_success():
         )
     )
     github_service = GithubService(cookie_session, http_client)
-    response = await github_service.callback("test_code", "http://test.com")
-    assert cookie_session.set_cookie.called
-    assert response.status_code == 307
-    assert response.headers["location"] == "http://test.com"
+    access_token = await github_service.callback("test_code")
+    assert access_token == "test_access_token"
 
 
 @pytest.mark.asyncio
@@ -62,9 +60,7 @@ async def test_callback_bad_request():
     )
     github_service = GithubService(cookie_session, http_client)
     with pytest.raises(HTTPException):
-        await github_service.callback("test_code", "http://test.com")
-
-    assert cookie_session.set_cookie.called is False
+        await github_service.callback("test_code")
 
 
 @pytest.mark.asyncio
@@ -96,11 +92,9 @@ async def test_profile_success():
     github_service = GithubService(cookie_session, http_client)
     response = await github_service.profile("test_access_token")
     assert response.model_dump() == {
-        "id": 123,
         "username": "test_user",
         "emails": ["email1", "email3"],
     }
-    assert cookie_session.set_cookie.called is False
 
 
 @pytest.mark.asyncio

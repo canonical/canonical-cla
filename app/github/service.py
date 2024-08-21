@@ -32,7 +32,9 @@ class GithubService:
         self.cookie_session = cookie_session
         self.http_client = http_client
 
-    async def login(self, callback_url: str) -> RedirectResponse:
+    async def login(
+        self, callback_url: str, success_redirect_url: str
+    ) -> RedirectResponse:
         state = secrets.token_urlsafe(16)
         params = urlencode(
             {
@@ -47,13 +49,18 @@ class GithubService:
         )
         self.cookie_session.set_cookie(
             response,
-            value=json.dumps({"state": state}),
+            value=json.dumps(
+                {"state": state, "success_redirect_url": success_redirect_url}
+            ),
             max_age=600,  # 10 minutes (GitHub OAuth2 session timeout)
             httponly=True,
         )
         return response
 
-    async def callback(self, code: str, profile_url: str) -> RedirectResponse:
+    async def callback(
+        self,
+        code: str,
+    ) -> str:
         access_token_data = {
             "client_id": config.github_oauth.client_id,
             "client_secret": config.github_oauth.client_secret.get_secret_value(),
@@ -71,13 +78,7 @@ class GithubService:
                 status_code=400, detail=f"Bad Request: {response['error_description']}"
             )
         access_token_response = GitHubAccessTokenResponse(**response)
-        emails_response = RedirectResponse(url=profile_url)
-        self.cookie_session.set_cookie(
-            emails_response,
-            value=access_token_response["access_token"],
-            httponly=True,
-        )
-        return emails_response
+        return access_token_response["access_token"]
 
     async def profile(self, access_token: str) -> GithubProfile:
         response = await self.http_client.get(
@@ -103,10 +104,13 @@ class GithubService:
             )
         user_data = user.json()
         return GithubProfile(
-            id=user_data["id"],
+            _id=user_data["id"],
             username=user_data["login"],
             emails=all_emails,
         )
+
+    def encrypt(self, value: str) -> str:
+        return self.cookie_session.cipher.encrypt(value)
 
 
 async def github_service(

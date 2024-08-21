@@ -2,7 +2,7 @@ import logging
 
 
 def setup_logging():
-    log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+    log_format = "%(asctime)s [%(levelname)s] (%(name)s:%(module)s) %(message)s"
 
     logger = logging.getLogger("uvicorn.access")
     handler = logging.StreamHandler()

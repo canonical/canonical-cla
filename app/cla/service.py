@@ -3,7 +3,7 @@ import logging
 from fastapi import HTTPException, Depends
 from sqlalchemy.exc import IntegrityError
 
-from app.cla.email_utils import clean_email
+from app.cla.email_utils import clean_email, email_domain
 from app.cla.models import IndividualCreateForm, OrganizationCreateForm
 from app.database.models import Individual, Organization
 from app.github.models import GithubProfile
@@ -80,8 +80,16 @@ class CLAService:
         gh_session: str | None,
         lp_session: dict | None,
     ) -> None:
-        github_profile: GithubProfile | None = None
-        launchpad_profile: LaunchpadProfile | None = None
+        (github_profile, launchpad_profile) = await self.gh_and_lp_profiles(
+            gh_session, lp_session
+        )
+
+        if github_profile is None and launchpad_profile is None:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one email address is required to sign the CLA",
+            )
+
         if individual_form.github_email:
             if not gh_session:
                 raise HTTPException(
@@ -93,6 +101,9 @@ class CLAService:
                     status_code=400,
                     detail="GitHub email does not match the provided email",
                 )
+        else:
+            # avoid storing the github id and username if no email is provided
+            github_profile = None
         if individual_form.launchpad_email:
             if not lp_session:
                 raise HTTPException(
@@ -104,21 +115,18 @@ class CLAService:
                     status_code=400,
                     detail="Launchpad email does not match the provided email",
                 )
-
-        if github_profile is None and launchpad_profile is None:
-            raise HTTPException(
-                status_code=400,
-                detail="At least one email address is required to sign the CLA",
-            )
+        else:
+            # avoid storing the launchpad id and username if no email is provided
+            launchpad_profile = None
 
         individual = Individual(
             **individual_form.model_dump(),
             github_username=github_profile.username if github_profile else None,
-            github_account_id=github_profile.id if github_profile else None,
+            github_account_id=github_profile._id if github_profile else None,
             launchpad_username=(
                 launchpad_profile.username if launchpad_profile else None
             ),
-            launchpad_account_id=launchpad_profile.id if launchpad_profile else None,
+            launchpad_account_id=launchpad_profile._id if launchpad_profile else None,
         )
         try:
             await self.individual_repository.create_individual(individual)
@@ -136,7 +144,30 @@ class CLAService:
                 detail=f"An individual with the provided {provided_account_id} already signed the CLA",
             )
 
-    async def organization_cla_sign(self, organization_form: OrganizationCreateForm):
+    async def organization_cla_sign(
+        self,
+        organization_form: OrganizationCreateForm,
+        gh_session: str | None,
+        lp_session: dict | None,
+    ):
+        (github_profile, launchpad_profile) = await self.gh_and_lp_profiles(
+            gh_session, lp_session
+        )
+        owned_email_domains = set()
+        emails = set()
+        if github_profile:
+            emails.update(github_profile.emails)
+        if launchpad_profile:
+            emails.update(launchpad_profile.emails)
+        for email in emails:
+            owned_email_domains.add(email_domain(email))
+
+        if organization_form.email_domain not in owned_email_domains:
+            raise HTTPException(
+                status_code=400,
+                detail="The provided email domain does not match any of the authenticated user emails",
+            )
+
         organization = Organization(**organization_form.model_dump())
         try:
             await self.organization_repository.create_organization(organization)
@@ -145,6 +176,13 @@ class CLAService:
                 status_code=409,
                 detail="An organization with the provided email domain already signed the CLA",
             )
+
+    async def gh_and_lp_profiles(
+        self, gh_session: str, lp_session: dict
+    ) -> tuple[GithubProfile | None, LaunchpadProfile | None]:
+        github_profile = await self.github_service.profile(gh_session)
+        launchpad_profile = await self.launchpad_service.profile(lp_session)
+        return github_profile, launchpad_profile
 
 
 async def cla_service(

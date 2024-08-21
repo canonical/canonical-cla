@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import Depends, Query, APIRouter
 from starlette.responses import JSONResponse
 
 from app.cla.models import (
@@ -63,8 +63,8 @@ async def check_cla(
 )
 async def sign_cla_individual(
     individual: IndividualCreateForm,
-    gh_session: str = Depends(github_cookie_session),
-    lp_session: str = Depends(launchpad_cookie_session),
+    gh_session: str | None = Depends(github_cookie_session),
+    lp_session: dict | None = Depends(launchpad_cookie_session),
     cla_service: CLAService = Depends(cla_service),
 ):
     """
@@ -87,6 +87,8 @@ async def sign_cla_individual(
 )
 async def sign_cla_organization(
     organization: OrganizationCreateForm,
+    gh_session: str | None = Depends(github_cookie_session),
+    lp_session: dict | None = Depends(launchpad_cookie_session),
     cla_service: CLAService = Depends(cla_service),
 ):
     """
@@ -95,7 +97,7 @@ async def sign_cla_organization(
     CLA check is based on the provided email domain, where a contributor
     GitHub or Launchpad email must match the email domain.
     """
-    await cla_service.organization_cla_sign(organization)
+    await cla_service.organization_cla_sign(organization, gh_session, lp_session)
     return JSONResponse(
         status_code=201, content=OrganizationCreationSuccess().model_dump()
     )

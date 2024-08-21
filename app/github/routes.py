@@ -1,7 +1,10 @@
+import base64
 from typing import Annotated
+from urllib.parse import parse_qsl, urlencode, urlunparse, urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import Depends, HTTPException, Request, Query, APIRouter
 from fastapi.responses import JSONResponse, RedirectResponse
+from starlette.responses import Response
 from typing_extensions import TypedDict
 
 from app.github.models import GithubProfile
@@ -13,12 +16,25 @@ github_router = APIRouter(prefix="/github", tags=["GitHub"])
 
 @github_router.get("/login", status_code=307)
 async def github_login(
-    request: Request, github_service: GithubService = Depends(github_service)
+    request: Request,
+    redirect_url: Annotated[
+        str | None,
+        Query(
+            description="The URL to redirect to after successful login (base64 encoded).",
+            examples=["https://example.com/form?a=1&b=2"],
+        ),
+    ] = None,
+    github_service: GithubService = Depends(github_service),
 ) -> RedirectResponse:
     """
     Redirects to GitHub OAuth login page.
     """
-    return await github_service.login(request.url_for("github_callback")._url)
+    if redirect_url:
+        redirect_url = base64.b64decode(redirect_url).decode("utf-8")
+    return await github_service.login(
+        request.url_for("github_callback")._url,
+        success_redirect_url=redirect_url or request.url_for("github_profile")._url,
+    )
 
 
 @github_router.get(
@@ -65,7 +81,28 @@ async def github_callback(
         raise HTTPException(
             status_code=401, detail="Unauthorized: OAuth state does not match"
         )
-    return await github_service.callback(code, request.url_for("github_profile")._url)
+    if not github_session["success_redirect_url"]:
+        raise HTTPException(
+            status_code=401, detail="Unauthorized: Success redirect URL is missing"
+        )
+    github_access_token = await github_service.callback(
+        code,
+    )
+    encrypted_access_token = github_service.encrypt(github_access_token)
+
+    redirect_url_parts = list(urlparse(github_session["success_redirect_url"]))
+    query = dict(parse_qsl(redirect_url_parts[4]))
+    query["access_token"] = encrypted_access_token
+    redirect_url_parts[4] = urlencode(query)
+    redirect_url = urlunparse(redirect_url_parts)
+
+    redirect_response = RedirectResponse(url=redirect_url)
+    github_cookie_session.set_cookie(
+        redirect_response,
+        value=github_access_token,
+        httponly=True,
+    )
+    return redirect_response
 
 
 @github_router.get("/profile", responses=error_status_codes([401]))
@@ -83,18 +120,30 @@ async def github_profile(
     return await github_service.profile(access_token)
 
 
-@github_router.get("/github/logout")
+@github_router.get("/logout")
 async def github_logout(
     request: Request,
+    redirect_url: Annotated[
+        str | None,
+        Query(
+            description="The URL to redirect to after successful logout (base64 encoded).",
+            examples=["https://example.com/form?a=1&b=2"],
+        ),
+    ] = None,
 ) -> TypedDict("LogoutResponse", {"message": str, "login_url": str}):
     """
     Clears the GitHub session cookie.
     """
-    response = JSONResponse(
-        content={
-            "message": "Logged out",
-            "login_url": request.url_for("github_login")._url,
-        }
-    )
+    response: Response
+    if redirect_url:
+        redirect_url = base64.b64decode(redirect_url).decode("utf-8")
+        response = RedirectResponse(url=redirect_url)
+    else:
+        response = JSONResponse(
+            content={
+                "message": "Logged out",
+                "login_url": request.url_for("github_login")._url,
+            }
+        )
     response.delete_cookie(github_cookie_session.model.name)
     return response

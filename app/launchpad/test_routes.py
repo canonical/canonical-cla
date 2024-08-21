@@ -1,3 +1,4 @@
+import base64
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -5,6 +6,7 @@ from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
 from starlette.datastructures import URL
 
+from app.launchpad.models import LaunchpadAccessTokenResponse, LaunchpadProfile
 from app.launchpad.routes import (
     launchpad_callback,
     launchpad_login,
@@ -24,7 +26,11 @@ async def test_login():
         {"url": "http://test.com/login", "type": "http", "router": "launchpad"}
     )
     request.url_for = lambda x: URL("http://test.com/callback")
-    response = await launchpad_login(request, launchpad_service)
+    response = await launchpad_login(
+        request,
+        redirect_url=base64.b64encode("https://example.com".encode()).decode("utf-8"),
+        launchpad_service=launchpad_service,
+    )
     assert response.status_code == 307
     assert response.headers["location"] == "https://login-redirct.com"
     assert launchpad_service.login.called
@@ -34,20 +40,29 @@ async def test_login():
 async def test_callback_success():
     launchpad_service = MagicMock()
     launchpad_service.callback = AsyncMock(
-        return_value=RedirectResponse(url="http://test.com/profile")
+        return_value=LaunchpadAccessTokenResponse(
+            oauth_token="test_oauth_token", oauth_token_secret="test_oauth_token_secret"
+        )
     )
+    launchpad_service.encrypt = MagicMock(return_value="test_encrypted_token")
     state = "test_state"
     request = Request(
         {"url": "http://test.com/callback", "type": "http", "router": "launchpad"}
     )
     request.url_for = lambda x: URL("http://test.com/profile")
-    launchpad_session = {"state": state}
+    launchpad_session = {
+        "state": state,
+        "success_redirect_url": "http://test.com/profile",
+    }
     response = await launchpad_callback(
         request, state, launchpad_session, launchpad_service
     )
 
     assert response.status_code == 307
-    assert response.headers["location"] == "http://test.com/profile"
+    assert (
+        response.headers["location"]
+        == "http://test.com/profile?access_token=test_encrypted_token"
+    )
     assert launchpad_service.callback.called
 
 
@@ -55,7 +70,9 @@ async def test_callback_success():
 async def test_callback_invalid_params():
     launchpad_service = MagicMock()
     launchpad_service.callback = AsyncMock(
-        return_value=RedirectResponse(url="http://test.com/profile")
+        return_value=LaunchpadAccessTokenResponse(
+            oauth_token="test_oauth_token", oauth_token_secret="test_oauth_token_secret"
+        )
     )
     state = None
     request = Request(
@@ -85,12 +102,19 @@ async def test_callback_invalid_params():
 @pytest.mark.asyncio
 async def test_profile():
     launchpad_service = MagicMock()
-    launchpad_service.profile = AsyncMock(return_value={"emails": ["email1", "email2"]})
+    launchpad_service.profile = AsyncMock(
+        return_value=LaunchpadProfile(
+            emails=["email1", "email2"], _id="test_id", username="test_username"
+        )
+    )
 
     launchpad_session = {"state": "test_state"}
     response = await launchpad_profile(launchpad_session, launchpad_service)
 
-    assert response == {"emails": ["email1", "email2"]}
+    assert response.model_dump() == {
+        "emails": ["email1", "email2"],
+        "username": "test_username",
+    }
     assert launchpad_service.profile.called
 
     launchpad_session = None

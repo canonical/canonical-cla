@@ -1,4 +1,5 @@
 EMAIL_PROVIDERS = {
+    "users.noreply.github.com",
     "123mail.org",
     "126.com",
     "139.com",

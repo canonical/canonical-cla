@@ -25,12 +25,10 @@ app = FastAPI(
     redoc_url=None,
     docs_url=None,
 )
-
 register_middlewares(app)
-
 app.include_router(cla_router)
-app.include_router(launchpad_router)
 app.include_router(github_router)
+app.include_router(launchpad_router)
 
 
 @app.get("/", include_in_schema=False)

@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator, ConfigDict
-from pydantic_extra_types.country import CountryShortName
+from pydantic_extra_types.country import CountryAlpha2
 
 from app.cla.email_utils import (
     valid_email,
@@ -19,7 +19,7 @@ class IndividualCreateForm(BaseModel):
                 "last_name": "Doe",
                 "phone_number": "+1234567890",
                 "address": "123 Main St, Springfield, IL 62701",
-                "country": "United States",
+                "country": "FR",
                 "github_email": "john@example.com",
             }
         }
@@ -28,7 +28,7 @@ class IndividualCreateForm(BaseModel):
     last_name: Annotated[str, StringConstraints(max_length=50)]
     phone_number: Annotated[str, StringConstraints(max_length=20)]
     address: Annotated[str, StringConstraints(max_length=400)]
-    country: CountryShortName = Field(
+    country: CountryAlpha2 = Field(
         ...,
         description="Country in the short name format.",
     )
@@ -39,6 +39,7 @@ class IndividualCreateForm(BaseModel):
     def _at_least_one_email(self):
         if not self.github_email and not self.launchpad_email:
             raise ValueError("At least one email must be provided")
+        return self
 
     @model_validator(mode="after")
     def _emails_are_valid(self):
@@ -79,7 +80,7 @@ class OrganizationCreateForm(BaseModel):
     contact_email: Annotated[str, StringConstraints(max_length=100)]
     phone_number: Annotated[str | None, StringConstraints(max_length=20)] = None
     address: Annotated[str | None, StringConstraints(max_length=400)] = None
-    country: CountryShortName = Field(
+    country: CountryAlpha2 = Field(
         ...,
         description="Country in the short name format.",
     )

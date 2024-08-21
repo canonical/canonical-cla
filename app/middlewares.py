@@ -1,9 +1,27 @@
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Request
+from starlette.responses import PlainTextResponse
+
+
+def is_url_match(url, patterns):
+    # Remove protocol and path from the URL
+    domain = url.split("://")[-1].split("/")[0]
+
+    # Remove port if present
+    domain = domain.split(":")[0]
+
+    for pattern in patterns:
+        if pattern.startswith("*"):
+            if domain.endswith(pattern[1:]):
+                return True
+        elif domain == pattern:
+            return True
+    return False
 
 
 def register_middlewares(app: FastAPI):
+
     @app.middleware("http")
     async def flatten_query_string_lists(request: Request, call_next):
         """
@@ -33,3 +51,31 @@ def register_middlewares(app: FastAPI):
 
         request.scope["query_string"] = urlencode(cleaned).encode("utf-8")
         return await call_next(request)
+
+    @app.middleware("http")
+    async def strict_cors_middleware(request: Request, call_next):
+        allowed_origins = [
+            "localhost",
+            "127.0.0.1",
+            "0.0.0.0",
+            "*.ubuntu.com",
+            "*.canonical.com",
+            "*.demos.haus",
+        ]
+        origin = request.headers.get("Origin")
+        headers = {}
+        if origin and is_url_match(origin, allowed_origins):
+            headers["Access-Control-Allow-Origin"] = origin
+        else:  # Allow all origins, which will not allow to include credentials
+            headers["Access-Control-Allow-Origin"] = "*"
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        headers["Access-Control-Allow-Headers"] = "Content-Type"
+        if request.method == "OPTIONS":
+            return PlainTextResponse("OK", status_code=200, headers=headers)
+        else:
+            response = await call_next(request)
+            for key, value in headers.items():
+                response.headers[key] = value
+
+        return response

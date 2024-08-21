@@ -1,6 +1,6 @@
 from typing import List
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field, BaseModel
 from typing_extensions import TypedDict
 
 
@@ -95,6 +95,7 @@ class RequestTokenSession(TypedDict):
     oauth_token: str
     oauth_token_secret: str
     state: str
+    success_redirect_url: str
 
 
 class LaunchpadProfile(BaseModel):
@@ -102,11 +103,14 @@ class LaunchpadProfile(BaseModel):
         json_schema_extra={
             "example": {
                 "username": "canonical",
-                "id": "123456",
                 "emails": ["contact@canonica.com", "contact@ubuntu.com"],
             }
         }
     )
+    _id: str
     username: str = Field(..., description="Launchpad username")
-    id: str = Field(..., description="Launchpad user ID")
     emails: list[str] = Field(..., description="List of verified email addresses")
+
+    def __init__(self, _id: str, **data):
+        super().__init__(_id=_id, **data)
+        self._id = _id

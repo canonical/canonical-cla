@@ -5,7 +5,11 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from app.launchpad.models import AccessTokenSession, RequestTokenSession
+from app.launchpad.models import (
+    AccessTokenSession,
+    RequestTokenSession,
+    LaunchpadAccessTokenResponse,
+)
 from app.launchpad.service import LaunchpadService
 from app.utils import EncryptedAPIKeyCookie
 
@@ -47,7 +51,9 @@ async def test_login_success(token_urlsafe):
         )
     )
     launchpad_service = LaunchpadService(cookie_session, http_client)
-    response = await launchpad_service.login("http://test.com")
+    response = await launchpad_service.login(
+        callback_url="http://test.com", success_redirect_url="not_used_in_this_test"
+    )
     assert http_client.post.called
     assert cookie_session.set_cookie.called
     assert response.status_code == 307
@@ -64,7 +70,7 @@ async def test_login_failure():
     http_client.post = AsyncMock(return_value=httpx.Response(status_code=500))
     launchpad_service = LaunchpadService(cookie_session, http_client)
     with pytest.raises(HTTPException):
-        await launchpad_service.login("http://test.com")
+        await launchpad_service.login("http://test.com", "not_used_in_this_test")
     assert cookie_session.set_cookie.called is False
 
 
@@ -83,9 +89,9 @@ async def test_callback_success(cookie_session, request_token_session):
         request_token_session, "http://test.com/emails"
     )
     assert http_client.post.called
-    assert cookie_session.set_cookie.called
-    assert response.status_code == 307
-    assert response.headers["location"] == "http://test.com/emails"
+    assert response == LaunchpadAccessTokenResponse(
+        oauth_token="test_token", oauth_token_secret="test_secret"
+    )
 
 
 @pytest.mark.asyncio
@@ -98,7 +104,6 @@ async def test_callback_failure(cookie_session, request_token_session):
         await launchpad_service.callback(
             request_token_session, "http://test.com/emails"
         )
-    assert cookie_session.set_cookie.called is False
 
 
 @pytest.mark.asyncio
@@ -135,7 +140,6 @@ async def test_profile_success(cookie_session, access_token_session):
     launchpad_service = LaunchpadService(cookie_session, http_client)
     response = await launchpad_service.profile(access_token_session)
     assert response.model_dump() == {
-        "id": "test_id",
         "username": "test_username",
         "emails": ["primary@email.com", "name1@email.com", "name2@email.com"],
     }

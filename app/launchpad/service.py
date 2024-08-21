@@ -33,7 +33,9 @@ class LaunchpadService:
         self.cookie_session = cookie_session
         self.http_client = http_client
 
-    async def login(self, callback_url: str) -> RedirectResponse:
+    async def login(
+        self, callback_url: str, success_redirect_url: str
+    ) -> RedirectResponse:
         request_token_params = {
             "oauth_consumer_key": config.app_name,
             "oauth_signature_method": "PLAINTEXT",
@@ -70,8 +72,8 @@ class LaunchpadService:
             oauth_token=request_token_response["oauth_token"],
             oauth_token_secret=request_token_response["oauth_token_secret"],
             state=state,
+            success_redirect_url=success_redirect_url,
         )
-
         self.cookie_session.set_cookie(
             response,
             value=json.dumps(request_token_session),
@@ -84,7 +86,7 @@ class LaunchpadService:
         self,
         session_data: RequestTokenSession,
         profile_url: str,
-    ) -> RedirectResponse:
+    ) -> LaunchpadAccessTokenResponse:
         access_token_params = {
             "oauth_consumer_key": config.app_name,
             "oauth_token": session_data["oauth_token"],
@@ -104,13 +106,7 @@ class LaunchpadService:
         access_token_response = LaunchpadAccessTokenResponse(
             **dict([pair.split("=") for pair in response_body.split("&")])
         )
-        response = RedirectResponse(url=profile_url)
-        self.cookie_session.set_cookie(
-            response,
-            value=json.dumps(access_token_response),
-            httponly=True,
-        )
-        return response
+        return access_token_response
 
     async def profile(self, session_data: AccessTokenSession) -> LaunchpadProfile:
         # Get user profile
@@ -156,7 +152,7 @@ class LaunchpadService:
 
         all_emails = [primary_email, *additional_emails]
         return LaunchpadProfile(
-            id=user["id"],
+            _id=user["id"],
             username=user["name"],
             emails=all_emails,
         )
@@ -176,6 +172,9 @@ class LaunchpadService:
                 ]
             )
         }
+
+    def encrypt(self, value: str) -> str:
+        return self.cookie_session.cipher.encrypt(value)
 
 
 class LaunchpadOAuthCookieSession(EncryptedAPIKeyCookie):

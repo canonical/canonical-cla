@@ -1,3 +1,4 @@
+import base64
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -22,7 +23,11 @@ async def test_login():
 
     request = Request({"url": "http://test.com", "type": "http", "router": "github"})
     request.url_for = lambda x: URL("http://test.com/callback")
-    response = await github_login(request, github_service)
+    response = await github_login(
+        request,
+        base64.b64encode("https://example.com".encode()).decode("utf-8"),
+        github_service,
+    )
     assert response.status_code == 307
     assert response.headers["location"] == "https://login-redirct.com"
     assert github_service.login.called
@@ -31,14 +36,12 @@ async def test_login():
 @pytest.mark.asyncio
 async def test_callback_success():
     github_service = MagicMock()
-    github_service.callback = AsyncMock(
-        return_value=RedirectResponse(url="http://test.com/profile")
-    )
+    github_service.callback = AsyncMock(return_value="secret_token")
+    github_service.encrypt = MagicMock(return_value="test_encrypted_token")
     code = "test_code"
     state = "test_state"
     request = Request({"url": "http://test.com", "type": "http", "router": "github"})
-    request.url_for = lambda x: URL("http://test.com/profile")
-    github_session = {"state": state}
+    github_session = {"state": state, "success_redirect_url": "http://test.com/profile"}
     response = await github_callback(
         request,
         code=code,
@@ -48,7 +51,10 @@ async def test_callback_success():
     )
 
     assert response.status_code == 307
-    assert response.headers["location"] == "http://test.com/profile"
+    assert (
+        response.headers["location"]
+        == "http://test.com/profile?access_token=test_encrypted_token"
+    )
     assert github_service.callback.called
 
 

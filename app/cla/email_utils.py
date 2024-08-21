@@ -21,7 +21,7 @@ def email_domain(email: str):
     """
     Extract the domain from the email.
     """
-    return email.split("@")[-1]
+    return clean_email_domain(email.split("@")[-1])
 
 
 def valid_email_domain(domain: str) -> (bool, str):
