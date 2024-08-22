@@ -1,3 +1,5 @@
+from email.utils import formataddr
+
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -57,6 +59,21 @@ class LaunchpadOAuthConfig(BaseSettings):
     scope: str = "READ_PRIVATE"
 
 
+class SMTPConfig(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILES,
+        env_prefix="smtp_",
+        extra="ignore",
+    )
+
+    host: str
+    port: int
+    username: str
+    password: SecretStr
+    from_email: str = formataddr(("Canonical CLA", "cla@canonical.com"))
+    legal_contact_email: str = "legal@canonical.com"
+
+
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_FILES,
@@ -69,9 +86,9 @@ class Config(BaseSettings):
 
     github_oauth: GitHubOAuthConfig = GitHubOAuthConfig()  # type: ignore
     launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()  # type: ignore
-
     database: DatabaseConfig = DatabaseConfig()  # type: ignore
     redis: RedisConfig = RedisConfig()  # type: ignore
+    smtp: SMTPConfig = SMTPConfig()  # type: ignore
 
 
 config = Config()  # type: ignore

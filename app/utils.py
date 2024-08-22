@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 from datetime import datetime
@@ -13,6 +14,8 @@ from fastapi.security import APIKeyCookie
 from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
 
+from app.config import config
+
 
 class AESCipher(object):
     def __init__(self, key: str):
@@ -25,13 +28,20 @@ class AESCipher(object):
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
         return base64.b64encode(iv + cipher.encrypt(encoded_raw)).decode("utf-8")
 
-    def decrypt(self, enc: str) -> str:
-        decoded_raw = base64.b64decode(enc)
-        iv = decoded_raw[: AES.block_size]
-        cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        return unpad(
-            cipher.decrypt(decoded_raw[AES.block_size :]), AES.block_size
-        ).decode("utf-8")
+    def decrypt(self, enc: str) -> str | None:
+        try:
+            decoded_raw = base64.b64decode(enc)
+            iv = decoded_raw[: AES.block_size]
+            cipher = AES.new(self.key, AES.MODE_CBC, iv)
+            return unpad(
+                cipher.decrypt(decoded_raw[AES.block_size :]), AES.block_size
+            ).decode("utf-8")
+        except ValueError as e:
+            return None
+
+
+def cipher():
+    return AESCipher(config.secret_key.get_secret_value())
 
 
 T = TypeVar("T")
@@ -51,9 +61,8 @@ class EncryptedAPIKeyCookie(APIKeyCookie):
             return None
         if encrypted_api_key is None:
             return None
-        try:
-            cookie_value = self.cipher.decrypt(encrypted_api_key)
-        except ValueError as e:
+        cookie_value = self.cipher.decrypt(encrypted_api_key)
+        if not cookie_value:
             return None
         #  attempt to parse the value as json
         try:

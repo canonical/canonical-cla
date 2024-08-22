@@ -1,13 +1,13 @@
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints, model_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from pydantic_extra_types.country import CountryAlpha2
 
 from app.cla.email_utils import (
+    clean_email,
+    clean_email_domain,
     valid_email,
     valid_email_domain,
-    clean_email_domain,
-    clean_email,
 )
 
 
@@ -70,7 +70,7 @@ class OrganizationCreateForm(BaseModel):
                 "contact_email": "john@acme.com",
                 "phone_number": "+1234567890",
                 "address": "123 Main St, Springfield, IL 62701",
-                "country": "United States",
+                "country": "FR",
             }
         }
     )

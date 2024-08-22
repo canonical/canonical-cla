@@ -62,7 +62,7 @@ class SQLIndividualRepository(IndividualRepository):
         )
         self.session.add(log)
         await self.session.commit()
-
+        await self.session.refresh(individual)
         return individual
 
 

@@ -1,8 +1,8 @@
 import base64
 from typing import Annotated
-from urllib.parse import parse_qsl, urlencode, urlunparse, urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from fastapi import Depends, HTTPException, Request, Query, APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.responses import Response
 from typing_extensions import TypedDict

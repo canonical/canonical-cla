@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.connection import async_session
-from app.database.models import Organization, AuditLog
+from app.database.models import AuditLog, Organization
 
 
 class OrganizationRepository(Protocol):
@@ -15,6 +15,10 @@ class OrganizationRepository(Protocol):
     ) -> list[Organization]: ...
 
     async def create_organization(self, organization: Organization) -> Organization: ...
+    async def get_organization_by_id(
+        self, organization_id: int
+    ) -> Organization | None: ...
+    async def update_organization(self, organization: Organization) -> Organization: ...
 
 
 class SQLOrganizationRepository(OrganizationRepository):
@@ -48,6 +52,42 @@ class SQLOrganizationRepository(OrganizationRepository):
         )
         self.session.add(log)
         await self.session.commit()
+        await self.session.refresh(organization)
+        return organization
+
+    async def get_organization_by_id(self, organization_id: int) -> Organization | None:
+        query = select(Organization).filter_by(id=organization_id)
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
+    async def update_organization(self, organization: Organization) -> Organization:
+        if not organization.id:
+            raise ValueError("Organization ID is required for update")
+        existing_organization = await self.get_organization_by_id(organization.id)
+        if not existing_organization:
+            raise ValueError(f"Organization with ID {organization.id} not found")
+        organization.signed_at = existing_organization.signed_at
+        organization.name = existing_organization.name
+        organization.contact_name = existing_organization.contact_name
+        organization.contact_email = existing_organization.contact_email
+
+        organization.revoked_at = (
+            organization.revoked_at.replace(tzinfo=None)
+            if organization.revoked_at
+            else None
+        )
+
+        self.session.add(organization)
+        await self.session.flush()
+        log = AuditLog(
+            entity_type="ORGANIZATION",
+            entity_id=organization.id,
+            action="UPDATE",
+            details=organization.as_dict(),
+        )
+        self.session.add(log)
+        await self.session.commit()
+        await self.session.refresh(organization)
         return organization
 
 

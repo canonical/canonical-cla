@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import HTTPException, Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 
 from app.cla.email_utils import clean_email, email_domain
@@ -79,7 +79,7 @@ class CLAService:
         individual_form: IndividualCreateForm,
         gh_session: str | None,
         lp_session: dict | None,
-    ) -> None:
+    ) -> Individual:
         (github_profile, launchpad_profile) = await self.gh_and_lp_profiles(
             gh_session, lp_session
         )
@@ -129,7 +129,7 @@ class CLAService:
             launchpad_account_id=launchpad_profile._id if launchpad_profile else None,
         )
         try:
-            await self.individual_repository.create_individual(individual)
+            return await self.individual_repository.create_individual(individual)
         except IntegrityError as e:
             logger.info("Failed to create individual", exc_info=e)
             provided_account_id: str
@@ -149,7 +149,7 @@ class CLAService:
         organization_form: OrganizationCreateForm,
         gh_session: str | None,
         lp_session: dict | None,
-    ):
+    ) -> Organization:
         (github_profile, launchpad_profile) = await self.gh_and_lp_profiles(
             gh_session, lp_session
         )
@@ -170,7 +170,7 @@ class CLAService:
 
         organization = Organization(**organization_form.model_dump())
         try:
-            await self.organization_repository.create_organization(organization)
+            return await self.organization_repository.create_organization(organization)
         except IntegrityError:
             raise HTTPException(
                 status_code=409,

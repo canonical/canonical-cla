@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% with title='Confirmation of Canonical CLA Submission' %}
+        {% include 'partials/head.j2' %}
+    {% endwith %}
+    <body>
+        {% include 'partials/logo.j2' %}
+        <h1>Confirmation of Canonical Contributor License Agreement Submission</h1>
+        <p>Dear {{ contributor_name }},</p>
+        <p>
+            Thank you for submitting the Canonical Contributor License Agreement (CLA)
+            {% if is_organization %}for your organization, {{ organization_name }}{% endif %}
+            . We appreciate your commitment to contributing to our open-source projects.
+        </p>
+        {% if is_organization %}
+            <p>
+                Our legal team will review your submission and contact you if any additional information is required. Once approved, contributors from your organization using email addresses with the domain <strong>{{ email_domain }}</strong> will be recognized as having signed the CLA.
+            </p>
+        {% else %}
+            <p>Your CLA has been recorded in our system. You can now contribute to Canonical projects under this agreement.</p>
+        {% endif %}
+        <p>
+            If you need to make any changes to your submission or have any questions, please contact us at <a href="mailto:contributor-agreement@canonical.com">contributor-agreement@canonical.com</a>.
+        </p>
+        <p>Thank you for your contribution to the open-source community!</p>
+        <p>
+            Best regards,
+            <br />
+            The Canonical Team
+        </p>
+    </body>
+</html>

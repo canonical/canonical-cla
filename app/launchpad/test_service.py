@@ -7,8 +7,8 @@ from fastapi import HTTPException
 
 from app.launchpad.models import (
     AccessTokenSession,
-    RequestTokenSession,
     LaunchpadAccessTokenResponse,
+    RequestTokenSession,
 )
 from app.launchpad.service import LaunchpadService
 from app.utils import EncryptedAPIKeyCookie

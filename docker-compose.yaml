@@ -14,5 +14,14 @@ services:
     image: redis:latest
     container_name: canonical-cla-redis
     network_mode: "host"
+  smtp4dev:
+    image: rnwood/smtp4dev:latest
+    container_name: canonical-cla-smtp4dev
+    ports:
+      - "7999:80"
+      - "2525:25"
+    environment:
+      - RelayOptions__Login=user
+      - RelayOptions__Password=password
 volumes:
   postgres-data:

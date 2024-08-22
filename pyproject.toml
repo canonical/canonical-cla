@@ -8,9 +8,7 @@ repository = "https://github.com/canonical/canonical-cla"
 authors = ["Goulin Khoge <goulin.khoge@canonical.com>"]
 license = "Apache-2.0"
 
-packages = [
-    { include = "scripts" },
-]
+packages = [{ include = "scripts" }]
 
 [tool.poetry.scripts]
 dev = "scripts.app_start_dev:run"
@@ -33,6 +31,10 @@ python-dateutil = "2.9.0"
 pycryptodome = "3.20.0"
 httpx = "0.27.0"
 validators = "^0.33.0"
+aiosmtplib = "^3.0.2"
+jinja2 = "^3.1.4"
+bleach = "^6.1.0"
+python-multipart = "^0.0.9"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.8.0"
@@ -41,6 +43,7 @@ pytest-asyncio = "^0.23.8"
 pytest-mock = "^3.14.0"
 isort = "^5.13.2"
 coverage = "^7.6.1"
+djlint = "^1.34.1"
 
 [build-system]
 requires = ["poetry-core"]

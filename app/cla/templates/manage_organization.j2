@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>CLA Approval Form</title>
+        <link rel="stylesheet"
+              href="https://assets.ubuntu.com/v1/vanilla-framework-version-4.15.0.min.css" />
+    </head>
+    <body>
+        <div class="row">
+            <image src="https://assets.ubuntu.com/v1/563c0d9b-_Canonical.svg"
+                   alt="Canonical Logo"
+                   width="200px" />
+        </div>
+        <div class="row p-strip">
+            <h1>CLA Approval Form</h1>
+            {% if message %}
+                <div class="p-notification p-notification--positive">
+                    <p>{{ message }}</p>
+                    <button class="p-notification__close"
+                            aria-controls="notification"
+                            onclick="this.parentElement.style.display='none';">Close</button>
+                </div>
+            {% endif %}
+            <form method="post">
+                <div class="p-form__group">
+                    <label for="organisation_name" class="p-form__label">
+                        Organisation name:<span class="p-form-help-text">(Read-only)</span>
+                    </label>
+                    <input type="text"
+                           id="organisation_name"
+                           class="p-form__control"
+                           value="{{ organization['name'] }}"
+                           readonly />
+                </div>
+                <div class="p-form__group">
+                    <label for="contact_name" class="p-form__label">
+                        Contact name: <span class="p-form-help-text">(Read-only)</span>
+                    </label>
+                    <input type="text"
+                           id="contact_name"
+                           class="p-form__control"
+                           value="{{ organization['contact_name'] }}"
+                           readonly />
+                </div>
+                <div class="p-form__group">
+                    <label for="contact_email" class="p-form__label">
+                        Contact email: <span class="p-form-help-text">(Read-only)</span>
+                    </label>
+                    <input type="email"
+                           id="contact_email"
+                           class="p-form__control"
+                           value="{{ organization['contact_email'] }}"
+                           readonly />
+                </div>
+                <div class="p-form__group">
+                    <label for="phone_number" class="p-form__label">
+                        Phone number: <span class="p-form-help-text">(Read-only)</span>
+                    </label>
+                    <input type="tel"
+                           id="phone_number"
+                           class="p-form__control"
+                           value="{{ organization['phone_number'] }}"
+                           readonly />
+                </div>
+                <div class="p-form__group">
+                    <label for="address" class="p-form__label">
+                        Address:  <span class="p-form-help-text">(Read-only)</span>
+                    </label>
+                    <input type="text"
+                           id="address"
+                           name="address"
+                           class="p-form__control"
+                           value="{{ organization['address'] }}"
+                           readonly />
+                </div>
+                <div class="p-form__group">
+                    <label for="email_domain" class="p-form__label">Email domain:</label>
+                    <input type="text"
+                           id="email_domain"
+                           name="email_domain"
+                           class="p-form__control"
+                           value="{{ organization['email_domain'] or "" }}"
+                           required
+                           autocomplete="off" />
+                </div>
+                <div class="p-form__group">
+                    <label for="docusign_url" class="p-form__label">DocuSign URL:</label>
+                    <input type="url"
+                           id="docusign_url"
+                           name="docusign_url"
+                           class="p-form__control"
+                           value="{{ organization['docusign_url'] or "" }}"
+                           autocomplete="off" />
+                </div>
+                <div class="p-form__group">
+                    <label for="salesforce_url" class="p-form__label">Salesforce URL:</label>
+                    <input type="url"
+                           id="salesforce_url"
+                           name="salesforce_url"
+                           class="p-form__control"
+                           value="{{ organization['salesforce_url'] or "" }}"
+                           autocomplete="off" />
+                </div>
+                <label class="p-switch">
+                    <input type="checkbox" class="p-switch__input" {{ '' if organization['revoked_at'] or not organization['signed_at'] else 'checked=""' }} id="approved" name="approved" role="switch">
+                    <span class="p-switch__slider"></span>
+                    <span class="p-switch__label">Approved</span>
+                </label>
+                <div class="p-form__group">
+                    <button type="submit" class="p-button--positive">Save</button>
+                </div>
+            </form>
+        </div>
+        <script>
+    // remove query ?message=... if exists
+    if (window.location.search.includes('message')) {
+      const query = window.location.search.replace(/&?message=[^&]+/, '');
+      window.history.replaceState({}, document.title, window.location.pathname + query);
+    }
+        </script>
+    </body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% with title='New Organization CLA Submission' %}
+        {% include 'partials/head.j2' %}
+    {% endwith %}
+    <body>
+        {% include 'partials/logo.j2' %}
+        <h1>New Organization CLA Submission</h1>
+        <p>Dear Legal Team,</p>
+        <p>
+            A new organization has submitted a Contributor License Agreement (CLA) for review and approval. Please review the details below and take the necessary actions.
+        </p>
+        <div class="p-notification">
+            <h5 class="p-notification__title">Organization Details:</h5>
+            <ul>
+                <li>
+                    <strong>Organization Name:</strong> {{ organization_name }}
+                </li>
+                <li>
+                    <strong>Contact:</strong> {{ contact_name }} ({{ contact_email }})
+                </li>
+                <li>
+                    <strong>Phone Number:</strong> {{ phone_number }}
+                </li>
+                <li>
+                    <strong>Address:</strong> {{ address }}
+                </li>
+                <li>
+                    <strong>Country:</strong> {{ country }}
+                </li>
+                <li>
+                    <strong>Email Domain:</strong> {{ email_domain }}
+                </li>
+            </ul>
+        </div>
+        <h2>To review and approve this organization:</h2>
+        <ol>
+            <li>
+                Click on the following link to access the CLA management interface:
+                <br />
+                <a href="{{ cla_management_url }}">Manage {{ organization_name }} CLA</a>
+            </li>
+            <li>Review the submitted information and conduct any necessary due diligence.</li>
+            <li>
+                If approved, please add the following information:
+                <ul>
+                    <li>Salesforce URL</li>
+                    <li>DocuSign URL</li>
+                </ul>
+            </li>
+            <li>
+                Once approved and additional information is added, the organization's email hostname ({{ email_domain }}) will be automatically added to the CLA database, allowing contributors from this organization to be recognized.
+            </li>
+        </ol>
+        <p>Thank you for your prompt attention to this matter.</p>
+        <p>
+            Best regards,
+            <br />
+            Web and Design Team
+        </p>
+    </body>
+</html>

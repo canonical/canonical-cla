@@ -1,17 +1,17 @@
 import base64
 import json
 from typing import Annotated, Literal
-from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from starlette.responses import RedirectResponse, Response
 from typing_extensions import TypedDict
 
 from app.launchpad.models import (
     AccessTokenSession,
-    RequestTokenSession,
     LaunchpadProfile,
+    RequestTokenSession,
 )
 from app.launchpad.service import (
     LaunchpadService,
