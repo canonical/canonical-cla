@@ -1,8 +1,10 @@
 import ipaddress
 import logging
+from datetime import datetime
 from hashlib import md5
 from typing import Tuple
 
+import httpx
 from fastapi import Request
 from redis.asyncio import Redis
 
@@ -34,9 +36,15 @@ else
 end
 """
 
+# other paths can't be whitelisted
+# this will prevent users from bypassing rate limiting by sending requests from a GitHub action or similar service
+whitelistable_paths = {"/cla/check"}
+
 
 class RateLimiter:
     _script_sha: str
+    _github_runner_key = "rate_limiter:github_action_runners"
+    _github_runner_last_update_key = "rate_limiter:github_action_runners:last_update"
 
     def __init__(
         self,
@@ -44,6 +52,7 @@ class RateLimiter:
         limit: int,
         period: int,
         whitelist: list[str],
+        github_runners_update_interval: int = 24 * 60 * 60,  # 24 hours
         redis: Redis = Redis.from_url(config.redis.dsn()),
     ):
         """
@@ -59,6 +68,7 @@ class RateLimiter:
         self.whitelist = whitelist
         self.redis = redis
         self._script_sha = None
+        self.github_runners_update_interval = github_runners_update_interval
 
     def _ip_address(self) -> str:
         """
@@ -74,7 +84,6 @@ class RateLimiter:
         Generate a unique identifier for the request based on the path and client IP address.
         """
         path_hash = md5(self.request.scope["path"].encode()).hexdigest()
-        print(f"rate_limiter:{self._ip_address()}:{path_hash}")
         return f"rate_limiter:{self._ip_address()}:{path_hash}"
 
     async def _redis_script_sha(self):
@@ -85,15 +94,54 @@ class RateLimiter:
             self._script_sha = await self.redis.script_load(rate_limit_lua_script)
         return self._script_sha
 
-    def _is_whitelisted(self) -> bool:
+    async def _update_github_action_runners(self):
+        """
+        Update the list of GitHub action runner IP addresses.
+        """
+        current_time = int(datetime.now().timestamp())
+        last_update = int(
+            (await self.redis.get(self._github_runner_last_update_key)) or "0"
+        )
+        if current_time - last_update < self.github_runners_update_interval:
+            return
+        async with httpx.AsyncClient() as http_client:
+
+            response = await http_client.get(
+                "https://api.github.com/meta",
+                headers={"Accept": "application/vnd.github.v3+json"},
+            )
+            if response.status_code != 200:
+                logger.error(f"Failed to update GitHub action runners: {response.text}")
+                return
+            data = response.json()
+            runners = data.get("actions") or []
+            if not runners:
+                logger.error("No GitHub action runners found, ignoring")
+                return
+            await self.redis.delete(self._github_runner_key)
+            await self.redis.sadd(self._github_runner_key, *runners)
+            await self.redis.set(self._github_runner_last_update_key, current_time)
+
+    # @profile
+    async def _is_whitelisted(self) -> bool:
         """
         Check if the client's IP address is in the whitelist.
         """
+        request_path = self.request.scope["path"]
+        if not request_path in whitelistable_paths:
+            return False
         try:
             ip_address = ipaddress.ip_address(self._ip_address())
+            await self._update_github_action_runners()
             for address in self.whitelist:
                 try:
                     if ip_address in ipaddress.ip_network(address):
+                        return True
+                except ValueError:
+                    continue
+            for runner in await self.redis.smembers(self._github_runner_key):
+                try:
+                    if ip_address in ipaddress.ip_network(runner):
                         return True
                 except ValueError:
                     continue
@@ -106,7 +154,7 @@ class RateLimiter:
         Check if the request is allowed based on the rate limit.
         This also increments the request count in Redis on each call.
         """
-        if self._is_whitelisted():
+        if await self._is_whitelisted():
             return (True, 0)
         key = self._request_identifier()
         try:

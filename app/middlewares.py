@@ -88,7 +88,10 @@ def register_middlewares(app: FastAPI):
         return response
 
     @app.middleware("http")
-    async def rate_limit_middleware(request: Request, call_next):
+    async def rate_limit_middleware(
+        request: Request,
+        call_next,
+    ):
         """
         Rate limiting middleware for FastAPI.
         """
