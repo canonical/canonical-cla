@@ -1,9 +1,12 @@
+import logging
 from email.utils import formataddr
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILES = (".env", ".env.local")
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseConfig(BaseSettings):
@@ -74,6 +77,18 @@ class SMTPConfig(BaseSettings):
     legal_contact_email: str = "legal@canonical.com"
 
 
+class RateLimitConfig(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILES,
+        env_prefix="rate_limit_",
+        extra="ignore",
+    )
+
+    limit: int = 100
+    period: int = 60
+    whitelist: list[str] = []
+
+
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_FILES,
@@ -89,6 +104,8 @@ class Config(BaseSettings):
     database: DatabaseConfig = DatabaseConfig()  # type: ignore
     redis: RedisConfig = RedisConfig()  # type: ignore
     smtp: SMTPConfig = SMTPConfig()  # type: ignore
+
+    rate_limit: RateLimitConfig = RateLimitConfig()  # type: ignore
 
 
 config = Config()  # type: ignore

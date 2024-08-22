@@ -1,0 +1,124 @@
+import ipaddress
+import logging
+from hashlib import md5
+from typing import Tuple
+
+from fastapi import Request
+from redis.asyncio import Redis
+
+from app.config import config
+
+logger = logging.getLogger(__name__)
+
+
+rate_limit_lua_script = """
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local expire_time = ARGV[2]
+
+local current = tonumber(redis.call('GET', key) or "0")
+
+-- If the key exists, and the count exceeds the limit, return the time until the key expires
+-- Otherwise, increment the count and return 0
+if current > 0 then
+    if current + 1 > limit then
+        return redis.call("PTTL", key)
+    else
+        redis.call("INCR", key)
+        return 0
+    end
+-- If the key doesn't exist, set it to 1 and expire it
+else
+    redis.call("SET", key, 1, "EX", expire_time)
+    return 0
+end
+"""
+
+
+class RateLimiter:
+    _script_sha: str
+
+    def __init__(
+        self,
+        request: Request,
+        limit: int,
+        period: int,
+        whitelist: list[str],
+        redis: Redis = Redis.from_url(config.redis.dsn()),
+    ):
+        """
+        :param request: The FastAPI request object
+        :param redis: A Redis connection object
+        :param limit: The number of requests allowed in the period
+        :param period: The period in seconds
+        :param whitelist: A list of IP addresses or CIDR ranges to exclude from rate limiting
+        """
+        self.request = request
+        self.limit = limit
+        self.period = period
+        self.whitelist = whitelist
+        self.redis = redis
+        self._script_sha = None
+
+    def _ip_address(self) -> str:
+        """
+        Get the client's IP address from the request headers.
+        """
+        forwarded = self.request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0]
+        return self.request.client.host
+
+    def _request_identifier(self) -> str:
+        """
+        Generate a unique identifier for the request based on the path and client IP address.
+        """
+        path_hash = md5(self.request.scope["path"].encode()).hexdigest()
+        print(f"rate_limiter:{self._ip_address()}:{path_hash}")
+        return f"rate_limiter:{self._ip_address()}:{path_hash}"
+
+    async def _redis_script_sha(self):
+        """
+        Load the rate limiting Lua script into Redis and return its SHA hash.
+        """
+        if not self._script_sha:
+            self._script_sha = await self.redis.script_load(rate_limit_lua_script)
+        return self._script_sha
+
+    def _is_whitelisted(self) -> bool:
+        """
+        Check if the client's IP address is in the whitelist.
+        """
+        try:
+            ip_address = ipaddress.ip_address(self._ip_address())
+            for address in self.whitelist:
+                try:
+                    if ip_address in ipaddress.ip_network(address):
+                        return True
+                except ValueError:
+                    continue
+            return False
+        except ValueError:
+            return False
+
+    async def is_allowed(self) -> Tuple[bool, int]:
+        """
+        Check if the request is allowed based on the rate limit.
+        This also increments the request count in Redis on each call.
+        """
+        if self._is_whitelisted():
+            return (True, 0)
+        key = self._request_identifier()
+        try:
+            script_sha = await self._redis_script_sha()
+            time_left = await self.redis.evalsha(
+                script_sha,
+                1,
+                key,
+                str(self.limit),
+                str(self.period),
+            )
+            return (time_left == 0, time_left)
+        except Exception as e:
+            logger.error(f"Error checking rate limit: {e}")
+            return (True, 0)

@@ -1,7 +1,23 @@
+import logging
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from starlette.responses import PlainTextResponse
+
+from app.config import config
+from app.security.rate_limiter import RateLimiter
+
+logger = logging.getLogger(__name__)
+
+allowed_origins = [
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "*.ubuntu.com",
+    "*.canonical.com",
+    "*.demos.haus",
+]
 
 
 def is_url_match(url, patterns):
@@ -21,7 +37,6 @@ def is_url_match(url, patterns):
 
 
 def register_middlewares(app: FastAPI):
-
     @app.middleware("http")
     async def flatten_query_string_lists(request: Request, call_next):
         """
@@ -54,14 +69,6 @@ def register_middlewares(app: FastAPI):
 
     @app.middleware("http")
     async def strict_cors_middleware(request: Request, call_next):
-        allowed_origins = [
-            "localhost",
-            "127.0.0.1",
-            "0.0.0.0",
-            "*.ubuntu.com",
-            "*.canonical.com",
-            "*.demos.haus",
-        ]
         origin = request.headers.get("Origin")
         headers = {}
         if origin and is_url_match(origin, allowed_origins):
@@ -79,3 +86,35 @@ def register_middlewares(app: FastAPI):
                 response.headers[key] = value
 
         return response
+
+    @app.middleware("http")
+    async def rate_limit_middleware(request: Request, call_next):
+        """
+        Rate limiting middleware for FastAPI.
+        """
+        limiter = RateLimiter(
+            request,
+            limit=config.rate_limit.limit,
+            period=config.rate_limit.period,
+            whitelist=config.rate_limit.whitelist,
+        )
+        allowed, time_left = await limiter.is_allowed()
+        if not allowed:
+            return JSONResponse(
+                status_code=429,
+                content={"message": "Too many requests"},
+                headers={"Retry-After": str(time_left)},
+            )
+        return await call_next(request)
+
+    def on_app_ready_callback():
+        logger.info(
+            "CORS middleware is enabled with allowed origins %s",
+            allowed_origins,
+        )
+        logger.info(
+            f"Rate limiting is enabled with limit {config.rate_limit.limit} requests per {config.rate_limit.period} seconds and whitelist %s",
+            config.rate_limit.whitelist,
+        )
+
+    return on_app_ready_callback

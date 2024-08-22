@@ -14,6 +14,7 @@ from app.middlewares import register_middlewares
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    on_app_ready_callback()
     yield
 
 
@@ -25,7 +26,7 @@ app = FastAPI(
     redoc_url=None,
     docs_url=None,
 )
-register_middlewares(app)
+on_app_ready_callback = register_middlewares(app)
 app.include_router(cla_router)
 app.include_router(github_router)
 app.include_router(launchpad_router)
