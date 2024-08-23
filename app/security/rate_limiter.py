@@ -40,6 +40,9 @@ end
 # this will prevent users from bypassing rate limiting by sending requests from a GitHub action or similar service
 whitelistable_paths = {"/cla/check"}
 
+# rate limiting healthz could cause a deadlock
+excluded_paths = {"/healthz", "/docs", "/"}
+
 
 class RateLimiter:
     _script_sha: str
@@ -154,6 +157,8 @@ class RateLimiter:
         Check if the request is allowed based on the rate limit.
         This also increments the request count in Redis on each call.
         """
+        if self.request.scope["path"] in excluded_paths:
+            return (True, 0)
         if await self._is_whitelisted():
             return (True, 0)
         key = self._request_identifier()
