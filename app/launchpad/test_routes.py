@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
-from starlette.datastructures import URL
 
 from app.launchpad.models import LaunchpadAccessTokenResponse, LaunchpadProfile
 from app.launchpad.routes import (
@@ -22,12 +21,7 @@ async def test_login():
         return_value=RedirectResponse(url="https://login-redirct.com")
     )
 
-    request = Request(
-        {"url": "http://test.com/login", "type": "http", "router": "launchpad"}
-    )
-    request.url_for = lambda x: URL("http://test.com/callback")
     response = await launchpad_login(
-        request,
         redirect_url=base64.b64encode("https://example.com".encode()).decode("utf-8"),
         launchpad_service=launchpad_service,
     )
@@ -49,7 +43,6 @@ async def test_callback_success():
     request = Request(
         {"url": "http://test.com/callback", "type": "http", "router": "launchpad"}
     )
-    request.url_for = lambda x: URL("http://test.com/profile")
     launchpad_session = {
         "state": state,
         "success_redirect_url": "http://test.com/profile",
@@ -127,9 +120,5 @@ async def test_profile():
 
 @pytest.mark.asyncio
 async def test_logout():
-    request = Request(
-        {"url": "http://test.com/logout", "type": "http", "router": "launchpad"}
-    )
-    request.url_for = lambda x: URL("http://test.com/login")
-    response = await launchpad_logout(request)
+    response = await launchpad_logout()
     assert response.status_code == 200

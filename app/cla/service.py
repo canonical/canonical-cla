@@ -81,7 +81,8 @@ class CLAService:
         lp_session: dict | None,
     ) -> Individual:
         (github_profile, launchpad_profile) = await self.gh_and_lp_profiles(
-            gh_session, lp_session
+            gh_session if individual_form.github_email else None,
+            lp_session if individual_form.launchpad_email else None,
         )
 
         if github_profile is None and launchpad_profile is None:
@@ -178,10 +179,14 @@ class CLAService:
             )
 
     async def gh_and_lp_profiles(
-        self, gh_session: str, lp_session: dict
+        self, gh_session: str | None, lp_session: dict | None
     ) -> tuple[GithubProfile | None, LaunchpadProfile | None]:
-        github_profile = await self.github_service.profile(gh_session)
-        launchpad_profile = await self.launchpad_service.profile(lp_session)
+        github_profile = (
+            await self.github_service.profile(gh_session) if gh_session else None
+        )
+        launchpad_profile = (
+            await self.launchpad_service.profile(lp_session) if lp_session else None
+        )
         return github_profile, launchpad_profile
 
 

@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
-from starlette.datastructures import URL
 
 from app.github.routes import (
     github_callback,
@@ -21,10 +20,7 @@ async def test_login():
         return_value=RedirectResponse(url="https://login-redirct.com")
     )
 
-    request = Request({"url": "http://test.com", "type": "http", "router": "github"})
-    request.url_for = lambda x: URL("http://test.com/callback")
     response = await github_login(
-        request,
         base64.b64encode("https://example.com".encode()).decode("utf-8"),
         github_service,
     )
@@ -78,8 +74,6 @@ async def test_profile_success():
 
 @pytest.mark.asyncio
 async def test_logout():
-    request = Request({"url": "http://test.com", "type": "http", "router": "github"})
-    request.url_for = lambda x: URL("http://test.com/login")
-    response = await github_logout(request)
+    response = await github_logout()
 
     assert response.status_code == 200

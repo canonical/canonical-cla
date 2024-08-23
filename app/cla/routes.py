@@ -24,6 +24,7 @@ from app.cla.models import (
     OrganizationCreationSuccess,
 )
 from app.cla.service import CLAService, cla_service
+from app.config import config
 from app.github.service import github_cookie_session
 from app.launchpad.service import launchpad_cookie_session
 from app.notifications.emails import (
@@ -132,9 +133,7 @@ async def sign_cla_organization(
     created_organization = await cla_service.organization_cla_sign(
         organization, gh_session, lp_session
     )
-    manage_organization_url = list(
-        urlparse(request.url_for("manage_organization")._url)
-    )
+    manage_organization_url = list(urlparse("http://localhost:8000/cla/organization"))
     manage_organization_url[4] = urlencode(
         {"id": cipher.encrypt(str(created_organization.id))}
     )
@@ -201,8 +200,8 @@ async def update_organization(
     request: Request,
     id: str,
     email_domain: Annotated[str, Form()],
-    docusign_url: Annotated[str, Form()],
-    salesforce_url: Annotated[str, Form()],
+    docusign_url: Annotated[str | None, Form()] = None,
+    salesforce_url: Annotated[str | None, Form()] = None,
     approved: Annotated[str | None, Form()] = None,
     organization_repository: OrganizationRepository = Depends(organization_repository),
     cipher: AESCipher = Depends(cipher),
@@ -233,6 +232,6 @@ async def update_organization(
         organization.revoked_at = datetime.now()
     await organization_repository.update_organization(organization)
 
-    url = list(urlparse(request.url_for("manage_organization")._url))
+    url = list(urlparse(f"{config.app_url}/cla/organization"))
     url[4] = urlencode({"id": id, "message": "Organization updated successfully"})
     return RedirectResponse(urlunparse(url), status_code=302)

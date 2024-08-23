@@ -96,6 +96,7 @@ class Config(BaseSettings):
     )
 
     secret_key: SecretStr
+    app_url: str
     app_name: str = "Canonical CLA (dev)"
     debug_mode: bool = False
 

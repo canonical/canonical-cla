@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.responses import Response
 from typing_extensions import TypedDict
 
+from app.config import config
 from app.github.models import GithubProfile
 from app.github.service import GithubService, github_cookie_session, github_service
 from app.utils import error_status_codes
@@ -16,7 +17,6 @@ github_router = APIRouter(prefix="/github", tags=["GitHub"])
 
 @github_router.get("/login", status_code=307)
 async def github_login(
-    request: Request,
     redirect_url: Annotated[
         str | None,
         Query(
@@ -32,8 +32,8 @@ async def github_login(
     if redirect_url:
         redirect_url = base64.b64decode(redirect_url).decode("utf-8")
     return await github_service.login(
-        request.url_for("github_callback")._url,
-        success_redirect_url=redirect_url or request.url_for("github_profile")._url,
+        f"{config.app_url}/github/callback",
+        success_redirect_url=redirect_url or f"{config.app_url}/profile",
     )
 
 
@@ -122,7 +122,6 @@ async def github_profile(
 
 @github_router.get("/logout")
 async def github_logout(
-    request: Request,
     redirect_url: Annotated[
         str | None,
         Query(
@@ -142,7 +141,7 @@ async def github_logout(
         response = JSONResponse(
             content={
                 "message": "Logged out",
-                "login_url": request.url_for("github_login")._url,
+                "login_url": f"{config.app_url}/github/login",
             }
         )
     response.delete_cookie(github_cookie_session.model.name)

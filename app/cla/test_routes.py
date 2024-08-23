@@ -61,7 +61,6 @@ async def test_sign_cla_organization():
     }
     background_tasks = MagicMock()
     request = MagicMock()
-    request.url_for = MagicMock(return_value=URL("http://test.com"))
     cipher = MagicMock()
     response = await sign_cla_organization(
         request=request,

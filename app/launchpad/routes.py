@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.responses import RedirectResponse, Response
 from typing_extensions import TypedDict
 
+from app.config import config
 from app.launchpad.models import (
     AccessTokenSession,
     LaunchpadProfile,
@@ -29,7 +30,6 @@ launchpad_router = APIRouter(prefix="/launchpad", tags=["Launchpad"])
     response_model=TypedDict("Redirection", {"location": Literal["/callback"]}),
 )
 async def launchpad_login(
-    request: Request,
     redirect_url: Annotated[
         str | None,
         Query(
@@ -45,8 +45,8 @@ async def launchpad_login(
         redirect_url = base64.b64decode(redirect_url).decode("utf-8")
 
     return await launchpad_service.login(
-        callback_url=request.url_for("launchpad_callback")._url,
-        success_redirect_url=redirect_url or request.url_for("launchpad_profile")._url,
+        callback_url=f"{config.app_url}/launchpad/callback",
+        success_redirect_url=redirect_url or f"{config.app_url}/launchpad/profile",
     )
 
 
@@ -75,7 +75,7 @@ async def launchpad_callback(
             status_code=401, detail="Unauthorized: OAuth state mismatch"
         )
     access_token = await launchpad_service.callback(
-        profile_url=request.url_for("launchpad_profile")._url, session_data=session_data
+        profile_url=f"{config.app_url}/launchpad/profile", session_data=session_data
     )
 
     encrypted_access_token = launchpad_service.encrypt(json.dumps(access_token))
@@ -113,7 +113,6 @@ async def launchpad_profile(
 
 @launchpad_router.get("/logout")
 async def launchpad_logout(
-    request: Request,
     redirect_url: Annotated[
         str | None,
         Query(
@@ -132,7 +131,7 @@ async def launchpad_logout(
         response = JSONResponse(
             content={
                 "message": "Logged out",
-                "login_url": request.url_for("launchpad_login")._url,
+                "login_url": f"{config.app_url}/launchpad/login",
             }
         )
     response.delete_cookie(launchpad_cookie_session.model.name)
