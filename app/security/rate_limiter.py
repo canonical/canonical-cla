@@ -40,8 +40,8 @@ end
 # this will prevent users from bypassing rate limiting by sending requests from a GitHub action or similar service
 whitelistable_paths = {"/cla/check"}
 
-# rate limiting healthz could cause a deadlock
-excluded_paths = {"/healthz", "/docs", "/", "/github/profile", "/launchpad/profile"}
+# rate limiting health could cause a deadlock
+excluded_paths = {"/_status/health", "/docs", "/", "/github/profile", "/launchpad/profile"}
 
 
 class RateLimiter:
