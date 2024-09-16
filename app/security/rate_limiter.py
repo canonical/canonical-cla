@@ -41,7 +41,7 @@ end
 whitelistable_paths = {"/cla/check"}
 
 # rate limiting healthz could cause a deadlock
-excluded_paths = {"/healthz", "/docs", "/"}
+excluded_paths = {"/healthz", "/docs", "/", "/github/profile", "/launchpad/profile"}
 
 
 class RateLimiter:
