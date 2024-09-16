@@ -2,8 +2,8 @@ import logging
 from email.mime.text import MIMEText
 from email.utils import formataddr
 from pathlib import Path
+from smtplib import SMTP
 
-import aiosmtplib
 import bleach
 import jinja2
 import pycountry
@@ -15,21 +15,22 @@ templates_loader = jinja2.FileSystemLoader(Path(__file__).parent / "templates")
 templates = jinja2.Environment(loader=templates_loader)
 
 
-async def send_email(name: str, email: str, subject: str, body: str) -> None:
+def send_email(name: str, email: str, subject: str, body: str) -> None:
     """
     Send an email to the provided email address.
     raises: SMTPException if the email could not be sent.
     """
     message = MIMEText(body, "html", "utf-8")
     message["From"] = config.smtp.from_email
+    message["Reply-To"] = config.smtp.reply_to_email
     message["To"] = formataddr((name, email))
     message["Subject"] = subject
-    async with aiosmtplib.SMTP(
-        hostname=config.smtp.host, port=config.smtp.port
-    ) as smtp:
-        await smtp.login(config.smtp.username, config.smtp.password.get_secret_value())
-        await smtp.send_message(message)
-        logger.info(f"Email ({subject}) has been sent to {email}")
+    smtp = SMTP(host=config.smtp.host, port=config.smtp.port)
+    smtp.starttls()
+    smtp.login(config.smtp.username, config.smtp.password.get_secret_value())
+    smtp.send_message(message)
+    smtp.quit()
+    logger.info(f"Email ({subject}) has been sent to {email}")
 
 
 def sanitize_context(context):
@@ -42,13 +43,13 @@ def sanitize_context(context):
     return santized_context
 
 
-async def send_individual_confirmation_email(email: str, name: str) -> None:
+def send_individual_confirmation_email(email: str, name: str) -> None:
     """
     Send an email to the individual contributor confirming the signing of the CLA.
     """
     subject = "Canonical CLA Signed"
 
-    await send_email(
+    send_email(
         name,
         email,
         subject,
@@ -65,14 +66,14 @@ async def send_individual_confirmation_email(email: str, name: str) -> None:
     )
 
 
-async def send_organization_confirmation_email(
+def send_organization_confirmation_email(
     email: str, name: str, organization_name: str, email_domain
 ) -> None:
     """
     Send an email to the organization confirming the signing of the CLA.
     """
     subject = "Canonical CLA Signed"
-    await send_email(
+    send_email(
         name,
         email,
         subject,
@@ -91,7 +92,7 @@ async def send_organization_confirmation_email(
     )
 
 
-async def send_legal_notification(
+def send_legal_notification(
     organization_name: str,
     contact_name: str,
     contact_email: str,
@@ -106,7 +107,7 @@ async def send_legal_notification(
     """
     subject = "Canonical CLA Signed - Action Required"
 
-    await send_email(
+    send_email(
         "Canonical Legal Team",
         config.smtp.legal_contact_email,
         subject,

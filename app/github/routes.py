@@ -33,7 +33,7 @@ async def github_login(
         redirect_url = base64.b64decode(redirect_url).decode("utf-8")
     return await github_service.login(
         f"{config.app_url}/github/callback",
-        success_redirect_url=redirect_url or f"{config.app_url}/profile",
+        success_redirect_url=redirect_url or f"{config.app_url}/github/profile",
     )
 
 
