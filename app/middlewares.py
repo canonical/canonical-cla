@@ -86,12 +86,14 @@ def register_middlewares(app: FastAPI):
                 response.headers[key] = value
 
         return response
+
     @app.middleware("http")
     async def no_cache_middleware(request: Request, call_next):
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store, must-revalidate"
         response.headers["Expires"] = "0"
         return response
+
     @app.middleware("http")
     async def rate_limit_middleware(
         request: Request,
