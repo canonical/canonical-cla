@@ -49,7 +49,7 @@ async def redoc_html():
     return state["redoc_html"]
 
 
-@app.get("/healthz", include_in_schema=False)
+@app.get("/_status/check", include_in_schema=False)
 def health_check():
     return {"status": "OK"}
 
