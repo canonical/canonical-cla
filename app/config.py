@@ -74,9 +74,7 @@ class SMTPConfig(BaseSettings):
     username: str
     password: SecretStr
     from_email: str = formataddr(("Canonical CLA", "noreply+cla@canonical.com"))
-    legal_contact_email: str = formataddr(
-        ("Canonical's Legal Team", "legal@canonical.com")
-    )
+    legal_contact_email: str = "legal@canonical.com"
 
 
 class RateLimitConfig(BaseSettings):
