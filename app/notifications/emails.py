@@ -15,15 +15,15 @@ templates_loader = jinja2.FileSystemLoader(Path(__file__).parent / "templates")
 templates = jinja2.Environment(loader=templates_loader)
 
 
-def send_email(name: str, email: str, subject: str, body: str) -> None:
+def send_email(email: str, subject: str, body: str) -> None:
     """
     Send an email to the provided email address.
     raises: SMTPException if the email could not be sent.
     """
     message = MIMEText(body, "html", "utf-8")
     message["From"] = config.smtp.from_email
-    message["Reply-To"] = config.smtp.reply_to_email
-    message["To"] = formataddr((name, email))
+    message["Reply-To"] = config.smtp.legal_contact_email
+    message["To"] = email
     message["Subject"] = subject
     smtp = SMTP(host=config.smtp.host, port=config.smtp.port)
     smtp.starttls()
@@ -50,8 +50,7 @@ def send_individual_confirmation_email(email: str, name: str) -> None:
     subject = "Canonical CLA Signed"
 
     send_email(
-        name,
-        email,
+        formataddr((name, email)),
         subject,
         body=templates.get_template(
             "cla_signed_confirmation.j2",
@@ -74,8 +73,7 @@ def send_organization_confirmation_email(
     """
     subject = "Canonical CLA Signed"
     send_email(
-        name,
-        email,
+        formataddr((name, email)),
         subject,
         body=templates.get_template(
             "cla_signed_confirmation.j2",
@@ -108,8 +106,7 @@ def send_legal_notification(
     subject = "Canonical CLA Signed - Action Required"
 
     send_email(
-        "Canonical Legal Team",
-        config.smtp.legal_contact_email,
+        formataddr(("Canonical Legal Team", config.smtp.legal_contact_email)),
         subject,
         body=templates.get_template(
             "cla_signed_legal_notification.j2",
