@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% with title='CLA Status Update' %}
+        {% include 'partials/head.j2' %}
+    {% endwith %}
+    <body>
+        {% include 'partials/logo.j2' %}
+        <h1>Canonical CLA Status Update</h1>
+        <p>Dear {{ contact_name }},</p>
+        {% if status == 'approved' %}
+            <p>
+                Your organization's ({{ organization_name }}) Canonical Contributor License Agreement (CLA) has been <strong>approved</strong>.
+            </p>
+            <p>
+                Contributors using email addresses with the domain <strong>{{ email_domain }}</strong> can now contribute to Canonical projects under this agreement.
+            </p>
+        {% elif status == 'disabled' %}
+            <p>
+                Your organization's ({{ organization_name }}) Canonical Contributor License Agreement (CLA) status has been <strong>disabled</strong>.
+            </p>
+            <p>
+                Contributors using email addresses with the domain <strong>{{ email_domain }}</strong> will no longer be recognized as having a valid CLA.
+            </p>
+        {% endif %}
+        <p>
+            For questions or concerns, please contact us at <a href="mailto:contributor-agreement@canonical.com">contributor-agreement@canonical.com</a>.
+        </p>
+        <p>
+            Regards,
+            <br />
+            The Canonical Team
+        </p>
+    </body>
+</html>

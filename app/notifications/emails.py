@@ -3,6 +3,7 @@ from email.mime.text import MIMEText
 from email.utils import formataddr
 from pathlib import Path
 from smtplib import SMTP
+from typing import Literal
 
 import bleach
 import jinja2
@@ -26,7 +27,9 @@ def send_email(email: str, subject: str, body: str) -> None:
     message["To"] = email
     message["Subject"] = subject
     smtp = SMTP(host=config.smtp.host, port=config.smtp.port)
-    smtp.starttls()
+    is_local = config.smtp.host == "localhost" or config.smtp.host == "127.0.0.1"
+    if not is_local:
+        smtp.starttls()
     smtp.login(config.smtp.username, config.smtp.password.get_secret_value())
     smtp.send_message(message)
     smtp.quit()
@@ -111,15 +114,49 @@ def send_legal_notification(
         body=templates.get_template(
             "cla_signed_legal_notification.j2",
         ).render(
-            {
-                "organization_name": organization_name,
-                "contact_name": contact_name,
-                "contact_email": contact_email,
-                "phone_number": phone_number,
-                "address": address,
-                "country": pycountry.countries.get(alpha_2=country).name,
-                "email_domain": email_domain,
-                "cla_management_url": cla_management_url,
-            }
+            sanitize_context(
+                {
+                    "organization_name": organization_name,
+                    "contact_name": contact_name,
+                    "contact_email": contact_email,
+                    "phone_number": phone_number,
+                    "address": address,
+                    "country": pycountry.countries.get(alpha_2=country).name,
+                    "email_domain": email_domain,
+                    "cla_management_url": cla_management_url,
+                }
+            )
+        ),
+    )
+
+
+Status = Literal["approved", "disabled"]
+
+
+def send_organization_status_update(
+    contact_email: str,
+    contact_name: str,
+    organization_name: str,
+    status: Status,
+    email_domain: str,
+) -> None:
+    """
+    Send an email to the organization notifying them of their status update.
+    """
+    subject = f"Canonical CLA Status Update: {status.capitalize()}"
+    send_email(
+        formataddr((contact_name, contact_email)),
+        subject,
+        body=templates.get_template(
+            "cla_org_status_update.j2",
+        ).render(
+            sanitize_context(
+                {
+                    "contact_name": contact_name,
+                    "organization_name": organization_name,
+                    "status": status,
+                    "email_domain": email_domain,
+                }
+            )
         ),
     )

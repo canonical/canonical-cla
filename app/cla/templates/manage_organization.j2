@@ -17,7 +17,12 @@
             <h1>CLA Approval Form</h1>
             {% if message %}
                 <div class="p-notification p-notification--positive">
-                    <p>{{ message }}</p>
+                    <div class="p-notification__content">
+                        <h5 class="p-notification__title">{{ message }}</h5>
+                        {% if email_sent %}
+                            <p>An email has been sent to the organization's contact email to notify them of the status update.</p>
+                        {% endif %}
+                    </div>
                     <button class="p-notification__close"
                             aria-controls="notification"
                             onclick="this.parentElement.style.display='none';">Close</button>
@@ -26,7 +31,7 @@
             <form method="post">
                 <div class="p-form__group">
                     <label for="organisation_name" class="p-form__label">
-                        Organisation name:<span class="p-form-help-text">(Read-only)</span>
+                        Organisation name: <span class="p-form-help-text">(Read-only)</span>
                     </label>
                     <input type="text"
                            id="organisation_name"
@@ -114,11 +119,17 @@
             </form>
         </div>
         <script>
-    // remove query ?message=... if exists
-    if (window.location.search.includes('message')) {
-      const query = window.location.search.replace(/&?message=[^&]+/, '');
-      window.history.replaceState({}, document.title, window.location.pathname + query);
-    }
+            // remove query ?message=... if exists
+            const flushFields = ["message", "email_sent"];
+            const queryParams = new URLSearchParams(window.location.search);
+            flushFields.forEach((field) => queryParams.delete(field));
+            console.log(queryParams);
+            const query = queryParams.toString() ? "?" + queryParams.toString() : "";
+            window.history.replaceState(
+                {},
+                document.title,
+                window.location.pathname + query
+            );            
         </script>
     </body>
 </html>

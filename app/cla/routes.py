@@ -31,6 +31,7 @@ from app.notifications.emails import (
     send_individual_confirmation_email,
     send_legal_notification,
     send_organization_confirmation_email,
+    send_organization_status_update,
 )
 from app.repository.organization import OrganizationRepository, organization_repository
 from app.utils import AESCipher, cipher
@@ -116,7 +117,6 @@ async def sign_cla_individual(
     response_model=OrganizationCreationSuccess,
 )
 async def sign_cla_organization(
-    request: Request,
     organization: OrganizationCreateForm,
     background_tasks: BackgroundTasks,
     cla_service: CLAService = Depends(cla_service),
@@ -169,6 +169,7 @@ async def manage_organization(
     request: Request,
     id: str,
     message: str | None = None,
+    email_sent: bool | None = None,
     organization_repository: OrganizationRepository = Depends(organization_repository),
     cipher: AESCipher = Depends(cipher),
 ):
@@ -193,13 +194,14 @@ async def manage_organization(
             "organization_id": id,
             "organization": organization.as_dict(),
             "message": message,
+            "email_sent": email_sent,
         },
     )
 
 
 @cla_router.post("/organization", include_in_schema=False)
 async def update_organization(
-    request: Request,
+    background_tasks: BackgroundTasks,
     id: str,
     email_domain: Annotated[str, Form()],
     docusign_url: Annotated[str | None, Form()] = None,
@@ -216,7 +218,6 @@ async def update_organization(
         await sleep(10)
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    approved = approved == "on"
     organization = await organization_repository.get_organization_by_id(
         int(decrypted_organization_id)
     )
@@ -225,6 +226,9 @@ async def update_organization(
     organization.email_domain = email_domain
     organization.docusign_url = docusign_url
     organization.salesforce_url = salesforce_url
+
+    approved = approved == "on"
+    current_approved_status = organization.is_active()
     if approved:
         if not organization.signed_at:
             organization.signed_at = datetime.now()
@@ -233,7 +237,24 @@ async def update_organization(
     else:
         organization.revoked_at = datetime.now()
     await organization_repository.update_organization(organization)
+    email_sent = False
+    if current_approved_status != approved:
+        email_sent = True
+        background_tasks.add_task(
+            send_organization_status_update,
+            organization.contact_email,
+            organization.contact_name,
+            organization.name,
+            "approved" if approved else "disabled",
+            organization.email_domain,
+        )
 
     url = list(urlparse(f"{config.app_url}/cla/organization"))
-    url[4] = urlencode({"id": id, "message": "Organization updated successfully"})
+    url[4] = urlencode(
+        {
+            "id": id,
+            "message": "Organization updated successfully",
+            "email_sent": email_sent,
+        }
+    )
     return RedirectResponse(urlunparse(url), status_code=302)

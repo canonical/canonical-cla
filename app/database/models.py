@@ -58,6 +58,10 @@ class Organization(Base):
     signed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime)
     revoked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime)
 
+    def is_active(self) -> bool:
+        """Check if the organization has an active CLA."""
+        return self.revoked_at is None and self.signed_at is not None
+
 
 AuditLogActionType = Literal[
     "SIGN",
