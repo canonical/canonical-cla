@@ -2,7 +2,7 @@ from asyncio import sleep
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import urlencode, urlparse, urlunparse
+from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 
 from fastapi import (
     APIRouter,
@@ -133,7 +133,9 @@ async def sign_cla_organization(
     created_organization = await cla_service.organization_cla_sign(
         organization, gh_session, lp_session
     )
-    manage_organization_url = list(urlparse("http://localhost:8000/cla/organization"))
+    manage_organization_url = list(
+        urlparse(urljoin(config.app_url, "/cla/organization"))
+    )
     manage_organization_url[4] = urlencode(
         {"id": cipher.encrypt(str(created_organization.id))}
     )
