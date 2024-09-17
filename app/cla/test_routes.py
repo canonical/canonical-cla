@@ -60,10 +60,8 @@ async def test_sign_cla_organization():
         "email_domain": "email.com",
     }
     background_tasks = MagicMock()
-    request = MagicMock()
     cipher = MagicMock()
-    response = await sign_cla_organization(
-        request=request,
+    await sign_cla_organization(
         organization=organization_form,
         cla_service=cla_service,
         background_tasks=background_tasks,
