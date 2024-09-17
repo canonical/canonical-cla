@@ -38,15 +38,15 @@ end
 
 # other paths can't be whitelisted
 # this will prevent users from bypassing rate limiting by sending requests from a GitHub action or similar service
-whitelistable_paths = {"/cla/check"}
+whitelistable_paths = {"cla/check"}
 
 # rate limiting health could cause a deadlock
 excluded_paths = {
-    "/_status/health",
-    "/docs",
-    "/",
-    "/github/profile",
-    "/launchpad/profile",
+    "_status/health",
+    "docs",
+    "",
+    "github/profile",
+    "launchpad/profile",
 }
 
 
