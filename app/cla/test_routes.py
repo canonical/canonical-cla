@@ -15,10 +15,21 @@ from app.cla.routes import (
 @pytest.mark.asyncio
 async def test_cla_check():
     cla_service = MagicMock()
-    cla_service.check_cla = AsyncMock(return_value={"email1": True, "email2": False})
-    response = await check_cla(emails=["email1", "email2"], cla_service=cla_service)
+    cla_service.check_cla = AsyncMock(
+        return_value={
+            "emails": {"email1": True, "email2": False},
+            "github_usernames": {"dev1": False, "dev2": True},
+            "launchpad_usernames": {"lp_dev1": True, "dev1": False, "lp_dev2": True},
+        }
+    )
+    response = await check_cla(
+        emails=["email1", "email2"],
+        github_usernames=["dev1", "dev2"],
+        launchpad_usernames=["lp_dev1", "dev1", "lp_dev2"],
+        cla_service=cla_service,
+    )
 
-    assert response == {"email1": True, "email2": False}
+    assert response == cla_service.check_cla.return_value
     assert cla_service.check_cla.called
 
 

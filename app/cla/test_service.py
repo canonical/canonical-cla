@@ -5,6 +5,7 @@ import pytest
 from pytest_asyncio import fixture
 
 from app.cla.email_utils import clean_email
+from app.cla.models import CLACheckResponse
 from app.cla.service import CLAService
 from app.database.models import Individual, Organization
 
@@ -34,22 +35,52 @@ def emails():
     ]
 
 
+@fixture
+def usernames():
+    return [
+        "dev1",
+        "dev2",
+        "dev3",
+    ]
+
+
 @pytest.mark.asyncio
-async def test_check_cla(cla_service, emails):
+async def test_check_cla(cla_service, emails, usernames):
     cla_service.individuals_signed_cla = AsyncMock(return_value={"email1@example.com"})
     cla_service.organizations_signed_cla = AsyncMock(
         return_value={clean_email(emails[2])}
     )
-    response = await cla_service.check_cla(emails)
-    assert response == {
-        emails[0]: True,
-        emails[1]: False,
-        emails[2]: True,
-        emails[3]: False,
-        emails[4]: False,
-    }
+    cla_service.check_cla_for_github_usernames = AsyncMock(
+        return_value={"dev1": True, "dev2": False, "dev3": True}
+    )
+    cla_service.check_cla_for_launchpad_usernames = AsyncMock(
+        return_value={"dev1": False, "dev2": True, "dev3": False}
+    )
+
+    response = await cla_service.check_cla(emails, usernames, usernames)
+    assert response == CLACheckResponse(
+        emails={
+            emails[0]: True,
+            emails[1]: False,
+            emails[2]: True,
+            emails[3]: False,
+            emails[4]: False,
+        },
+        github_usernames={
+            usernames[0]: True,
+            usernames[1]: False,
+            usernames[2]: True,
+        },
+        launchpad_usernames={
+            usernames[0]: False,
+            usernames[1]: True,
+            usernames[2]: False,
+        },
+    )
     assert cla_service.individuals_signed_cla.called
     assert cla_service.organizations_signed_cla.called
+    assert cla_service.check_cla_for_github_usernames.called
+    assert cla_service.check_cla_for_launchpad_usernames.called
 
 
 @pytest.mark.asyncio

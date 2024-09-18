@@ -18,6 +18,14 @@ class IndividualRepository(Protocol):
 
     async def create_individual(self, individual: Individual) -> Individual: ...
 
+    async def get_individuals_by_github_usernames(
+        self, usernames: list[str]
+    ) -> list[Individual]: ...
+
+    async def get_individuals_by_launchpad_usernames(
+        self, usernames: list[str]
+    ) -> list[Individual]: ...
+
 
 class SQLIndividualRepository(IndividualRepository):
     def __init__(self, session: AsyncSession):
@@ -64,6 +72,20 @@ class SQLIndividualRepository(IndividualRepository):
         await self.session.commit()
         await self.session.refresh(individual)
         return individual
+
+    async def get_individuals_by_github_usernames(
+        self, usernames: list[str]
+    ) -> list[Individual]:
+        query = select(Individual).where(Individual.github_username.in_(usernames))
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def get_individuals_by_launchpad_usernames(
+        self, usernames: list[str]
+    ) -> list[Individual]:
+        query = select(Individual).where(Individual.launchpad_username.in_(usernames))
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
 
 
 def individual_repository(

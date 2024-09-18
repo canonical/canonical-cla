@@ -1,7 +1,7 @@
 from asyncio import sleep
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, List
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 
 from fastapi import (
@@ -18,6 +18,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.responses import JSONResponse
 
 from app.cla.models import (
+    CLACheckResponse,
     IndividualCreateForm,
     IndividualCreationSuccess,
     OrganizationCreateForm,
@@ -46,36 +47,35 @@ cla_router = APIRouter(prefix="/cla", tags=["CLA"])
     openapi_extra={
         "summary": "Check CLA",
     },
-    responses={
-        200: {
-            "description": "Check CLA response",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "dev1@ubuntu.com": True,
-                        "dev2@example.com": False,
-                    }
-                }
-            },
-        }
-    },
 )
 async def check_cla(
-    emails: Annotated[
-        list[str],
-        Query(
-            title="Emails",
-            description="A list of emails to check for CLA signatories",
-            max_length=100,
-            examples=["dev1@ubuntu.com,dev2@example.com"],
-        ),
-    ],
+    emails: List[str] | None = Query(
+        title="Emails",
+        description="A list of emails to check for CLA signatories",
+        max_length=100,
+        examples=["dev1@ubuntu.com,dev2@example.com"],
+        default=[],
+    ),
+    github_usernames: List[str] | None = Query(
+        title="GitHub Usernames",
+        description="A list of GitHub usernames to check for CLA signatories",
+        max_length=100,
+        examples=["dev1,dev2"],
+        default=[],
+    ),
+    launchpad_usernames: List[str] | None = Query(
+        title="Launchpad Usernames",
+        description="A list of Launchpad usernames to check for CLA signatories",
+        max_length=100,
+        examples=["dev1,dev2"],
+        default=[],
+    ),
     cla_service: CLAService = Depends(cla_service),
-) -> dict[str, bool]:
+) -> CLACheckResponse:
     """
     Checks if one or multiple contributors have signed the CLA.
     """
-    return await cla_service.check_cla(emails)
+    return await cla_service.check_cla(emails, github_usernames, launchpad_usernames)
 
 
 @cla_router.post(

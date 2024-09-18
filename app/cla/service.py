@@ -4,7 +4,11 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 
 from app.cla.email_utils import clean_email, email_domain
-from app.cla.models import IndividualCreateForm, OrganizationCreateForm
+from app.cla.models import (
+    CLACheckResponse,
+    IndividualCreateForm,
+    OrganizationCreateForm,
+)
 from app.database.models import Individual, Organization
 from app.github.models import GithubProfile
 from app.github.service import GithubService, github_service
@@ -29,7 +33,57 @@ class CLAService:
         self.individual_repository = individual_repository
         self.organization_repository = organization_repository
 
-    async def check_cla(self, emails: list[str]) -> dict[str, bool]:
+    async def check_cla(
+        self,
+        emails: list[str],
+        github_usernames: list[str],
+        launchpad_usernames: list[str],
+    ) -> CLACheckResponse:
+        return CLACheckResponse(
+            emails=await self.check_cla_for_emails(emails) if emails else {},
+            github_usernames=(
+                await self.check_cla_for_github_usernames(github_usernames)
+                if github_usernames
+                else {}
+            ),
+            launchpad_usernames=(
+                await self.check_cla_for_launchpad_usernames(launchpad_usernames)
+                if launchpad_usernames
+                else {}
+            ),
+        )
+
+    async def check_cla_for_github_usernames(
+        self, usernames: list[str]
+    ) -> dict[str, bool]:
+        Individuals_signed = (
+            await self.individual_repository.get_individuals_by_github_usernames(
+                usernames
+            )
+        )
+        signed_usernames = {
+            individual.github_username
+            for individual in Individuals_signed
+            if individual.github_username
+        }
+        return {username: username in signed_usernames for username in usernames}
+
+    async def check_cla_for_launchpad_usernames(
+        self, usernames: list[str]
+    ) -> dict[str, bool]:
+        Individuals_signed = (
+            await self.individual_repository.get_individuals_by_launchpad_usernames(
+                usernames
+            )
+        )
+        signed_usernames = {
+            individual.launchpad_username
+            for individual in Individuals_signed
+            if individual.launchpad_username
+        }
+        return {username: username in signed_usernames for username in usernames}
+
+    async def check_cla_for_emails(self, emails: list[str]) -> dict[str, bool]:
         # map given user emails to normalized emails
         # and respond with user's emails once checked
         normalized_emails = {raw_email: clean_email(raw_email) for raw_email in emails}

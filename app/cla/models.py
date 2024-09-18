@@ -98,3 +98,27 @@ class OrganizationCreationSuccess(BaseModel):
     message: str = (
         "Organization Contributor License Agreement (CLA) signed successfully"
     )
+
+
+class CLACheckResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "emails": {
+                    "dev1@ubuntu.com": True,
+                    "dev2@example.com": False,
+                },
+                "github_usernames": {
+                    "dev1": True,
+                    "dev2": False,
+                },
+                "launchpad_usernames": {
+                    "dev1": True,
+                    "dev2": False,
+                },
+            }
+        }
+    )
+    emails: dict[str, bool]
+    github_usernames: dict[str, bool]
+    launchpad_usernames: dict[str, bool]
