@@ -7,6 +7,8 @@ import httpx
 from fastapi import Depends, HTTPException
 from fastapi.responses import RedirectResponse
 
+from app.cla.email_utils import email_domain
+from app.cla.excluded_emails import EXCLUDED_EMAILS, excluded_email
 from app.config import config
 from app.launchpad.models import (
     AccessTokenSession,
@@ -150,6 +152,7 @@ class LaunchpadService:
         additional_emails = [entry["email"] for entry in email_list["entries"]]
 
         all_emails = [primary_email, *additional_emails]
+        all_emails = [email for email in all_emails if not excluded_email(email)]
         return LaunchpadProfile(
             _id=user["id"],
             username=user["name"],

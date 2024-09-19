@@ -4,6 +4,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 
 from app.cla.email_utils import clean_email, email_domain
+from app.cla.excluded_emails import excluded_email
 from app.cla.models import (
     CLACheckResponse,
     IndividualCreateForm,
@@ -146,6 +147,11 @@ class CLAService:
             )
 
         if individual_form.github_email:
+            if excluded_email(individual_form.github_email):
+                raise HTTPException(
+                    status_code=400,
+                    detail="The provided GitHub email is not allowed",
+                )
             if not gh_session:
                 raise HTTPException(
                     status_code=401, detail="GitHub OAuth2 session is required"
@@ -160,6 +166,12 @@ class CLAService:
             # avoid storing the github id and username if no email is provided
             github_profile = None
         if individual_form.launchpad_email:
+            if excluded_email(individual_form.launchpad_email):
+                raise HTTPException(
+                    status_code=400,
+                    detail="The provided Launchpad email is not allowed",
+                )
+
             if not lp_session:
                 raise HTTPException(
                     status_code=401, detail="Launchpad OAuth session is required"

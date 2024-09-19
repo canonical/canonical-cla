@@ -6,6 +6,8 @@ import httpx
 from fastapi import Depends, HTTPException
 from fastapi.responses import RedirectResponse
 
+from app.cla.email_utils import email_domain
+from app.cla.excluded_emails import EXCLUDED_EMAILS, excluded_email
 from app.config import config
 from app.github.models import GitHubAccessTokenResponse, GithubProfile
 from app.utils import EncryptedAPIKeyCookie, http_client
@@ -87,7 +89,11 @@ class GithubService:
                 detail="Failed to get emails from GitHub",
             )
         emails = response.json()
-        all_emails = [email["email"] for email in emails if email["verified"]]
+        all_emails = [
+            email["email"]
+            for email in emails
+            if email["verified"] and not excluded_email(email["email"])
+        ]
 
         user = await self.http_client.get(
             url="https://api.github.com/user",
