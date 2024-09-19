@@ -1,9 +1,11 @@
 import asyncio
 import base64
+import binascii
 import json
 from datetime import datetime
 from hashlib import sha256
 from typing import AsyncIterator, Literal, ParamSpec, TypeVar
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import httpx
 from Crypto import Random
@@ -30,18 +32,32 @@ class AESCipher(object):
 
     def decrypt(self, enc: str) -> str | None:
         try:
-            decoded_raw = base64.b64decode(enc)
+            decoded_raw = Base64.decode(enc, text=False)
             iv = decoded_raw[: AES.block_size]
             cipher = AES.new(self.key, AES.MODE_CBC, iv)
             return unpad(
                 cipher.decrypt(decoded_raw[AES.block_size :]), AES.block_size
             ).decode("utf-8")
-        except ValueError as e:
+        except (ValueError, HTTPException):
             return None
 
 
 def cipher():
     return AESCipher(config.secret_key.get_secret_value())
+
+
+class Base64:
+    @staticmethod
+    def encode(data: str) -> str:
+        return base64.b64encode(data.encode()).decode()
+
+    @staticmethod
+    def decode(data: str, text: bool | None = True) -> str | bytes:
+        try:
+            output = base64.b64decode(data.encode())
+            return output.decode() if text else output
+        except binascii.Error:
+            raise HTTPException(status_code=400, detail="Invalid base64 encoding")
 
 
 T = TypeVar("T")
@@ -112,3 +128,11 @@ class ErrorResponse(TypedDict):
 
 def error_status_codes(status_code: list[int]):
     return {status: {"model": ErrorResponse} for status in status_code}
+
+
+def update_query_params(url: str, **params) -> str:
+    url_parts = list(urlparse(url))
+    query = dict(parse_qsl(url_parts[4]))
+    query.update(params)
+    url_parts[4] = urlencode(query)
+    return str(urlunparse(url_parts))

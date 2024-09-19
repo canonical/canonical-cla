@@ -1,7 +1,5 @@
-import base64
 import json
 from typing import Annotated, Literal
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -19,7 +17,7 @@ from app.launchpad.service import (
     launchpad_cookie_session,
     launchpad_service,
 )
-from app.utils import error_status_codes
+from app.utils import Base64, error_status_codes, update_query_params
 
 launchpad_router = APIRouter(prefix="/launchpad", tags=["Launchpad"])
 
@@ -41,12 +39,9 @@ async def launchpad_login(
     """
     Redirects to Launchpad OAuth login page.
     """
-    if redirect_url:
-        redirect_url = base64.b64decode(redirect_url).decode("utf-8")
-
     return await launchpad_service.login(
         callback_url=f"{config.app_url}/launchpad/callback",
-        success_redirect_url=redirect_url or f"{config.app_url}/launchpad/profile",
+        redirect_url=Base64.decode(redirect_url) if redirect_url else None,
     )
 
 
@@ -57,7 +52,6 @@ async def launchpad_login(
     responses=error_status_codes([401]),
 )
 async def launchpad_callback(
-    request: Request,
     state: Annotated[str, Query(description="The OAuth state returned by Launchpad.")],
     launchpad_session: dict | None = Depends(launchpad_cookie_session),
     launchpad_service: LaunchpadService = Depends(launchpad_service),
@@ -74,17 +68,24 @@ async def launchpad_callback(
         raise HTTPException(
             status_code=401, detail="Unauthorized: OAuth state mismatch"
         )
-    access_token = await launchpad_service.callback(
-        profile_url=f"{config.app_url}/launchpad/profile", session_data=session_data
-    )
+    redirect_url = session_data["redirect_url"]
+    try:
+        access_token = await launchpad_service.callback(session_data=session_data)
+    except HTTPException as e:
+        if redirect_url:
+            redirect_url = update_query_params(redirect_url, launchpad_error=e.detail)
+            return RedirectResponse(url=redirect_url)
+        else:
+            raise e
 
     encrypted_access_token = launchpad_service.encrypt(json.dumps(access_token))
 
-    redirect_url_parts = list(urlparse(launchpad_session["success_redirect_url"]))
-    query = dict(parse_qsl(redirect_url_parts[4]))
-    query["access_token"] = encrypted_access_token
-    redirect_url_parts[4] = urlencode(query)
-    redirect_url = urlunparse(redirect_url_parts)
+    if redirect_url:
+        redirect_url = update_query_params(
+            redirect_url, access_token=encrypted_access_token
+        )
+    else:
+        redirect_url = f"{config.app_url}/launchpad/profile"
 
     redirect_response = RedirectResponse(url=redirect_url)
     launchpad_cookie_session.set_cookie(
@@ -125,7 +126,7 @@ async def launchpad_logout(
     """
     response: Response
     if redirect_url:
-        redirect_url = base64.b64decode(redirect_url).decode("utf-8")
+        redirect_url = Base64.decode(redirect_url)
         response = RedirectResponse(url=redirect_url)
     else:
         response = JSONResponse(

@@ -95,7 +95,7 @@ class RequestTokenSession(TypedDict):
     oauth_token: str
     oauth_token_secret: str
     state: str
-    success_redirect_url: str
+    redirect_url: str | None
 
 
 class LaunchpadProfile(BaseModel):

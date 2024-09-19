@@ -32,9 +32,7 @@ class GithubService:
         self.cookie_session = cookie_session
         self.http_client = http_client
 
-    async def login(
-        self, callback_url: str, success_redirect_url: str
-    ) -> RedirectResponse:
+    async def login(self, callback_url: str, redirect_url: str) -> RedirectResponse:
         state = secrets.token_urlsafe(16)
         params = urlencode(
             {
@@ -49,9 +47,7 @@ class GithubService:
         )
         self.cookie_session.set_cookie(
             response,
-            value=json.dumps(
-                {"state": state, "success_redirect_url": success_redirect_url}
-            ),
+            value=json.dumps({"state": state, "redirect_url": redirect_url}),
             max_age=600,  # 10 minutes (GitHub OAuth2 session timeout)
             httponly=True,
         )

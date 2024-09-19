@@ -52,7 +52,7 @@ async def test_login_success(token_urlsafe):
     )
     launchpad_service = LaunchpadService(cookie_session, http_client)
     response = await launchpad_service.login(
-        callback_url="http://test.com", success_redirect_url="not_used_in_this_test"
+        callback_url="http://test.com", redirect_url="not_used_in_this_test"
     )
     assert http_client.post.called
     assert cookie_session.set_cookie.called
@@ -85,9 +85,7 @@ async def test_callback_success(cookie_session, request_token_session):
         )
     )
     launchpad_service = LaunchpadService(cookie_session, http_client)
-    response = await launchpad_service.callback(
-        request_token_session, "http://test.com/emails"
-    )
+    response = await launchpad_service.callback(request_token_session)
     assert http_client.post.called
     assert response == LaunchpadAccessTokenResponse(
         oauth_token="test_token", oauth_token_secret="test_secret"
@@ -101,9 +99,7 @@ async def test_callback_failure(cookie_session, request_token_session):
     http_client.post = AsyncMock(return_value=httpx.Response(status_code=500))
     launchpad_service = LaunchpadService(cookie_session, http_client)
     with pytest.raises(HTTPException):
-        await launchpad_service.callback(
-            request_token_session, "http://test.com/emails"
-        )
+        await launchpad_service.callback(request_token_session)
 
 
 @pytest.mark.asyncio

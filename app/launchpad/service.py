@@ -34,7 +34,7 @@ class LaunchpadService:
         self.http_client = http_client
 
     async def login(
-        self, callback_url: str, success_redirect_url: str
+        self, callback_url: str, redirect_url: str | None = None
     ) -> RedirectResponse:
         request_token_params = {
             "oauth_consumer_key": config.app_name,
@@ -72,7 +72,7 @@ class LaunchpadService:
             oauth_token=request_token_response["oauth_token"],
             oauth_token_secret=request_token_response["oauth_token_secret"],
             state=state,
-            success_redirect_url=success_redirect_url,
+            redirect_url=redirect_url,
         )
         self.cookie_session.set_cookie(
             response,
@@ -85,7 +85,6 @@ class LaunchpadService:
     async def callback(
         self,
         session_data: RequestTokenSession,
-        profile_url: str,
     ) -> LaunchpadAccessTokenResponse:
         access_token_params = {
             "oauth_consumer_key": config.app_name,

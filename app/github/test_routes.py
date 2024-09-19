@@ -36,10 +36,8 @@ async def test_callback_success():
     github_service.encrypt = MagicMock(return_value="test_encrypted_token")
     code = "test_code"
     state = "test_state"
-    request = Request({"url": "http://test.com", "type": "http", "router": "github"})
-    github_session = {"state": state, "success_redirect_url": "http://test.com/profile"}
+    github_session = {"state": state, "redirect_url": "http://test.com/profile"}
     response = await github_callback(
-        request,
         code=code,
         state=state,
         github_session=github_session,

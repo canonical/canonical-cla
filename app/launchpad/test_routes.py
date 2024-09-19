@@ -40,16 +40,11 @@ async def test_callback_success():
     )
     launchpad_service.encrypt = MagicMock(return_value="test_encrypted_token")
     state = "test_state"
-    request = Request(
-        {"url": "http://test.com/callback", "type": "http", "router": "launchpad"}
-    )
     launchpad_session = {
         "state": state,
-        "success_redirect_url": "http://test.com/profile",
+        "redirect_url": "http://test.com/profile",
     }
-    response = await launchpad_callback(
-        request, state, launchpad_session, launchpad_service
-    )
+    response = await launchpad_callback(state, launchpad_session, launchpad_service)
 
     assert response.status_code == 307
     assert (
@@ -68,26 +63,24 @@ async def test_callback_invalid_params():
         )
     )
     state = None
-    request = Request(
-        {"url": "http://test.com/callback", "type": "http", "router": "launchpad"}
-    )
+
     launchpad_session = {"state": "test_state"}
     with pytest.raises(HTTPException):
-        await launchpad_callback(request, state, launchpad_session, launchpad_service)
+        await launchpad_callback(state, launchpad_session, launchpad_service)
 
     assert not launchpad_service.callback.called
 
     state = "test_state"
     launchpad_session = None
     with pytest.raises(HTTPException):
-        await launchpad_callback(request, state, launchpad_session, launchpad_service)
+        await launchpad_callback(state, launchpad_session, launchpad_service)
 
     assert not launchpad_service.callback.called
 
     state = "invalid_test_state"
     launchpad_session = {"state": "test_state"}
     with pytest.raises(HTTPException):
-        await launchpad_callback(request, state, launchpad_session, launchpad_service)
+        await launchpad_callback(state, launchpad_session, launchpad_service)
 
     assert not launchpad_service.callback.called
 

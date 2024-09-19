@@ -1,8 +1,6 @@
-import base64
 from typing import Annotated
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.responses import Response
 from typing_extensions import TypedDict
@@ -10,7 +8,7 @@ from typing_extensions import TypedDict
 from app.config import config
 from app.github.models import GithubProfile
 from app.github.service import GithubService, github_cookie_session, github_service
-from app.utils import error_status_codes
+from app.utils import Base64, error_status_codes, update_query_params
 
 github_router = APIRouter(prefix="/github", tags=["GitHub"])
 
@@ -29,11 +27,9 @@ async def github_login(
     """
     Redirects to GitHub OAuth login page.
     """
-    if redirect_url:
-        redirect_url = base64.b64decode(redirect_url).decode("utf-8")
     return await github_service.login(
         f"{config.app_url}/github/callback",
-        success_redirect_url=redirect_url or f"{config.app_url}/github/profile",
+        redirect_url=Base64.decode(redirect_url) if redirect_url else None,
     )
 
 
@@ -43,20 +39,19 @@ async def github_login(
     responses=error_status_codes([400, 401]),
 )
 async def github_callback(
-    request: Request,
     code: Annotated[
-        str,
+        str | None,
         Query(
             description="The OAuth code returned by GitHub.",
             examples=["df45d15568265833c19a"],
         ),
-    ],
+    ] = None,
     state: Annotated[
-        str,
+        str | None,
         Query(
             description="A security check state.", examples=["vgdC38-XOeSIDXImpHnrHQ"]
         ),
-    ],
+    ] = None,
     error_description: Annotated[
         str | None,
         Query(
@@ -69,9 +64,18 @@ async def github_callback(
     """
     Handles the GitHub OAuth callback.
     """
+    redirect_url = github_session["redirect_url"]
     if error_description:
-        raise HTTPException(status_code=400, detail=f"Bad Request: {error_description}")
-    if github_session is None:
+        if redirect_url:
+            redirect_url = update_query_params(
+                redirect_url, github_error=error_description
+            )
+            return RedirectResponse(url=redirect_url)
+        else:
+            raise HTTPException(
+                status_code=400, detail=f"Bad Request: {error_description}"
+            )
+    if github_session is None or not code or not state:
         raise HTTPException(
             status_code=401,
             detail="Unauthorized: GitHub session is missing please login first",
@@ -81,21 +85,24 @@ async def github_callback(
         raise HTTPException(
             status_code=401, detail="Unauthorized: OAuth state does not match"
         )
-    if not github_session["success_redirect_url"]:
-        raise HTTPException(
-            status_code=401, detail="Unauthorized: Success redirect URL is missing"
+    try:
+        github_access_token = await github_service.callback(
+            code,
         )
-    github_access_token = await github_service.callback(
-        code,
-    )
+    except HTTPException as e:
+        if redirect_url:
+            redirect_url = update_query_params(redirect_url, github_error=e.detail)
+            return RedirectResponse(url=redirect_url)
+        else:
+            raise e
+
     encrypted_access_token = github_service.encrypt(github_access_token)
-
-    redirect_url_parts = list(urlparse(github_session["success_redirect_url"]))
-    query = dict(parse_qsl(redirect_url_parts[4]))
-    query["access_token"] = encrypted_access_token
-    redirect_url_parts[4] = urlencode(query)
-    redirect_url = urlunparse(redirect_url_parts)
-
+    if redirect_url:
+        redirect_url = update_query_params(
+            redirect_url, access_token=encrypted_access_token
+        )
+    else:
+        redirect_url = f"{config.app_url}/github/profile"
     redirect_response = RedirectResponse(url=redirect_url)
     github_cookie_session.set_cookie(
         redirect_response,
@@ -135,7 +142,7 @@ async def github_logout(
     """
     response: Response
     if redirect_url:
-        redirect_url = base64.b64decode(redirect_url).decode("utf-8")
+        redirect_url = Base64.decode(redirect_url)
         response = RedirectResponse(url=redirect_url)
     else:
         response = JSONResponse(
