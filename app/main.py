@@ -1,5 +1,7 @@
+import logging
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 from fastapi import FastAPI, Request
 
 from app.cla.routes import cla_router
@@ -9,6 +11,13 @@ from app.github.routes import github_router
 from app.launchpad.routes import launchpad_router
 from app.logging import setup_logging
 from app.middlewares import register_middlewares
+
+logger = logging.getLogger(__name__)
+
+if config.sentry_dsn:
+    sentry_sdk.init(dsn=config.sentry_dsn, environment=config.environment)
+else:
+    logger.warning("Sentry DSN not provided. Sentry will not be enabled.")
 
 
 @asynccontextmanager
@@ -34,6 +43,7 @@ app.include_router(launchpad_router)
 
 @app.get("/", include_in_schema=False)
 def read_root(request: Request):
+    1 / 0
     return {
         "message": "Welcome to Canonical Contribution Licence Agreement (CLA) Service",
         "docs": request.url_for("redoc_html")._url,

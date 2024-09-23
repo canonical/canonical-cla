@@ -101,6 +101,7 @@ class Config(BaseSettings):
     app_url: str
     app_name: str = "Canonical CLA (dev)"
     debug_mode: bool = False
+    environment: str = "development"
 
     github_oauth: GitHubOAuthConfig = GitHubOAuthConfig()  # type: ignore
     launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()  # type: ignore
@@ -109,6 +110,7 @@ class Config(BaseSettings):
     smtp: SMTPConfig = SMTPConfig()  # type: ignore
 
     rate_limit: RateLimitConfig = RateLimitConfig()  # type: ignore
+    sentry_dsn: str | None = None
 
 
 config = Config()  # type: ignore
