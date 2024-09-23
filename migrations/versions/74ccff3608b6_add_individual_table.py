@@ -36,6 +36,7 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("github_account_id"),
         sa.UniqueConstraint("github_email"),
+        sa.UniqueConstraint("launchpad_account_id"),
         sa.UniqueConstraint("launchpad_email"),
     )
 

@@ -158,16 +158,21 @@ class RateLimiter:
         except ValueError:
             return False
 
-    async def is_allowed(self) -> Tuple[bool, int]:
+    async def is_allowed(
+        self,
+        ignore_whitelist=False,
+        ignore_excluded_paths=False,
+        key: str | None = None,
+    ) -> Tuple[bool, int]:
         """
         Check if the request is allowed based on the rate limit.
         This also increments the request count in Redis on each call.
         """
-        if self.request.scope["path"] in excluded_paths:
+        if not ignore_excluded_paths and self.request.scope["path"] in excluded_paths:
             return (True, 0)
-        if await self._is_whitelisted():
+        if not ignore_whitelist and await self._is_whitelisted():
             return (True, 0)
-        key = self._request_identifier()
+        key = key or self._request_identifier()
         try:
             script_sha = await self._redis_script_sha()
             time_left = await self.redis.evalsha(
@@ -181,3 +186,14 @@ class RateLimiter:
         except Exception as e:
             logger.error(f"Error checking rate limit: {e}")
             return (True, 0)
+
+    async def is_allowed_manual(self, key: str | None = None) -> Tuple[bool, int]:
+        """
+        Check if the request is allowed based on the rate limit.
+        This also increments the request count in Redis on each call.
+
+        :param key: The key to use for rate limiting. If None, the request path and client IP address will be used.
+        """
+        return await self.is_allowed(
+            ignore_whitelist=True, ignore_excluded_paths=True, key=key
+        )

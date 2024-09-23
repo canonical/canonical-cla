@@ -146,6 +146,24 @@ class CLAService:
                 detail="At least one email address is required to sign the CLA",
             )
 
+        # check if the email addresses are unique
+        emails = []
+        if individual_form.github_email:
+            emails.append(individual_form.github_email)
+        if individual_form.launchpad_email:
+            emails.append(individual_form.launchpad_email)
+        existing_individuals = await self.individual_repository.get_individuals(
+            emails=emails
+        )
+        if existing_individuals:
+            address_keyword = (
+                "addresses" if len(existing_individuals) > 1 else "address"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=f"The provided email {address_keyword} are already associated with a CLA",
+            )
+
         if individual_form.github_email:
             if excluded_email(individual_form.github_email):
                 raise HTTPException(
@@ -199,16 +217,16 @@ class CLAService:
             return await self.individual_repository.create_individual(individual)
         except IntegrityError as e:
             logger.info("Failed to create individual", exc_info=e)
-            provided_account_id: str
-            if not individual.github_account_id:
-                provided_account_id = "Launchpad user id"
+            provided_email: str
+            if not individual.github_email:
+                provided_email = "Launchpad email"
             elif not individual.launchpad_account_id:
-                provided_account_id = "GitHub user id"
+                provided_email = "GitHub email"
             else:
-                provided_account_id = "GitHub or Launchpad user id"
+                provided_email = "GitHub or Launchpad email"
             raise HTTPException(
                 status_code=409,
-                detail=f"An individual with the provided {provided_account_id} already signed the CLA",
+                detail=f"An individual with the provided {provided_email} already signed the CLA",
             )
 
     async def organization_cla_sign(

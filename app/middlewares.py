@@ -108,6 +108,8 @@ def register_middlewares(app: FastAPI):
             period=config.rate_limit.period,
             whitelist=config.rate_limit.whitelist,
         )
+        # attach the limiter to the request object
+        request.state.rate_limit = limiter
         allowed, time_left = await limiter.is_allowed()
         if not allowed:
             return JSONResponse(

@@ -31,10 +31,10 @@ class Individual(Base):
     address: Mapped[str] = mapped_column(String(400))
     country: Mapped[str] = mapped_column(String(50))
     github_username: Mapped[str | None] = mapped_column(String(100))
-    github_account_id: Mapped[int | None] = mapped_column(Integer, unique=True)
+    github_account_id: Mapped[int | None] = mapped_column(Integer)
     github_email: Mapped[str | None] = mapped_column(String(100), unique=True)
     launchpad_username: Mapped[str | None] = mapped_column(String(100))
-    launchpad_account_id: Mapped[str | None] = mapped_column(String(100), unique=True)
+    launchpad_account_id: Mapped[str | None] = mapped_column(String(100))
     launchpad_email: Mapped[str | None] = mapped_column(String(100), unique=True)
     signed_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow().replace(tzinfo=None)

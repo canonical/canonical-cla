@@ -39,10 +39,8 @@ class IndividualCreateForm(BaseModel):
     def _at_least_one_email(self):
         if not self.github_email and not self.launchpad_email:
             raise ValueError("At least one email must be provided")
-        return self
 
-    @model_validator(mode="after")
-    def _emails_are_valid(self):
+        # check if the email addresses are valid
         if self.github_email:
             self.github_email = clean_email(self.github_email)
             if not valid_email(self.github_email):
@@ -52,6 +50,14 @@ class IndividualCreateForm(BaseModel):
             self.launchpad_email = clean_email(self.launchpad_email)
             if not valid_email(self.launchpad_email):
                 raise ValueError("Invalid Launchpad email address")
+
+        # check if the email addresses are different
+        if (
+            self.github_email
+            and self.launchpad_email
+            and self.github_email == self.launchpad_email
+        ):
+            raise ValueError("GitHub and Launchpad email addresses must be different")
 
         return self
 
