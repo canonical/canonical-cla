@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import sentry_sdk
 from fastapi import FastAPI, Request
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.cla.routes import cla_router
 from app.config import config
@@ -36,6 +37,7 @@ app = FastAPI(
     docs_url=None,
 )
 on_app_ready_callback = register_middlewares(app)
+Instrumentator().instrument(app).expose(app)
 app.include_router(cla_router)
 app.include_router(github_router)
 app.include_router(launchpad_router)
