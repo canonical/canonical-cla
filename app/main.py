@@ -45,11 +45,22 @@ app.include_router(launchpad_router)
 
 @app.get("/", include_in_schema=False)
 def read_root(request: Request):
-    1 / 0
     return {
         "message": "Welcome to Canonical Contribution Licence Agreement (CLA) Service",
         "docs": request.url_for("redoc_html")._url,
     }
+
+
+@app.get("/debug-ip", include_in_schema=False)
+def debug_ip(request: Request):
+    print(request.headers)
+    print(request.client.host)
+    return {"client_ip": request.client.host}
+
+
+@app.get("/debug-error", include_in_schema=False)
+def debug_error():
+    1 / 0
 
 
 @app.get("/docs", include_in_schema=False)
