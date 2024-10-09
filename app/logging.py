@@ -1,13 +1,25 @@
 import logging
-from types import TracebackType
 
 from uvicorn.logging import DefaultFormatter
 
 
 class CustomLogsFormatter(DefaultFormatter):
+    def formatException(self, exc_info):
+        """
+        Format an exception so that it prints on a single line.
+        """
+        result = super().formatException(exc_info)
+        return repr(result)  # Convert multi-line exception to single line
+
     def format(self, record):
-        formatted = super().format(record)
-        return formatted.replace("\n", "\\n")
+        """
+        Format the specified record as text.
+        """
+        result = super().format(record)
+        if record.exc_info:
+            # Replace newline chars in the exception message
+            result = result.replace("\n", "\\n")
+        return result
 
 
 def setup_logging():

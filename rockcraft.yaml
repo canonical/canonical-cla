@@ -19,6 +19,8 @@ parts:
     stage-packages:
       - python3-venv
       - libpq5
+      # needed for rotatelogs used in the app service command
+      - apache2-utils
     python-requirements:
       - requirements.txt
 
