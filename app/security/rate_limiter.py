@@ -9,6 +9,7 @@ from fastapi import Request
 from redis.asyncio import Redis
 
 from app.config import config
+from app.utils import ip_address
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +84,7 @@ class RateLimiter:
         """
         Get the client's IP address from the request headers.
         """
-        forwarded = self.request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0]
-        return self.request.client.host
+        return ip_address(request=self.request)
 
     def _request_identifier(self) -> str:
         """

@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import binascii
+import ipaddress
 import json
 from datetime import datetime
 from hashlib import sha256
@@ -136,3 +137,27 @@ def update_query_params(url: str, **params) -> str:
     query.update(params)
     url_parts[4] = urlencode(query)
     return str(urlunparse(url_parts))
+
+
+def ip_address(request: Request | None = None, headers: dict | None = None) -> str:
+    """
+    Extract the client's IP address from the request headers.
+    This takes into account the possibility of the request being forwarded by a proxy.
+    """
+    headers = headers or request.headers
+
+    if "x-original-forwarded-for" in headers:
+        return headers["x-original-forwarded-for"].split(",")[0]
+    elif "x-forwarded-for" in headers:
+        return headers["x-forwarded-for"].split(",")[0]
+    else:
+        return request.client.host
+
+
+def is_local_request(request: Request) -> bool:
+    client_addr = ip_address(request)
+    try:
+        ip_obj = ipaddress.ip_address(client_addr)
+        return ip_obj.is_loopback or ip_obj.is_private
+    except ValueError:
+        return False

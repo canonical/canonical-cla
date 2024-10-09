@@ -7,6 +7,7 @@ from starlette.responses import PlainTextResponse
 
 from app.config import config
 from app.security.rate_limiter import RateLimiter
+from app.utils import ip_address, is_local_request
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,8 @@ allowed_origins = [
     "*.canonical.com",
     "*.demos.haus",
 ]
+
+private_paths = ["/_status/check", "/metrics"]
 
 
 def is_url_match(url, patterns):
@@ -93,6 +96,19 @@ def register_middlewares(app: FastAPI):
         response.headers["Cache-Control"] = "no-store, must-revalidate"
         response.headers["Expires"] = "0"
         return response
+
+    @app.middleware("http")
+    async def set_client_ip(request: Request, call_next):
+        client_ip = ip_address(request)
+        request.scope["client"] = (client_ip, request.scope["client"][1])
+        return await call_next(request)
+
+    @app.middleware("http")
+    async def protect_private_paths(request: Request, call_next):
+        if request.url.path in private_paths and not is_local_request(request):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        else:
+            return await call_next(request)
 
     @app.middleware("http")
     async def rate_limit_middleware(

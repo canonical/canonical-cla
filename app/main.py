@@ -53,7 +53,6 @@ def read_root(request: Request):
 
 @app.get("/debug-ip", include_in_schema=False)
 def debug_ip(request: Request):
-    logger.info(request.headers)
     return {"client_ip": request.client.host}
 
 
@@ -74,12 +73,3 @@ async def redoc_html():
 @app.get("/_status/check", include_in_schema=False)
 def health_check():
     return {"status": "OK"}
-
-
-# @app.get("/test-redis")
-# async def test_redis():
-#     await redis.set("test-key", "test-value")
-#     return {"value": await redis.get("test-key")}
-
-
-# DB testing routes wil be removed after testing
