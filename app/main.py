@@ -53,8 +53,7 @@ def read_root(request: Request):
 
 @app.get("/debug-ip", include_in_schema=False)
 def debug_ip(request: Request):
-    print(request.headers)
-    print(request.client.host)
+    logger.info(request.headers)
     return {"client_ip": request.client.host}
 
 
