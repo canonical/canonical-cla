@@ -1,7 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
 
-import sentry_sdk
 from fastapi import FastAPI, Request
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -13,12 +12,8 @@ from app.launchpad.routes import launchpad_router
 from app.logging import setup_logging
 from app.middlewares import register_middlewares
 
-logger = logging.getLogger(__name__)
 
-if config.sentry_dsn:
-    sentry_sdk.init(dsn=config.sentry_dsn, environment=config.environment)
-else:
-    logger.warning("Sentry DSN not provided. Sentry will not be enabled.")
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager

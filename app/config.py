@@ -110,6 +110,7 @@ class Config(BaseSettings):
     smtp: SMTPConfig = SMTPConfig()  # type: ignore
 
     rate_limit: RateLimitConfig = RateLimitConfig()  # type: ignore
+    # Not used anymore
     sentry_dsn: str | None = None
 
 
