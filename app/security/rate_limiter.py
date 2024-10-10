@@ -112,7 +112,7 @@ class RateLimiter:
         if current_time - last_update < self.github_runners_update_interval:
             return
         async with httpx.AsyncClient() as http_client:
-
+            logger.info("Updating GitHub action runners..")
             response = await http_client.get(
                 "https://api.github.com/meta",
                 headers={"Accept": "application/vnd.github.v3+json"},
@@ -128,6 +128,7 @@ class RateLimiter:
             await self.redis.delete(self._github_runner_key)
             await self.redis.sadd(self._github_runner_key, *runners)
             await self.redis.set(self._github_runner_last_update_key, current_time)
+            logger.info("GitHub action runners updated")
 
     # @profile
     async def _is_whitelisted(self) -> bool:
