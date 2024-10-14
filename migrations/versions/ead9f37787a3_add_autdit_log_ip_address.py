@@ -18,7 +18,10 @@ depends_on = None
 
 def upgrade():
     op.add_column(
-        "audit_log", sa.Column("ip_address", sa.String(length=50), nullable=False)
+        "audit_log",
+        sa.Column(
+            "ip_address", sa.String(length=50), nullable=False, server_default="0.0.0.0"
+        ),
     )
 
 
