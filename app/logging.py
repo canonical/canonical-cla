@@ -27,9 +27,6 @@ def setup_logging():
     handler = logging.StreamHandler()
     handler.setFormatter(CustomLogsFormatter(fmt=log_format))
 
-    root_logger = logging.getLogger()
-    root_logger.handlers = [handler]
-
     uvicorn_access_logger = logging.getLogger("uvicorn.access")
     uvicorn_access_logger.handlers = [handler]
 

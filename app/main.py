@@ -12,7 +12,6 @@ from app.launchpad.routes import launchpad_router
 from app.logging import setup_logging
 from app.middlewares import register_middlewares
 
-
 logger = logging.getLogger(__name__)
 
 

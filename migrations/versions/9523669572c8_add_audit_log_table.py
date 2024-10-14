@@ -22,7 +22,7 @@ def upgrade():
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column(
             "action",
-            sa.Enum("SIGN", "REVOKE", "UPDATE", native_enum=False),
+            sa.Enum("SIGN", "REVOKE", "UPDATE", "DELETE", native_enum=False),
             nullable=False,
         ),
         sa.Column(

@@ -20,6 +20,7 @@ def session_maker():
         bind=async_engine,
         autoflush=False,
         future=True,
+        expire_on_commit=False,
         class_=AsyncSession,
     )
 

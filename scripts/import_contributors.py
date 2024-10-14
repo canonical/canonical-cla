@@ -13,7 +13,9 @@ from fastapi import Depends
 
 from app.database.models import Individual
 from app.repository.individual import IndividualRepository, individual_repository
-from scripts.common import run_command
+from scripts.common import create_logger, run_command
+
+logger = create_logger("import_contributors")
 
 
 async def import_contributors(
@@ -27,7 +29,7 @@ async def import_contributors(
         contributors = json.load(file)
 
     imported_count = 0
-    print("Importing contributors...")
+    logger.info("Importing contributors...")
     for contributor in contributors:
         contributor["signed_at"] = datetime.datetime.strptime(
             contributor["date"], "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -44,8 +46,10 @@ async def import_contributors(
             await individual_repository.create_individual(individual)
             imported_count += 1
         except Exception as e:
-            print(f"Failed to import contributor {contributor[email_field_name]}: {e}")
-    print(f"Imported {imported_count} contributors.")
+            logger.error(
+                f"Failed to import contributor {contributor[email_field_name]}: {e}"
+            )
+    logger.info(f"Imported {imported_count} contributors.")
 
 
 def main():

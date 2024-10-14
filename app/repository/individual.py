@@ -17,7 +17,7 @@ class IndividualRepository(Protocol):
     ) -> list[Individual]: ...
 
     async def create_individual(self, individual: Individual) -> Individual: ...
-
+    async def delete_individual(self, individual_id: int) -> None: ...
     async def get_individuals_by_github_usernames(
         self, usernames: list[str]
     ) -> list[Individual]: ...
@@ -71,6 +71,24 @@ class SQLIndividualRepository(IndividualRepository):
         self.session.add(log)
         await self.session.commit()
         await self.session.refresh(individual)
+        return individual
+
+    async def delete_individual(self, individual_id: int) -> None:
+        individual = await self.session.get(Individual, individual_id)
+        if individual is None:
+            raise ValueError(f"Individual with id {individual_id} not found")
+        if not individual.is_imported():
+            raise ValueError("Only imported individuals can be deleted")
+
+        await self.session.delete(individual)
+        log = AuditLog(
+            entity_type="INDIVIDUAL",
+            entity_id=individual.id,
+            action="DELETE",
+            details=individual.as_dict(),
+        )
+        self.session.add(log)
+        await self.session.commit()
         return individual
 
     async def get_individuals_by_github_usernames(

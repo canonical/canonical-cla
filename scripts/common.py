@@ -1,4 +1,6 @@
 import inspect
+import logging
+import sys
 from contextlib import AsyncExitStack
 from typing import Any, Callable
 
@@ -57,3 +59,13 @@ async def run_command(command: Callable[..., Any], *args: Any, **kwargs: Any) ->
             result = dependant.call(**solved_kwargs)
 
         return result
+
+
+def create_logger(name: str):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    stream_handler = logging.StreamHandler(sys.stdout)
+    log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    stream_handler.setFormatter(log_formatter)
+    logger.addHandler(stream_handler)
+    return logger

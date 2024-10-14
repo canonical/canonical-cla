@@ -146,24 +146,6 @@ class CLAService:
                 detail="At least one email address is required to sign the CLA",
             )
 
-        # check if the email addresses are unique
-        emails = []
-        if individual_form.github_email:
-            emails.append(individual_form.github_email)
-        if individual_form.launchpad_email:
-            emails.append(individual_form.launchpad_email)
-        existing_individuals = await self.individual_repository.get_individuals(
-            emails=emails
-        )
-        if existing_individuals:
-            address_keyword = (
-                "addresses" if len(existing_individuals) > 1 else "address"
-            )
-            raise HTTPException(
-                status_code=400,
-                detail=f"The provided email {address_keyword} are already associated with a CLA",
-            )
-
         if individual_form.github_email:
             if excluded_email(individual_form.github_email):
                 raise HTTPException(
@@ -203,6 +185,30 @@ class CLAService:
         else:
             # avoid storing the launchpad id and username if no email is provided
             launchpad_profile = None
+
+        # check if the email addresses are unique
+        emails = []
+        if individual_form.github_email:
+            emails.append(individual_form.github_email)
+        if individual_form.launchpad_email:
+            emails.append(individual_form.launchpad_email)
+        existing_individuals = await self.individual_repository.get_individuals(
+            emails=emails
+        )
+        for existing_individual in existing_individuals:
+            if existing_individual.is_imported():
+                # allow re-signing the CLA for imported individuals
+                logger.info(
+                    "Individual contributor re-signing the CLA %s", existing_individual
+                )
+                await self.individual_repository.delete_individual(
+                    existing_individual.id
+                )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"The provided email address is already associated with a CLA",
+                )
 
         individual = Individual(
             **individual_form.model_dump(),

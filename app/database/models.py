@@ -41,6 +41,29 @@ class Individual(Base):
     )
     revoked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime)
 
+    def is_imported(self) -> bool:
+        """Check if the individual has been imported."""
+        most_recent_import = datetime.datetime(2024, 10, 1, 0, 0, 0)
+        return self.signed_at < most_recent_import
+
+    def __str__(self):
+        github_info = (
+            f"github: @{self.github_username} ({self.github_email})"
+            if self.github_username
+            else ""
+        )
+        launchpad_info = (
+            f"launchpad: @{self.launchpad_username} ({self.launchpad_email})"
+            if self.launchpad_username
+            else ""
+        )
+        active = (
+            f"active {(self.signed_at.isoformat())}"
+            if self.revoked_at is None
+            else "revoked"
+        )
+        return f"individual {self.id}: {self.first_name} {self.last_name} {github_info} {launchpad_info} status: {active}"
+
 
 class Organization(Base):
     __tablename__ = "organization"
@@ -62,11 +85,18 @@ class Organization(Base):
         """Check if the organization has an active CLA."""
         return self.revoked_at is None and self.signed_at is not None
 
+    def __str__(self):
+        active = (
+            f"active {(self.signed_at.isoformat())}" if self.is_active() else "revoked"
+        )
+        return f"organization {self.id}: {self.name} domain: {self.email_domain} status: {active}"
+
 
 AuditLogActionType = Literal[
     "SIGN",
     "REVOKE",
     "UPDATE",
+    "DELETE",
 ]
 
 AuditEntityType = Literal[

@@ -1,5 +1,5 @@
 """
-Add organization table
+Remove unique constraints on individual table
 
 Revision ID: 906de32eb690
 Revises: 9523669572c8
