@@ -3,6 +3,7 @@ import base64
 import binascii
 import ipaddress
 import json
+import logging
 from datetime import datetime
 from hashlib import sha256
 from typing import AsyncIterator, Literal, ParamSpec, TypeVar
@@ -18,6 +19,8 @@ from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
 
 from app.config import config
+
+logger = logging.getLogger(__name__)
 
 
 class AESCipher(object):
@@ -145,25 +148,31 @@ def ip_address(request: Request | None = None, headers: dict | None = None) -> s
     This takes into account the possibility of the request being forwarded by a proxy.
     """
     headers = headers or request.headers
-
+    ip = None
     if "x-original-forwarded-for" in headers:
         ip = headers["x-original-forwarded-for"].split(",")[0]
-        if is_local_request(request) and "x-custom-forwarded-for" in headers:
-            # set by ubuntu.com server's when making request
-            return headers["x-custom-forwarded-for"]
-        else:
-            return ip
-
     elif "x-forwarded-for" in headers:
-        return headers["x-forwarded-for"].split(",")[0]
+        ip = headers["x-forwarded-for"].split(",")[0]
     else:
-        return request.client.host
+        ip = request.client.host
+
+    if _is_local_request(ip):
+        # consider the custom header only if the request is local (ubuntu.com backend proxy)
+        return headers.get(
+            "custom-forwarded-for", headers.get("x-custom-forwarded-for", ip)
+        )
+    else:
+        return ip
 
 
 def is_local_request(request: Request) -> bool:
     client_addr = ip_address(request)
+    return _is_local_request(client_addr)
+
+
+def _is_local_request(ip: str) -> bool:
     try:
-        ip_obj = ipaddress.ip_address(client_addr)
+        ip_obj = ipaddress.ip_address(ip)
         return ip_obj.is_loopback or ip_obj.is_private
     except ValueError:
         return False
