@@ -147,7 +147,13 @@ def ip_address(request: Request | None = None, headers: dict | None = None) -> s
     headers = headers or request.headers
 
     if "x-original-forwarded-for" in headers:
-        return headers["x-original-forwarded-for"].split(",")[0]
+        ip = headers["x-original-forwarded-for"].split(",")[0]
+        if is_local_request(request) and "x-custom-forwarded-for" in headers:
+            # set by ubuntu.com server's when making request
+            return headers["x-custom-forwarded-for"]
+        else:
+            return ip
+
     elif "x-forwarded-for" in headers:
         return headers["x-forwarded-for"].split(",")[0]
     else:
