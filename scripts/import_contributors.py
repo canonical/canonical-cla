@@ -12,6 +12,7 @@ import json
 from fastapi import Depends
 
 from app.database.models import Individual
+from app.middlewares import request_ip_address_context_var
 from app.repository.individual import IndividualRepository, individual_repository
 from scripts.common import create_logger, run_command
 
@@ -27,6 +28,9 @@ async def import_contributors(
     """
     with open(file_path, "r") as file:
         contributors = json.load(file)
+
+    # set request's ip as it is required by the audit log
+    request_ip_address_context_var.set("127.0.0.1")
 
     imported_count = 0
     logger.info("Importing contributors...")

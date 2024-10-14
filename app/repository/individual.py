@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.connection import async_session
 from app.database.models import AuditLog, Individual
+from app.middlewares import request_ip
 
 
 class IndividualRepository(Protocol):
@@ -67,6 +68,7 @@ class SQLIndividualRepository(IndividualRepository):
             entity_id=individual.id,
             action="SIGN",
             details=individual.as_dict(),
+            ip_address=request_ip(),
         )
         self.session.add(log)
         await self.session.commit()
@@ -86,6 +88,7 @@ class SQLIndividualRepository(IndividualRepository):
             entity_id=individual.id,
             action="DELETE",
             details=individual.as_dict(),
+            request_ip=request_ip(),
         )
         self.session.add(log)
         await self.session.commit()

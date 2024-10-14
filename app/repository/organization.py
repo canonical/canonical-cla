@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.connection import async_session
 from app.database.models import AuditLog, Organization
+from app.middlewares import request_ip
 
 
 class OrganizationRepository(Protocol):
@@ -49,6 +50,7 @@ class SQLOrganizationRepository(OrganizationRepository):
             entity_id=organization.id,
             action="SIGN",
             details=organization.as_dict(),
+            request_ip=request_ip(),
         )
         self.session.add(log)
         await self.session.commit()
@@ -84,6 +86,7 @@ class SQLOrganizationRepository(OrganizationRepository):
             entity_id=organization.id,
             action="UPDATE",
             details=organization.as_dict(),
+            request_ip=request_ip(),
         )
         self.session.add(log)
         await self.session.commit()

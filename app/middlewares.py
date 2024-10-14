@@ -1,4 +1,5 @@
 import logging
+from contextvars import ContextVar
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Request
@@ -37,6 +38,15 @@ def is_url_match(url, patterns):
         elif domain == pattern:
             return True
     return False
+
+
+request_ip_address_context_var: ContextVar[str] = ContextVar(
+    "request_ip_address", default=None
+)
+
+
+def request_ip():
+    return request_ip_address_context_var.get()
 
 
 def register_middlewares(app: FastAPI):
@@ -101,7 +111,10 @@ def register_middlewares(app: FastAPI):
     async def set_client_ip(request: Request, call_next):
         client_ip = ip_address(request)
         request.scope["client"] = (client_ip, request.scope["client"][1])
-        return await call_next(request)
+        context_token = request_ip_address_context_var.set(client_ip)
+        response = await call_next(request)
+        request_ip_address_context_var.reset(context_token)
+        return response
 
     @app.middleware("http")
     async def protect_private_paths(request: Request, call_next):

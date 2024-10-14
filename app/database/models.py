@@ -115,5 +115,13 @@ class AuditLog(Base):
     timestamp: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow().replace(tzinfo=None)
     )
-
+    ip_address: Mapped[str] = mapped_column(String(50))
     details: Mapped[dict[str, str] | None] = mapped_column(JSON)
+
+    def __str__(self):
+        details = (
+            f"{self.details.get('name')} (domain: {self.details.get('email_domain')}, contact: {self.details.get('contact_name')}<{self.details.get('contact_email')}>)"
+            if self.entity_type == "ORGANIZATION"
+            else f"{self.details.get('first_name')} {self.details.get('last_name')} (github: {self.details.get('github_username')}<{self.details.get('github_email')}>, launchpad: {self.details.get('launchpad_username')}<{self.details.get('launchpad_email')}>)"
+        )
+        return f"{self.timestamp.isoformat()} audit log({self.id}): action({self.action}), IP({self.ip_address}), {self.entity_type}({self.entity_id}): {details}"
