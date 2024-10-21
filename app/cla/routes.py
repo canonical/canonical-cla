@@ -97,6 +97,11 @@ async def sign_cla_individual(
     __Note:__
     The user must have a valid `github_oauth2_session` and `launchpad_oauth_session` cookie sessions in order to verify their email addresses.
     """
+    if config.maintenance_mode:
+        raise HTTPException(
+            status_code=503,
+            detail="Canonical CLA is currently under maintenance. Please try again later.",
+        )
     created_individual = await cla_service.individual_cla_sign(
         individual, gh_session, lp_session
     )
@@ -130,6 +135,11 @@ async def sign_cla_organization(
     CLA check is based on the provided email domain, where a contributor
     GitHub or Launchpad email must match the email domain.
     """
+    if config.maintenance_mode:
+        raise HTTPException(
+            status_code=503,
+            detail="Canonical CLA is currently under maintenance. Please try again later.",
+        )
     created_organization = await cla_service.organization_cla_sign(
         organization, gh_session, lp_session
     )

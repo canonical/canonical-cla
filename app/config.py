@@ -102,6 +102,7 @@ class Config(BaseSettings):
     app_name: str = "Canonical CLA (dev)"
     debug_mode: bool = False
     environment: str = "development"
+    maintenance_mode: bool = False
 
     github_oauth: GitHubOAuthConfig = GitHubOAuthConfig()  # type: ignore
     launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()  # type: ignore
