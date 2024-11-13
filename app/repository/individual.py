@@ -88,7 +88,7 @@ class SQLIndividualRepository(IndividualRepository):
             entity_id=individual.id,
             action="DELETE",
             details=individual.as_dict(),
-            request_ip=request_ip(),
+            ip_address=request_ip(),
         )
         self.session.add(log)
         await self.session.commit()

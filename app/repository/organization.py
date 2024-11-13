@@ -50,7 +50,7 @@ class SQLOrganizationRepository(OrganizationRepository):
             entity_id=organization.id,
             action="SIGN",
             details=organization.as_dict(),
-            request_ip=request_ip(),
+            ip_address=request_ip(),
         )
         self.session.add(log)
         await self.session.commit()
@@ -86,7 +86,7 @@ class SQLOrganizationRepository(OrganizationRepository):
             entity_id=organization.id,
             action="UPDATE",
             details=organization.as_dict(),
-            request_ip=request_ip(),
+            ip_address=request_ip(),
         )
         self.session.add(log)
         await self.session.commit()
