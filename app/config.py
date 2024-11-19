@@ -104,6 +104,14 @@ class Config(BaseSettings):
     environment: str = "development"
     maintenance_mode: bool = False
 
+    """
+    HTTP client settings:
+
+    Used for making requests to external services such as GitHub and Launchpad.
+    """
+    http_timeout: int = 10
+    http_max_retries: int = 3
+
     github_oauth: GitHubOAuthConfig = GitHubOAuthConfig()  # type: ignore
     launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()  # type: ignore
     database: DatabaseConfig = DatabaseConfig()  # type: ignore

@@ -19,6 +19,7 @@ from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
 
 from app.config import config
+from app.http_client import HTTPClient
 
 logger = logging.getLogger(__name__)
 
@@ -121,8 +122,7 @@ class EncryptedAPIKeyCookie(APIKeyCookie):
 
 
 async def http_client() -> AsyncIterator[httpx.AsyncClient]:
-
-    async with httpx.AsyncClient() as client:
+    async with HTTPClient() as client:
         yield client
 
 

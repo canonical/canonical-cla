@@ -64,7 +64,7 @@ async def github_callback(
     """
     Handles the GitHub OAuth callback.
     """
-    redirect_url = github_session["redirect_url"]
+    redirect_url = github_session.get("redirect_url")
     if error_description:
         if redirect_url:
             redirect_url = update_query_params(

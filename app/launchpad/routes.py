@@ -68,7 +68,7 @@ async def launchpad_callback(
         raise HTTPException(
             status_code=401, detail="Unauthorized: OAuth state mismatch"
         )
-    redirect_url = session_data["redirect_url"]
+    redirect_url = session_data.get("redirect_url")
     try:
         access_token = await launchpad_service.callback(session_data=session_data)
     except HTTPException as e:

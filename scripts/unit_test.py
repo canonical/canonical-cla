@@ -14,6 +14,12 @@ def run():
         help="Generate a coverage report",
         action=argparse.BooleanOptionalAction,
     )
+    parser.add_argument(
+        "--show-capture",
+        help="Show stdout/stderr capture output on test failure",
+        action=argparse.BooleanOptionalAction,
+    )
+
     args = parser.parse_args()
 
     command: str
@@ -28,5 +34,5 @@ def run():
             ]
         )
     else:
-        command = "pytest"
+        command = "pytest" + (" -s" if args.show_capture else "")
     exit(process_run(command, shell=True).returncode)
