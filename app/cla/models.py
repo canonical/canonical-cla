@@ -51,14 +51,6 @@ class IndividualCreateForm(BaseModel):
             if not valid_email(self.launchpad_email):
                 raise ValueError("Invalid Launchpad email address")
 
-        # check if the email addresses are different
-        if (
-            self.github_email
-            and self.launchpad_email
-            and self.github_email == self.launchpad_email
-        ):
-            raise ValueError("GitHub and Launchpad email addresses must be different")
-
         return self
 
 
