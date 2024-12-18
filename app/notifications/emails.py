@@ -21,9 +21,10 @@ def send_email(email: str, subject: str, body: str) -> None:
     Send an email to the provided email address.
     raises: SMTPException if the email could not be sent.
     """
+    logger.info(f"Sending email ({subject}) to {email}")
     message = MIMEText(body, "html", "utf-8")
     message["From"] = config.smtp.from_email
-    message["Reply-To"] = config.smtp.legal_contact_email
+    message["Reply-To"] = config.smtp.community_contact_email
     message["To"] = email
     message["Subject"] = subject
     smtp = SMTP(host=config.smtp.host, port=config.smtp.port)
@@ -104,15 +105,15 @@ def send_legal_notification(
     cla_management_url: str,
 ):
     """
-    Send an email to the legal team notifying them of a new organization signing the CLA.
+    Send an email to the community team notifying them of a new organization signing the CLA.
     """
     subject = "Canonical CLA Signed - Action Required"
 
     send_email(
-        formataddr(("Canonical Legal Team", config.smtp.legal_contact_email)),
+        formataddr(("Canonical Community Team", config.smtp.community_contact_email)),
         subject,
         body=templates.get_template(
-            "cla_signed_legal_notification.j2",
+            "cla_signed_community_notification.j2",
         ).render(
             sanitize_context(
                 {

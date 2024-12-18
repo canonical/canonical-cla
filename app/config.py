@@ -74,8 +74,8 @@ class SMTPConfig(BaseSettings):
     username: str
     password: SecretStr
     from_email: str = formataddr(("Canonical CLA", "noreply+cla@canonical.com"))
-    legal_contact_email: str = formataddr(
-        ("Canonical's Legal Team", "legal@canonical.com")
+    community_contact_email: str = formataddr(
+        ("Canonical's Community Team", "community@canonical.com")
     )
 
 

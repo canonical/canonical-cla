@@ -19,7 +19,7 @@ class HTTPClient(httpx.AsyncClient):
         if not self.client:
             transport = httpx.AsyncHTTPTransport(retries=config.http_max_retries)
             self.client = httpx.AsyncClient(
-                transport=transport, timeout=config.http_timeout
+                transport=transport, timeout=config.http_timeout, follow_redirects=True
             )
         try:
             return await self.client.request(method, url, *args, **kwargs)

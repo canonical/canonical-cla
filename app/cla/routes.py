@@ -216,7 +216,6 @@ async def update_organization(
     background_tasks: BackgroundTasks,
     id: str,
     email_domain: Annotated[str, Form()],
-    docusign_url: Annotated[str | None, Form()] = None,
     salesforce_url: Annotated[str | None, Form()] = None,
     approved: Annotated[str | None, Form()] = None,
     organization_repository: OrganizationRepository = Depends(organization_repository),
@@ -236,7 +235,6 @@ async def update_organization(
     if not organization:
         raise HTTPException(status_code=404, detail="Organization not found")
     organization.email_domain = email_domain
-    organization.docusign_url = docusign_url
     organization.salesforce_url = salesforce_url
 
     approved = approved == "on"
