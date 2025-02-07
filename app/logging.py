@@ -2,6 +2,8 @@ import logging
 
 from uvicorn.logging import DefaultFormatter
 
+from app.config import config
+
 
 class CustomLogsFormatter(DefaultFormatter):
     def formatException(self, exc_info):
@@ -23,14 +25,17 @@ class CustomLogsFormatter(DefaultFormatter):
 
 
 def setup_logging():
-    log_format = "%(asctime)s [%(levelname)s] (%(name)s:%(module)s) %(message)s"
-    handler = logging.StreamHandler()
-    handler.setFormatter(CustomLogsFormatter(fmt=log_format))
+    if not config.debug_mode:
+        log_format = "%(asctime)s [%(levelname)s] (%(name)s:%(module)s) %(message)s"
+        handler = logging.StreamHandler()
+        handler.setFormatter(CustomLogsFormatter(fmt=log_format))
 
-    uvicorn_access_logger = logging.getLogger("uvicorn.access")
-    uvicorn_access_logger.handlers = [handler]
+        uvicorn_access_logger = logging.getLogger("uvicorn.access")
+        uvicorn_access_logger.handlers = [handler]
 
-    uvicorn_error_logger = logging.getLogger("uvicorn.error")
-    uvicorn_error_logger.handlers = [handler]
+        uvicorn_error_logger = logging.getLogger("uvicorn.error")
+        uvicorn_error_logger.handlers = [handler]
 
-    logging.basicConfig(level=logging.INFO, format=log_format, handlers=[handler])
+        logging.basicConfig(level=logging.INFO, format=log_format, handlers=[handler])
+    else:
+        logging.basicConfig(level=logging.DEBUG)

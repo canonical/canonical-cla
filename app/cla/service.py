@@ -195,16 +195,10 @@ class CLAService:
         existing_individuals = await self.individual_repository.get_individuals(
             emails=emails
         )
+
         for existing_individual in existing_individuals:
-            if existing_individual.is_imported():
-                # allow re-signing the CLA for imported individuals
-                logger.info(
-                    "Individual contributor re-signing the CLA %s", existing_individual
-                )
-                await self.individual_repository.delete_individual(
-                    existing_individual.id
-                )
-            else:
+            # allow duplicated emails if the individual is imported
+            if not existing_individual.is_imported():
                 raise HTTPException(
                     status_code=400,
                     detail=f"The provided email address is already associated with a CLA",
