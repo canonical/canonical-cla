@@ -107,11 +107,12 @@ async def sign_cla_individual(
     )
 
     for email in {created_individual.github_email, created_individual.launchpad_email}:
-        background_tasks.add_task(
-            send_individual_confirmation_email,
-            email,
-            created_individual.first_name + " " + created_individual.last_name,
-        )
+        if email:
+            background_tasks.add_task(
+                send_individual_confirmation_email,
+                email,
+                created_individual.first_name + " " + created_individual.last_name,
+            )
     return JSONResponse(
         status_code=201, content=IndividualCreationSuccess().model_dump()
     )
