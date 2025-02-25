@@ -64,6 +64,17 @@ async def github_callback(
     """
     Handles the GitHub OAuth callback.
     """
+    if github_session is None or not code or not state:
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized: GitHub session is missing please login first",
+        )
+    session_state = github_session["state"]
+    if state != session_state:
+        raise HTTPException(
+            status_code=401, detail="Unauthorized: OAuth state does not match"
+        )
+
     redirect_url = github_session.get("redirect_url")
     if error_description:
         if redirect_url:
@@ -75,16 +86,7 @@ async def github_callback(
             raise HTTPException(
                 status_code=400, detail=f"Bad Request: {error_description}"
             )
-    if github_session is None or not code or not state:
-        raise HTTPException(
-            status_code=401,
-            detail="Unauthorized: GitHub session is missing please login first",
-        )
-    session_state = github_session["state"]
-    if state != session_state:
-        raise HTTPException(
-            status_code=401, detail="Unauthorized: OAuth state does not match"
-        )
+
     try:
         github_access_token = await github_service.callback(
             code,
