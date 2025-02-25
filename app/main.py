@@ -9,15 +9,16 @@ from app.config import config
 from app.docs import get_redoc_html
 from app.github.routes import github_router
 from app.launchpad.routes import launchpad_router
-from app.logging import setup_logging
+from app.logging import configure_logger
 from app.middlewares import register_middlewares
+from app.opentelemtry import register_tracer
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_logging()
+    configure_logger()
     on_app_ready_callback()
     yield
 
@@ -32,6 +33,8 @@ app = FastAPI(
 )
 on_app_ready_callback = register_middlewares(app)
 Instrumentator().instrument(app).expose(app)
+register_tracer(app)
+
 app.include_router(cla_router)
 app.include_router(github_router)
 app.include_router(launchpad_router)

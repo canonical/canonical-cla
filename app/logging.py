@@ -1,41 +1,61 @@
 import logging
 
-from uvicorn.logging import DefaultFormatter
+from opentelemetry import trace
+from pythonjsonlogger import jsonlogger
 
 from app.config import config
 
 
-class CustomLogsFormatter(DefaultFormatter):
-    def formatException(self, exc_info):
-        """
-        Format an exception so that it prints on a single line.
-        """
-        result = super().formatException(exc_info)
-        return repr(result)  # Convert multi-line exception to single line
+class CustomJsonFormatter(jsonlogger.JsonFormatter):
+    service_name: str
 
-    def format(self, record):
-        """
-        Format the specified record as text.
-        """
-        result = super().format(record)
-        if record.exc_info:
-            # Replace newline chars in the exception message
-            result = result.replace("\n", "\\n")
-        return result
+    def add_fields(self, log_record, record, message_dict):
+        super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
+
+        # Add trace and span IDs if they exist
+        span_context = trace.get_current_span().get_span_context()
+        if span_context.is_valid:
+            log_record["trace_id"] = format(span_context.trace_id, "032x")
+            log_record["span_id"] = format(span_context.span_id, "016x")
+            log_record["trace_flags"] = format(span_context.trace_flags, "02x")
+
+        # Add service name
+        if not log_record.get("service"):
+            self.service_name = trace.get_tracer_provider().resource.attributes.get(
+                "service.name", "unknown"
+            )
+
+        log_record["service"] = self.service_name
+        log_record["severity"] = record.levelname
+        log_record["timestamp"] = self.formatTime(record)
 
 
-def setup_logging():
-    if not config.debug_mode:
-        log_format = "%(asctime)s [%(levelname)s] (%(name)s:%(module)s) %(message)s"
-        handler = logging.StreamHandler()
-        handler.setFormatter(CustomLogsFormatter(fmt=log_format))
-
-        uvicorn_access_logger = logging.getLogger("uvicorn.access")
-        uvicorn_access_logger.handlers = [handler]
-
-        uvicorn_error_logger = logging.getLogger("uvicorn.error")
-        uvicorn_error_logger.handlers = [handler]
-
-        logging.basicConfig(level=logging.INFO, format=log_format, handlers=[handler])
+def configure_logger():
+    """Configure the root logger with JSON formatting and trace context"""
+    logger = logging.getLogger()
+    if config.debug_mode:
+        logger.setLevel(logging.DEBUG)
     else:
-        logging.basicConfig(level=logging.DEBUG)
+        logger.setLevel(logging.INFO)
+
+    # Remove any existing handlers
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+
+    # Create a handler that outputs JSON to stdout
+    handler = logging.StreamHandler()
+
+    # Create a formatter
+    formatter = CustomJsonFormatter(
+        "%(timestamp)s %(service)s %(severity)s %(name)s %(message)s"
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+    # Configure FastAPI and Uvicorn loggers to use the same configuration
+    for logger_name in ["uvicorn", "uvicorn.access", "uvicorn.error", "fastapi"]:
+        logger = logging.getLogger(logger_name)
+        logger.handlers = []  # Remove default handlers
+        logger.propagate = True  # Propagate to root logger with our custom formatter
+
+    return logger
