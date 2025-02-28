@@ -154,7 +154,7 @@ class LaunchpadService:
         all_emails = [primary_email, *additional_emails]
         all_emails = [email for email in all_emails if not excluded_email(email)]
         return LaunchpadProfile(
-            _id=user["id"],
+            _id=str(user["id"]),
             username=user["name"],
             emails=all_emails,
         )

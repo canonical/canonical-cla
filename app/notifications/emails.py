@@ -110,7 +110,7 @@ def send_legal_notification(
     subject = "Canonical CLA Signed - Action Required"
 
     send_email(
-        formataddr(("Canonical Community Team", config.smtp.community_contact_email)),
+        config.smtp.community_contact_email,
         subject,
         body=templates.get_template(
             "cla_signed_community_notification.j2",
