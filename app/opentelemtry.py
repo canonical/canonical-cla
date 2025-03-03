@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter as OTLPSpanExporterHTTP,
+)
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+    OTLPSpanExporter as OTLPSpanExporterGRPC,
+)
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
@@ -25,12 +30,26 @@ def register_tracer(app: FastAPI):
     service_name = "canonical-cla"
     resource = Resource.create({"service.name": service_name})
     tracer_provider = TracerProvider(resource=resource)
-    otlp_exporter = OTLPSpanExporter(endpoint=config.otel_exporter.otlp_endpoint)
+    otlp_exporter: OTLPSpanExporterHTTP | OTLPSpanExporterGRPC = None
+    if "4317" in config.otel_exporter.otlp_endpoint:
+        otlp_exporter = OTLPSpanExporterGRPC(
+            endpoint=config.otel_exporter.otlp_endpoint
+        )
+        print("INFO:app.opentelemetry:", "Using gRPC exporter")
+    else:
+        if not "v1/traces" in config.otel_exporter.otlp_endpoint:
+            config.otel_exporter.otlp_endpoint = (
+                f"{config.otel_exporter.otlp_endpoint}/v1/traces"
+            )
+        otlp_exporter = OTLPSpanExporterHTTP(
+            endpoint=config.otel_exporter.otlp_endpoint
+        )
+        print("INFO:app.opentelemetry:", "Using HTTP exporter")
     tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
     trace.set_tracer_provider(tracer_provider)
 
     excluded_urls = ["/_status/check", "/metrics"]
-    FastAPIInstrumentor.instrument_app(app, excluded_urls=excluded_urls)
+    FastAPIInstrumentor.instrument_app(app, excluded_urls=",".join(excluded_urls))
 
     SQLAlchemyInstrumentor().instrument()
     RedisInstrumentor().instrument()
