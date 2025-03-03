@@ -28,7 +28,9 @@ def register_tracer(app: FastAPI):
     otlp_exporter = OTLPSpanExporter(endpoint=config.otel_exporter.otlp_endpoint)
     tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
     trace.set_tracer_provider(tracer_provider)
-    FastAPIInstrumentor.instrument_app(app)
+
+    excluded_urls = ["/_status/check", "/metrics"]
+    FastAPIInstrumentor.instrument_app(app, excluded_urls=excluded_urls)
 
     SQLAlchemyInstrumentor().instrument()
     RedisInstrumentor().instrument()
