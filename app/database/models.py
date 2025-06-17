@@ -1,7 +1,7 @@
 import datetime
 from typing import Literal
 
-from sqlalchemy import JSON, DateTime, Integer, String
+from sqlalchemy import JSON, DateTime, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, class_mapper, mapped_column
 
 
@@ -37,7 +37,7 @@ class Individual(Base):
     launchpad_account_id: Mapped[str | None] = mapped_column(String(100))
     launchpad_email: Mapped[str | None] = mapped_column(String(100))
     signed_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=datetime.datetime.utcnow().replace(tzinfo=None)
+        DateTime, default=func.now()
     )
     revoked_at: Mapped[datetime.datetime | None] = mapped_column(DateTime)
 
@@ -86,7 +86,8 @@ class Organization(Base):
 
     def __str__(self):
         active = (
-            f"active {(self.signed_at.isoformat())}" if self.is_active() else "revoked"
+            f"active {(self.signed_at.isoformat())}" if self.is_active(
+            ) else "revoked"
         )
         return f"organization {self.id}: {self.name} domain: {self.email_domain} status: {active}"
 
@@ -112,7 +113,7 @@ class AuditLog(Base):
     entity_type: Mapped[AuditEntityType]
     entity_id: Mapped[int]
     timestamp: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=datetime.datetime.utcnow().replace(tzinfo=None)
+        DateTime, default=func.now()
     )
     ip_address: Mapped[str] = mapped_column(String(50))
     details: Mapped[dict[str, str] | None] = mapped_column(JSON)
