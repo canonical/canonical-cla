@@ -42,13 +42,22 @@ def configure_logger():
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
 
-    # Create a handler that outputs JSON to stdout
+    # Create a handler that outputs to stdout
     handler = logging.StreamHandler()
 
-    # Create a formatter
-    formatter = CustomJsonFormatter(
-        "%(timestamp)s %(service)s %(severity)s %(name)s %(message)s"
-    )
+    # Create different formatters based on debug mode
+    if config.debug_mode:
+        # User-friendly format for development
+        formatter = logging.Formatter(
+            fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
+    else:
+        # JSON format for production
+        formatter = CustomJsonFormatter(
+            "%(timestamp)s %(service)s %(severity)s %(name)s %(message)s"
+        )
+    
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
