@@ -16,10 +16,13 @@ class OrganizationRepository(Protocol):
     ) -> list[Organization]: ...
 
     async def create_organization(self, organization: Organization) -> Organization: ...
+
     async def get_organization_by_id(
         self, organization_id: int
     ) -> Organization | None: ...
+
     async def update_organization(self, organization: Organization) -> Organization: ...
+    async def delete_organization(self, organization: Organization) -> None: ...
 
 
 class SQLOrganizationRepository(OrganizationRepository):
@@ -92,6 +95,19 @@ class SQLOrganizationRepository(OrganizationRepository):
         await self.session.commit()
         await self.session.refresh(organization)
         return organization
+
+    async def delete_organization(self, organization: Organization) -> None:
+        await self.session.delete(organization)
+        await self.session.flush()
+        log = AuditLog(
+            entity_type="ORGANIZATION",
+            entity_id=organization.id,
+            action="DELETE",
+            details=organization.as_dict(),
+            ip_address=request_ip(),
+        )
+        self.session.add(log)
+        await self.session.commit()
 
 
 def organization_repository(

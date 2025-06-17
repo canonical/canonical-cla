@@ -161,3 +161,28 @@ def send_organization_status_update(
             )
         ),
     )
+
+
+def send_organization_deleted(
+    contact_email: str,
+    contact_name: str,
+    organization_name: str,
+) -> None:
+    """
+    Send an email to the organization notifying them of their deletion.
+    """
+    subject = f"Canonical CLA: Organization Request Rejected"
+    send_email(
+        formataddr((contact_name, contact_email)),
+        subject,
+        body=templates.get_template(
+            "cla_org_deleted.j2",
+        ).render(
+            sanitize_context(
+                {
+                    "contact_name": contact_name,
+                    "organization_name": organization_name,
+                }
+            )
+        ),
+    )

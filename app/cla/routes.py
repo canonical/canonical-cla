@@ -32,6 +32,7 @@ from app.notifications.emails import (
     send_individual_confirmation_email,
     send_legal_notification,
     send_organization_confirmation_email,
+    send_organization_deleted,
     send_organization_status_update,
 )
 from app.repository.organization import OrganizationRepository, organization_repository
@@ -269,3 +270,43 @@ async def update_organization(
         }
     )
     return RedirectResponse(urlunparse(url), status_code=302)
+
+
+@cla_router.get("/organization/delete", include_in_schema=False)
+async def delete_organization(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    id: str,
+    organization_repository: OrganizationRepository = Depends(organization_repository),
+    cipher: AESCipher = Depends(cipher),
+):
+    """
+    Delete the organization CLA.
+    """
+    decrypted_organization_id = cipher.decrypt(id)
+    print(decrypted_organization_id)
+    if not decrypted_organization_id:
+        await sleep(10)
+        raise HTTPException(status_code=404, detail="Organization not found")
+    organization = await organization_repository.get_organization_by_id(
+        int(decrypted_organization_id)
+    )
+    if not organization:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    organization_name = organization.name
+    contact_email = organization.contact_email
+    contact_name = organization.contact_name
+    await organization_repository.delete_organization(organization)
+    background_tasks.add_task(
+        send_organization_deleted,
+        contact_email,
+        contact_name,
+        organization_name,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="deleted_organization.j2",
+        context={
+            "organization_name": organization_name,
+        },
+    )

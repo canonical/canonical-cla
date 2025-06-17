@@ -100,12 +100,21 @@
                            autocomplete="off" />
                 </div>
                 <label class="p-switch">
-                    <input type="checkbox" class="p-switch__input" {{ '' if organization['revoked_at'] or not organization['signed_at'] else 'checked=""' }} id="approved" name="approved" role="switch">
+                    <input type="checkbox"
+                           class="p-switch__input"
+                           {{ '' if organization['revoked_at'] or not organization['signed_at'] else 'checked=""' }}
+                           id="approved"
+                           name="approved"
+                           role="switch">
                     <span class="p-switch__slider"></span>
                     <span class="p-switch__label">Approved</span>
                 </label>
                 <div class="p-form__group">
                     <button type="submit" class="p-button--positive">Save</button>
+                </div>
+                <div class="p-form__group">
+                    <a href="/cla/organization/delete?id={{ organization_id | urlencode }}"
+                       class="p-button--negative">Permanently delete organization</a>
                 </div>
             </form>
         </div>

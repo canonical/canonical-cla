@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% with title='Canonical CLA: Organization Request Rejected' %}
+        {% include 'partials/head.j2' %}
+    {% endwith %}
+    <body>
+        {% include 'partials/logo.j2' %}
+        <h1>Canonical CLA: Organization Request Rejected</h1>
+        <p>Dear {{ contact_name }},</p>
+        <p>
+            Thank you for submitting the Canonical Contributor License Agreement (CLA) for your organization, {{ organization_name }}.
+        </p>
+        <p>We are sorry to inform you that your organization request has been rejected.</p>
+        <p>
+            If you have any questions, please contact us at <a href="mailto:community@canonical.com">community@canonical.com</a>.
+        </p>
+        <p>
+            Best regards,
+            <br />
+            The Canonical Team
+        </p>
+    </body>
+</html>
