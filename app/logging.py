@@ -21,9 +21,16 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
 
         # Add service name
         if not log_record.get("service"):
-            self.service_name = trace.get_tracer_provider().resource.attributes.get(
-                "service.name", "unknown"
-            )
+            try:
+                tracer_provider = trace.get_tracer_provider()
+                if hasattr(tracer_provider, 'resource') and hasattr(tracer_provider.resource, 'attributes'):
+                    self.service_name = tracer_provider.resource.attributes.get(
+                        "service.name", "canonical-cla"
+                    )
+                else:
+                    self.service_name = "canonical-cla"
+            except (AttributeError, Exception):
+                self.service_name = "canonical-cla"
 
         log_record["service"] = self.service_name
         log_record["severity"] = record.levelname
@@ -50,14 +57,14 @@ def configure_logger():
         # User-friendly format for development
         formatter = logging.Formatter(
             fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
     else:
         # JSON format for production
         formatter = CustomJsonFormatter(
             "%(timestamp)s %(service)s %(severity)s %(name)s %(message)s"
         )
-    
+
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
