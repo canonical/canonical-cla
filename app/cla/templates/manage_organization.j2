@@ -1,3 +1,4 @@
+{% set is_deleted = organization['revoked_at'] and not organization['signed_at'] %}
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -26,6 +27,14 @@
                     <button class="p-notification__close"
                             aria-controls="notification"
                             onclick="this.parentElement.style.display='none';">Close</button>
+                </div>
+            {% endif %}
+            {% if is_deleted %}
+                <div class="p-notification p-notification--negative">
+                    <div class="p-notification__content">
+                        <h5 class="p-notification__title">Organization deleted</h5>
+                        <p>The organization has been deleted.</p>
+                    </div>
                 </div>
             {% endif %}
             <form method="post">
@@ -99,23 +108,20 @@
                            value="{{ organization['salesforce_url'] or "" }}"
                            autocomplete="off" />
                 </div>
-                <label class="p-switch">
-                    <input type="checkbox"
-                           class="p-switch__input"
-                           {{ '' if organization['revoked_at'] or not organization['signed_at'] else 'checked=""' }}
-                           id="approved"
-                           name="approved"
-                           role="switch">
-                    <span class="p-switch__slider"></span>
-                    <span class="p-switch__label">Approved</span>
-                </label>
-                <div class="p-form__group">
-                    <button type="submit" class="p-button--positive">Save</button>
-                </div>
-                <div class="p-form__group">
-                    <a href="/cla/organization/delete?id={{ organization_id | urlencode }}"
-                       class="p-button--negative">Permanently delete organization</a>
-                </div>
+                {% if not is_deleted %}
+                    <label class="p-switch">
+                        <input type="checkbox" class="p-switch__input" {{ '' if organization['revoked_at'] or not organization['signed_at'] else 'checked=""' }} id="approved" name="approved" role="switch">
+                        <span class="p-switch__slider"></span>
+                        <span class="p-switch__label">Approved</span>
+                    </label>
+                    <div class="p-form__group">
+                        <button type="submit" class="p-button--positive">Save</button>
+                    </div>
+                    <div class="p-form__group">
+                        <a href="/cla/organization/delete?id={{ organization_id | urlencode }}"
+                           class="p-button--negative">Permanently delete organization</a>
+                    </div>
+                {% endif %}
             </form>
         </div>
         <script>

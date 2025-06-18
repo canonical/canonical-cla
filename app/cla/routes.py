@@ -184,7 +184,8 @@ async def manage_organization(
     id: str,
     message: str | None = None,
     email_sent: bool | None = None,
-    organization_repository: OrganizationRepository = Depends(organization_repository),
+    organization_repository: OrganizationRepository = Depends(
+        organization_repository),
     cipher: AESCipher = Depends(cipher),
 ):
     """
@@ -220,7 +221,8 @@ async def update_organization(
     email_domain: Annotated[str, Form()],
     salesforce_url: Annotated[str | None, Form()] = None,
     approved: Annotated[str | None, Form()] = None,
-    organization_repository: OrganizationRepository = Depends(organization_repository),
+    organization_repository: OrganizationRepository = Depends(
+        organization_repository),
     cipher: AESCipher = Depends(cipher),
 ):
     """
@@ -277,7 +279,8 @@ async def delete_organization(
     request: Request,
     background_tasks: BackgroundTasks,
     id: str,
-    organization_repository: OrganizationRepository = Depends(organization_repository),
+    organization_repository: OrganizationRepository = Depends(
+        organization_repository),
     cipher: AESCipher = Depends(cipher),
 ):
     """
@@ -293,20 +296,17 @@ async def delete_organization(
     )
     if not organization:
         raise HTTPException(status_code=404, detail="Organization not found")
-    organization_name = organization.name
-    contact_email = organization.contact_email
-    contact_name = organization.contact_name
-    await organization_repository.delete_organization(organization)
+    organization = await organization_repository.delete_organization(organization)
     background_tasks.add_task(
         send_organization_deleted,
-        contact_email,
-        contact_name,
-        organization_name,
+        organization.contact_email,
+        organization.contact_name,
+        organization.name,
     )
     return templates.TemplateResponse(
         request=request,
         name="deleted_organization.j2",
         context={
-            "organization_name": organization_name,
+            "organization_name": organization.name,
         },
     )
