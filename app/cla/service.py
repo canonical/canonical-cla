@@ -157,10 +157,12 @@ class CLAService:
                     status_code=401, detail="GitHub OAuth2 session is required"
                 )
             github_profile = await self.github_service.profile(gh_session)
-            if individual_form.github_email not in github_profile.emails:
+            if individual_form.github_email.lower() not in [
+                email.lower() for email in github_profile.emails
+            ]:
                 raise HTTPException(
                     status_code=400,
-                    detail="GitHub email does not match the provided email",
+                    detail="The selected GitHub email does not match any of the authenticated user emails",
                 )
         else:
             # avoid storing the github id and username if no email is provided
@@ -177,10 +179,12 @@ class CLAService:
                     status_code=401, detail="Launchpad OAuth session is required"
                 )
             launchpad_profile = await self.launchpad_service.profile(lp_session)
-            if individual_form.launchpad_email not in launchpad_profile.emails:
+            if individual_form.launchpad_email.lower() not in [
+                email.lower() for email in launchpad_profile.emails
+            ]:
                 raise HTTPException(
                     status_code=400,
-                    detail="Launchpad email does not match the provided email",
+                    detail="The selected Launchpad email does not match any of the authenticated user emails",
                 )
         else:
             # avoid storing the launchpad id and username if no email is provided
