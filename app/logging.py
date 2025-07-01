@@ -23,7 +23,9 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         if not log_record.get("service"):
             try:
                 tracer_provider = trace.get_tracer_provider()
-                if hasattr(tracer_provider, 'resource') and hasattr(tracer_provider.resource, 'attributes'):
+                if hasattr(tracer_provider, "resource") and hasattr(
+                    tracer_provider.resource, "attributes"
+                ):
                     self.service_name = tracer_provider.resource.attributes.get(
                         "service.name", "canonical-cla"
                     )

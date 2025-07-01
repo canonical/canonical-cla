@@ -184,8 +184,7 @@ async def manage_organization(
     id: str,
     message: str | None = None,
     email_sent: bool | None = None,
-    organization_repository: OrganizationRepository = Depends(
-        organization_repository),
+    organization_repository: OrganizationRepository = Depends(organization_repository),
     cipher: AESCipher = Depends(cipher),
 ):
     """
@@ -221,8 +220,7 @@ async def update_organization(
     email_domain: Annotated[str, Form()],
     salesforce_url: Annotated[str | None, Form()] = None,
     approved: Annotated[str | None, Form()] = None,
-    organization_repository: OrganizationRepository = Depends(
-        organization_repository),
+    organization_repository: OrganizationRepository = Depends(organization_repository),
     cipher: AESCipher = Depends(cipher),
 ):
     """
@@ -279,8 +277,7 @@ async def delete_organization(
     request: Request,
     background_tasks: BackgroundTasks,
     id: str,
-    organization_repository: OrganizationRepository = Depends(
-        organization_repository),
+    organization_repository: OrganizationRepository = Depends(organization_repository),
     cipher: AESCipher = Depends(cipher),
 ):
     """

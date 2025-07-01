@@ -16,18 +16,15 @@ class OrganizationRepository(Protocol):
         email_domains: list[str] | None = None,
     ) -> list[Organization]: ...
 
-    async def create_organization(
-        self, organization: Organization) -> Organization: ...
+    async def create_organization(self, organization: Organization) -> Organization: ...
 
     async def get_organization_by_id(
         self, organization_id: int
     ) -> Organization | None: ...
 
-    async def update_organization(
-        self, organization: Organization) -> Organization: ...
+    async def update_organization(self, organization: Organization) -> Organization: ...
 
-    async def delete_organization(
-        self, organization: Organization) -> Organization: ...
+    async def delete_organization(self, organization: Organization) -> Organization: ...
 
 
 class SQLOrganizationRepository(OrganizationRepository):
@@ -75,8 +72,7 @@ class SQLOrganizationRepository(OrganizationRepository):
             raise ValueError("Organization ID is required for update")
         existing_organization = await self.get_organization_by_id(organization.id)
         if not existing_organization:
-            raise ValueError(
-                f"Organization with ID {organization.id} not found")
+            raise ValueError(f"Organization with ID {organization.id} not found")
         organization.signed_at = existing_organization.signed_at
         organization.name = existing_organization.name
         organization.contact_name = existing_organization.contact_name
@@ -107,8 +103,7 @@ class SQLOrganizationRepository(OrganizationRepository):
             raise ValueError("Organization ID is required for update")
         existing_organization = await self.get_organization_by_id(organization.id)
         if not existing_organization:
-            raise ValueError(
-                f"Organization with ID {organization.id} not found")
+            raise ValueError(f"Organization with ID {organization.id} not found")
         organization.revoked_at = datetime.now()
         organization.signed_at = None
 

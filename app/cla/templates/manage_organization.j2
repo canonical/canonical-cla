@@ -110,7 +110,12 @@
                 </div>
                 {% if not is_deleted %}
                     <label class="p-switch">
-                        <input type="checkbox" class="p-switch__input" {{ '' if organization['revoked_at'] or not organization['signed_at'] else 'checked=""' }} id="approved" name="approved" role="switch">
+                        <input type="checkbox"
+                               class="p-switch__input"
+                               {{ '' if organization['revoked_at'] or not organization['signed_at'] else 'checked=""' }}
+                               id="approved"
+                               name="approved"
+                               role="switch">
                         <span class="p-switch__slider"></span>
                         <span class="p-switch__label">Approved</span>
                     </label>
