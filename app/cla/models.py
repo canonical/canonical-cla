@@ -17,7 +17,6 @@ class IndividualCreateForm(BaseModel):
             "example": {
                 "first_name": "John",
                 "last_name": "Doe",
-                "phone_number": "+1234567890",
                 "address": "123 Main St, Springfield, IL 62701",
                 "country": "FR",
                 "github_email": "john@example.com",
@@ -26,7 +25,6 @@ class IndividualCreateForm(BaseModel):
     )
     first_name: Annotated[str, StringConstraints(max_length=50)]
     last_name: Annotated[str, StringConstraints(max_length=50)]
-    phone_number: Annotated[str, StringConstraints(max_length=20)]
     address: Annotated[str, StringConstraints(max_length=400)]
     country: CountryAlpha2 = Field(
         ...,

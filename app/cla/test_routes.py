@@ -42,12 +42,11 @@ async def test_sign_cla_individual():
         "last_name": "test",
         "address": "address",
         "country": "France",
-        "phone_number": "1234567890",
         "github_email": "email1@email.com",
         "launchpad_email": "email2@email.com",
     }
     background_tasks = MagicMock()
-    response = await sign_cla_individual(
+    await sign_cla_individual(
         individual_form,
         cla_service=cla_service,
         gh_session="session",

@@ -27,7 +27,6 @@ class Individual(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     first_name: Mapped[str] = mapped_column(String(50))
     last_name: Mapped[str] = mapped_column(String(50))
-    phone_number: Mapped[str] = mapped_column(String(20))
     address: Mapped[str] = mapped_column(String(400))
     country: Mapped[str] = mapped_column(String(50))
     github_username: Mapped[str | None] = mapped_column(String(100))
