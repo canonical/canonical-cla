@@ -77,6 +77,7 @@ class SQLOrganizationRepository(OrganizationRepository):
         organization.name = existing_organization.name
         organization.contact_name = existing_organization.contact_name
         organization.contact_email = existing_organization.contact_email
+        organization.contact_job_title = existing_organization.contact_job_title
 
         organization.revoked_at = (
             organization.revoked_at.replace(tzinfo=None)

@@ -70,6 +70,7 @@ class Organization(Base):
     email_domain: Mapped[str] = mapped_column(String(100), unique=True)
     contact_name: Mapped[str] = mapped_column(String(100))
     contact_email: Mapped[str] = mapped_column(String(100))
+    contact_job_title: Mapped[str] = mapped_column(String(100))
     phone_number: Mapped[str | None] = mapped_column(String(20))
     address: Mapped[str | None] = mapped_column(String(400))
     country: Mapped[str] = mapped_column(String(50))

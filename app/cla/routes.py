@@ -160,6 +160,7 @@ async def sign_cla_organization(
         created_organization.contact_name,
         created_organization.contact_email,
         created_organization.phone_number,
+        created_organization.contact_job_title,
         created_organization.address,
         created_organization.country,
         created_organization.email_domain,

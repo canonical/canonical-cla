@@ -73,6 +73,7 @@ class OrganizationCreateForm(BaseModel):
     name: Annotated[str, StringConstraints(max_length=100)]
     email_domain: Annotated[str, StringConstraints(max_length=100)]
     contact_name: Annotated[str, StringConstraints(max_length=100)]
+    contact_job_title: Annotated[str, StringConstraints(max_length=100)]
     contact_email: Annotated[str, StringConstraints(max_length=100)]
     phone_number: Annotated[str | None, StringConstraints(max_length=20)] = None
     address: Annotated[str | None, StringConstraints(max_length=400)] = None
