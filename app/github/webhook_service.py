@@ -6,6 +6,11 @@ from github import Github, GithubIntegration
 from app.cla.service import CLAService, cla_service
 from app.config import config
 
+GITGUB_INTEGRATION = GithubIntegration(
+    config.github_app.id,
+    config.github_app.private_key.get_secret_value(),
+)
+
 LICENSE_MAP = {
     "canonical/lxd": ["Apache-2.0"],
     "canonical/lxd-ci": ["Apache-2.0"],
@@ -30,13 +35,8 @@ def has_implicit_license(commit_message: str, repo_name: str) -> str:
 
 
 def get_github_client(owner: str, repo_name: str):
-    git_integration = GithubIntegration(
-        config.github_app.id,
-        config.github_app.private_key.get_secret_value(),
-    )
-
-    token = git_integration.get_access_token(
-        git_integration.get_repo_installation(owner, repo_name).id
+    token = GITGUB_INTEGRATION.get_access_token(
+        GITGUB_INTEGRATION.get_repo_installation(owner, repo_name).id
     ).token
     git_connection = Github(login_or_token=token)
     return git_connection
@@ -104,12 +104,10 @@ class GithubWebhookService:
                     "signed": False,
                 }
 
-        # Process CLA exceptions
+        # Exclude bot accounts
         for email, author in commit_authors.items():
             username = author["username"]
             if username and username.endswith("[bot]"):
-                author["signed"] = True
-            if email.endswith("@canonical.com"):
                 author["signed"] = True
 
         # Check CLA for remaining authors
