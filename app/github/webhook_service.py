@@ -141,10 +141,10 @@ class GithubWebhookService:
                 g, repo_full_name, pr_number
             )
 
-            unsigned_authors = await self._check_authors_cla(commit_authors)
+            authors_cla_status = await self._check_authors_cla(commit_authors)
 
             conclusion, output = self._create_check_run_output(
-                unsigned_authors
+                authors_cla_status
             )
 
             await self._update_or_create_check_run(
@@ -200,10 +200,9 @@ class GithubWebhookService:
                 }
         return commit_authors
 
-    async def _check_authors_cla(self, commit_authors: dict) -> list[str]:
+    async def _check_authors_cla(self, commit_authors: dict) -> dict:
         """
-        Check CLA status for commit authors and return a list of unsigned
-        authors.
+        Check CLA status for commit authors and return the updated authors dict.
         """
         # Exclude bot accounts
         for email, author in commit_authors.items():
@@ -220,10 +219,8 @@ class GithubWebhookService:
                 if author["username"]:
                     usernames_to_check.append(author["username"])
 
-        unsigned_authors = []
-
         if not emails_to_check:
-            return []
+            return commit_authors
 
         cla_status = await self.cla_service.check_cla(
             emails=emails_to_check,
@@ -241,31 +238,48 @@ class GithubWebhookService:
 
                 if is_signed:
                     author["signed"] = True
-                else:
-                    unsigned_authors.append(
-                        f"- {username or 'Unknown user'} ({email})"
-                    )
-        return unsigned_authors
+        return commit_authors
 
     def _create_check_run_output(
-        self, unsigned_authors: list[str]
+        self, authors_cla_status: dict
     ) -> tuple[str, dict]:
         """
-        Create the output for the check run based on unsigned authors.
+        Create the output for the check run based on authors' CLA status.
         """
+        signed_authors = []
+        unsigned_authors = []
+
+        sorted_authors = sorted(
+            authors_cla_status.items(),
+            key=lambda item: item[1]["username"] or "",
+        )
+
+        for email, author in sorted_authors:
+            username = author["username"] or "Unknown user"
+            if author["signed"]:
+                signed_authors.append(f"- {username} ✓ (CLA signed)")
+            else:
+                unsigned_authors.append(
+                    f"- {username} ({email}) ✗ (CLA not signed)"
+                )
+
         if not unsigned_authors:
             conclusion = "success"
+            summary = "All contributors have signed the CLA. Thank you!"
+            if signed_authors:
+                summary += "\n\n" + "\n".join(signed_authors)
             output = {
                 "title": "All contributors have signed the CLA.",
-                "summary": "Thank you!",
+                "summary": summary,
             }
         else:
             conclusion = "failure"
+            all_authors_status = unsigned_authors + signed_authors
             summary = (
                 "Some commit authors have not signed the Canonical CLA which is "
                 "required to get this contribution merged on this project.\n\n"
-                "The following authors have not signed the CLA:\n"
-                + "\n".join(unsigned_authors)
+                "The following shows the status of all commit authors:\n"
+                + "\n".join(all_authors_status)
                 + "\n\nPlease head over to "
                 "https://ubuntu.com/legal/contributors to sign the CLA."
             )
