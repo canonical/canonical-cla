@@ -7,5 +7,5 @@ from subprocess import run as process_run
 
 
 def run():
-    command = "uvicorn app.main:app --reload --port=8001"
+    command = "uvicorn app.main:app --reload"
     exit(process_run(command, shell=True).returncode)
