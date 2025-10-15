@@ -2,16 +2,14 @@ import hashlib
 import hmac
 import re
 
+import httpx
 from fastapi import Depends, HTTPException
-from github import Github, GithubIntegration
+from gidgethub.apps import get_installation_access_token
+from gidgethub.httpx import GitHubAPI
 
 from app.cla.service import CLAService, cla_service
 from app.config import config
-
-GITGUB_INTEGRATION = GithubIntegration(
-    config.github_app.id,
-    config.github_app.private_key.get_secret_value(),
-)
+from app.utils import http_client
 
 LICENSE_MAP = {
     "canonical/lxd": ["Apache-2.0"],
@@ -36,12 +34,23 @@ def has_implicit_license(commit_message: str, repo_name: str) -> str:
     return ""
 
 
-def get_github_client(owner: str, repo_name: str):
-    token = GITGUB_INTEGRATION.get_access_token(
-        GITGUB_INTEGRATION.get_repo_installation(owner, repo_name).id
-    ).token
-    git_connection = Github(login_or_token=token)
-    return git_connection
+async def get_github_client(
+    owner: str, repo_name: str, user_login: str, installation_id: int
+):
+    async with httpx.AsyncClient() as client:
+        gh = GitHubAPI(client, requester=user_login)
+        access_token_response = await get_installation_access_token(
+            gh,
+            installation_id=installation_id,
+            app_id=config.github_app.id,
+            private_key=config.github_app.private_key.get_secret_value(),
+        )
+
+        return GitHubAPI(
+            client,
+            requester=user_login,
+            oauth_token=access_token_response["token"],
+        )
 
 
 class GithubWebhookService:
@@ -94,7 +103,10 @@ class GithubWebhookService:
         ]:
             sha = payload["pull_request"]["head"]["sha"]
             pr_number = payload["pull_request"]["number"]
-            await self.update_check_run(sha, repo_full_name, pr_number)
+            installation_id = payload["installation"]["id"]
+            await self.update_check_run(
+                sha, repo_full_name, pr_number, installation_id
+            )
             return {"message": "Pull request event processed"}
 
         # Handle the "Re-run" event from the GitHub UI
@@ -102,7 +114,10 @@ class GithubWebhookService:
             sha = payload["check_run"]["head_sha"]
             if payload["check_run"]["pull_requests"]:
                 pr_number = payload["check_run"]["pull_requests"][0]["number"]
-                await self.update_check_run(sha, repo_full_name, pr_number)
+                installation_id = payload["installation"]["id"]
+                await self.update_check_run(
+                    sha, repo_full_name, pr_number, installation_id
+                )
                 return {"message": "Re-run event processed"}
             else:
                 return {"message": "Re-run event ignored, no pull request"}
@@ -110,119 +125,149 @@ class GithubWebhookService:
         return {"message": "Event not processed"}
 
     async def update_check_run(
-        self, sha: str, repo_full_name: str, pr_number: int
+        self, sha: str, repo_full_name: str, pr_number: int, installation_id: int
     ):
         """
         Creates or updates the 'Canonical CLA' check run for a given commit.
         """
         owner, repo_name = repo_full_name.split("/")
 
-        g = get_github_client(owner, repo_name)
-        repo = g.get_repo(repo_full_name)
-
-        # Collect commit authors
-        commit_authors = {}
-        pr = repo.get_pull(pr_number)
-        commits = pr.get_commits()
-
-        for commit in commits:
-            # Check for implicit license
-            if has_implicit_license(commit.commit.message, repo_full_name):
-                continue
-
-            author_email = commit.commit.author.email
-            if not author_email:
-                continue
-
-            author_login = commit.author.login if commit.author else None
-
-            if author_email not in commit_authors:
-                commit_authors[author_email] = {
-                    "username": author_login,
-                    "signed": False,
-                }
-
-        # Exclude bot accounts
-        for email, author in commit_authors.items():
-            username = author["username"]
-            if username and username.endswith("[bot]"):
-                author["signed"] = True
-
-        # Check CLA for remaining authors
-        emails_to_check = []
-        usernames_to_check = []
-        for email, author in commit_authors.items():
-            if not author["signed"]:
-                emails_to_check.append(email)
-                if author["username"]:
-                    usernames_to_check.append(author["username"])
-
-        unsigned_authors = []
-
-        if emails_to_check:
-            cla_status = await self.cla_service.check_cla(
-                emails=emails_to_check,
-                github_usernames=usernames_to_check,
-                launchpad_usernames=[],
+        async with httpx.AsyncClient() as client:
+            gh = GitHubAPI(client, requester=owner)
+            access_token_response = await get_installation_access_token(
+                gh,
+                installation_id=installation_id,
+                app_id=config.github_app.id,
+                private_key=config.github_app.private_key.get_secret_value(),
             )
 
+            g = GitHubAPI(
+                client,
+                requester=owner,
+                oauth_token=access_token_response["token"],
+            )
+
+            # Collect commit authors
+            commit_authors = {}
+            pr_commits_url = (
+                f"/repos/{repo_full_name}/pulls/{pr_number}/commits"
+            )
+            commits = g.getiter(pr_commits_url)
+
+            async for commit_data in commits:
+                commit = await g.getitem(commit_data["url"])
+                # Check for implicit license
+                if has_implicit_license(commit["commit"]["message"], repo_full_name):
+                    continue
+
+                author_email = commit["commit"]["author"]["email"]
+                if not author_email:
+                    continue
+
+                author_login = commit["author"]["login"] if commit["author"] else None
+
+                if author_email not in commit_authors:
+                    commit_authors[author_email] = {
+                        "username": author_login,
+                        "signed": False,
+                    }
+
+            # Exclude bot accounts
+            for email, author in commit_authors.items():
+                username = author["username"]
+                if username and username.endswith("[bot]"):
+                    author["signed"] = True
+
+            # Check CLA for remaining authors
+            emails_to_check = []
+            usernames_to_check = []
             for email, author in commit_authors.items():
                 if not author["signed"]:
-                    username = author["username"]
-                    is_signed = cla_status.emails.get(
-                        email, False
-                    ) or (
-                        username
-                        and cla_status.github_usernames.get(username, False)
-                    )
+                    emails_to_check.append(email)
+                    if author["username"]:
+                        usernames_to_check.append(author["username"])
 
-                    if is_signed:
-                        author["signed"] = True
-                    else:
-                        unsigned_authors.append(
-                            f"- {username or 'Unknown user'} ({email})"
+            unsigned_authors = []
+
+            if emails_to_check:
+                cla_status = await self.cla_service.check_cla(
+                    emails=emails_to_check,
+                    github_usernames=usernames_to_check,
+                    launchpad_usernames=[],
+                )
+
+                for email, author in commit_authors.items():
+                    if not author["signed"]:
+                        username = author["username"]
+                        is_signed = cla_status.emails.get(
+                            email, False
+                        ) or (
+                            username
+                            and cla_status.github_usernames.get(username, False)
                         )
 
-        # Determine conclusion and output
-        if not unsigned_authors:
-            conclusion = "success"
-            output = {
-                "title": "All contributors have signed the CLA.",
-                "summary": "Thank you!",
-            }
-        else:
-            conclusion = "failure"
-            summary = (
-                "Some commit authors have not signed the Canonical CLA which is "
-                "required to get this contribution merged on this project.\n\n"
-                "The following authors have not signed the CLA:\n"
-                + "\n".join(unsigned_authors)
-                + "\n\nPlease head over to "
-                "https://ubuntu.com/legal/contributors to sign the CLA."
-            )
-            output = {"title": "CLA Check Failed", "summary": summary}
+                        if is_signed:
+                            author["signed"] = True
+                        else:
+                            unsigned_authors.append(
+                                f"- {username or 'Unknown user'} ({email})"
+                            )
 
-        # Create or update check run
-        check_run_name = "Canonical CLA"
-        commit = repo.get_commit(sha=sha)
-        existing_run = None
-        for run in commit.get_check_runs():
-            if run.name == check_run_name:
-                existing_run = run
-                break
+            # Determine conclusion and output
+            if not unsigned_authors:
+                conclusion = "success"
+                output = {
+                    "title": "All contributors have signed the CLA.",
+                    "summary": "Thank you!",
+                }
+            else:
+                conclusion = "failure"
+                summary = (
+                    "Some commit authors have not signed the Canonical CLA which is "
+                    "required to get this contribution merged on this project.\n\n"
+                    "The following authors have not signed the CLA:\n"
+                    + "\n".join(unsigned_authors)
+                    + "\n\nPlease head over to "
+                    "https://ubuntu.com/legal/contributors to sign the CLA."
+                )
+                output = {"title": "CLA Check Failed", "summary": summary}
 
-        if existing_run:
-            existing_run.edit(
-                status="completed", conclusion=conclusion, output=output
+            # Create or update check run
+            check_run_name = "Canonical CLA"
+            check_runs_url = f"/repos/{repo_full_name}/check-runs"
+            commit_check_runs_url = (
+                f"/repos/{repo_full_name}/commits/{sha}/check-runs"
             )
-        else:
-            repo.create_check_run(
-                name=check_run_name,
-                head_sha=sha,
-                status="completed",
-                conclusion=conclusion,
-                output=output,
+            check_runs = await g.getitem(
+                commit_check_runs_url,
             )
+
+            existing_run = None
+            for run in check_runs["check_runs"]:
+                if run["name"] == check_run_name:
+                    existing_run = run
+                    break
+
+            if existing_run:
+                await g.patch(
+                    existing_run["url"],
+                    data={
+                        "status": "completed",
+                        "conclusion": conclusion,
+                        "output": output,
+                    },
+                )
+            else:
+                await g.post(
+                    check_runs_url,
+                    data={
+                        "name": check_run_name,
+                        "head_sha": sha,
+                        "status": "completed",
+                        "conclusion": conclusion,
+                        "output": output,
+                    },
+                )
 
 
 async def github_webhook_service(
