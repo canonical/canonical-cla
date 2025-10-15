@@ -167,5 +167,9 @@ async def webhook(
     request: Request,
     github_webhook_service: GithubWebhookService = Depends(github_webhook_service),
 ):
+    payload_body = await request.body()
+    signature_header = request.headers.get("x-hub-signature-256")
+    github_webhook_service.verify_signature(payload_body, signature_header)
+
     payload = await request.json()
     return await github_webhook_service.process_webhook(payload)
