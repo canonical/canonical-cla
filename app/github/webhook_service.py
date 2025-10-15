@@ -130,144 +130,192 @@ class GithubWebhookService:
         """
         Creates or updates the 'Canonical CLA' check run for a given commit.
         """
-        owner, repo_name = repo_full_name.split("/")
+        owner, _ = repo_full_name.split("/")
 
         async with httpx.AsyncClient() as client:
-            gh = GitHubAPI(client, requester=owner)
-            access_token_response = await get_installation_access_token(
-                gh,
-                installation_id=installation_id,
-                app_id=config.github_app.id,
-                private_key=config.github_app.private_key.get_secret_value(),
+            g = await self._get_github_api_for_installation(
+                client, owner, installation_id
             )
 
-            g = GitHubAPI(
-                client,
-                requester=owner,
-                oauth_token=access_token_response["token"],
+            commit_authors = await self._get_commit_authors(
+                g, repo_full_name, pr_number
             )
 
-            # Collect commit authors
-            commit_authors = {}
-            pr_commits_url = (
-                f"/repos/{repo_full_name}/pulls/{pr_number}/commits"
+            unsigned_authors = await self._check_authors_cla(commit_authors)
+
+            conclusion, output = self._create_check_run_output(
+                unsigned_authors
             )
-            commits = g.getiter(pr_commits_url)
 
-            async for commit_data in commits:
-                commit = await g.getitem(commit_data["url"])
-                # Check for implicit license
-                if has_implicit_license(commit["commit"]["message"], repo_full_name):
-                    continue
+            await self._update_or_create_check_run(
+                g, repo_full_name, sha, conclusion, output
+            )
 
-                author_email = commit["commit"]["author"]["email"]
-                if not author_email:
-                    continue
+    async def _get_github_api_for_installation(
+        self, client: httpx.AsyncClient, owner: str, installation_id: int
+    ) -> GitHubAPI:
+        """Get an authenticated GitHubAPI instance for an installation."""
+        gh = GitHubAPI(client, requester=owner)
+        access_token_response = await get_installation_access_token(
+            gh,
+            installation_id=installation_id,
+            app_id=config.github_app.id,
+            private_key=config.github_app.private_key.get_secret_value(),
+        )
 
-                author_login = commit["author"]["login"] if commit["author"] else None
+        return GitHubAPI(
+            client,
+            requester=owner,
+            oauth_token=access_token_response["token"],
+        )
 
-                if author_email not in commit_authors:
-                    commit_authors[author_email] = {
-                        "username": author_login,
-                        "signed": False,
-                    }
+    async def _get_commit_authors(
+        self, g: GitHubAPI, repo_full_name: str, pr_number: int
+    ) -> dict:
+        """Collect commit authors from a pull request."""
+        commit_authors = {}
+        pr_commits_url = f"/repos/{repo_full_name}/pulls/{pr_number}/commits"
+        commits = g.getiter(pr_commits_url)
 
-            # Exclude bot accounts
-            for email, author in commit_authors.items():
-                username = author["username"]
-                if username and username.endswith("[bot]"):
-                    author["signed"] = True
+        async for commit_data in commits:
+            commit = await g.getitem(commit_data["url"])
+            # Check for implicit license
+            if has_implicit_license(
+                commit["commit"]["message"], repo_full_name
+            ):
+                continue
 
-            # Check CLA for remaining authors
-            emails_to_check = []
-            usernames_to_check = []
-            for email, author in commit_authors.items():
-                if not author["signed"]:
-                    emails_to_check.append(email)
-                    if author["username"]:
-                        usernames_to_check.append(author["username"])
+            author_email = commit["commit"]["author"]["email"]
+            if not author_email:
+                continue
 
-            unsigned_authors = []
+            author_login = (
+                commit["author"]["login"] if commit["author"] else None
+            )
 
-            if emails_to_check:
-                cla_status = await self.cla_service.check_cla(
-                    emails=emails_to_check,
-                    github_usernames=usernames_to_check,
-                    launchpad_usernames=[],
-                )
-
-                for email, author in commit_authors.items():
-                    if not author["signed"]:
-                        username = author["username"]
-                        is_signed = cla_status.emails.get(
-                            email, False
-                        ) or (
-                            username
-                            and cla_status.github_usernames.get(username, False)
-                        )
-
-                        if is_signed:
-                            author["signed"] = True
-                        else:
-                            unsigned_authors.append(
-                                f"- {username or 'Unknown user'} ({email})"
-                            )
-
-            # Determine conclusion and output
-            if not unsigned_authors:
-                conclusion = "success"
-                output = {
-                    "title": "All contributors have signed the CLA.",
-                    "summary": "Thank you!",
+            if author_email not in commit_authors:
+                commit_authors[author_email] = {
+                    "username": author_login,
+                    "signed": False,
                 }
-            else:
-                conclusion = "failure"
-                summary = (
-                    "Some commit authors have not signed the Canonical CLA which is "
-                    "required to get this contribution merged on this project.\n\n"
-                    "The following authors have not signed the CLA:\n"
-                    + "\n".join(unsigned_authors)
-                    + "\n\nPlease head over to "
-                    "https://ubuntu.com/legal/contributors to sign the CLA."
-                )
-                output = {"title": "CLA Check Failed", "summary": summary}
+        return commit_authors
 
-            # Create or update check run
-            check_run_name = "Canonical CLA"
-            check_runs_url = f"/repos/{repo_full_name}/check-runs"
-            commit_check_runs_url = (
-                f"/repos/{repo_full_name}/commits/{sha}/check-runs"
+    async def _check_authors_cla(self, commit_authors: dict) -> list[str]:
+        """
+        Check CLA status for commit authors and return a list of unsigned
+        authors.
+        """
+        # Exclude bot accounts
+        for email, author in commit_authors.items():
+            username = author["username"]
+            if username and username.endswith("[bot]"):
+                author["signed"] = True
+
+        # Check CLA for remaining authors
+        emails_to_check = []
+        usernames_to_check = []
+        for email, author in commit_authors.items():
+            if not author["signed"]:
+                emails_to_check.append(email)
+                if author["username"]:
+                    usernames_to_check.append(author["username"])
+
+        unsigned_authors = []
+
+        if not emails_to_check:
+            return []
+
+        cla_status = await self.cla_service.check_cla(
+            emails=emails_to_check,
+            github_usernames=usernames_to_check,
+            launchpad_usernames=[],
+        )
+
+        for email, author in commit_authors.items():
+            if not author["signed"]:
+                username = author["username"]
+                is_signed = cla_status.emails.get(email, False) or (
+                    username
+                    and cla_status.github_usernames.get(username, False)
+                )
+
+                if is_signed:
+                    author["signed"] = True
+                else:
+                    unsigned_authors.append(
+                        f"- {username or 'Unknown user'} ({email})"
+                    )
+        return unsigned_authors
+
+    def _create_check_run_output(
+        self, unsigned_authors: list[str]
+    ) -> tuple[str, dict]:
+        """
+        Create the output for the check run based on unsigned authors.
+        """
+        if not unsigned_authors:
+            conclusion = "success"
+            output = {
+                "title": "All contributors have signed the CLA.",
+                "summary": "Thank you!",
+            }
+        else:
+            conclusion = "failure"
+            summary = (
+                "Some commit authors have not signed the Canonical CLA which is "
+                "required to get this contribution merged on this project.\n\n"
+                "The following authors have not signed the CLA:\n"
+                + "\n".join(unsigned_authors)
+                + "\n\nPlease head over to "
+                "https://ubuntu.com/legal/contributors to sign the CLA."
             )
-            check_runs = await g.getitem(
-                commit_check_runs_url,
+            output = {"title": "CLA Check Failed", "summary": summary}
+        return conclusion, output
+
+    async def _update_or_create_check_run(
+        self,
+        g: GitHubAPI,
+        repo_full_name: str,
+        sha: str,
+        conclusion: str,
+        output: dict,
+    ):
+        """Create or update the GitHub check run."""
+        check_run_name = "Canonical CLA"
+        check_runs_url = f"/repos/{repo_full_name}/check-runs"
+        commit_check_runs_url = (
+            f"/repos/{repo_full_name}/commits/{sha}/check-runs"
+        )
+        check_runs = await g.getitem(
+            commit_check_runs_url,
+        )
+
+        existing_run = None
+        for run in check_runs["check_runs"]:
+            if run["name"] == check_run_name:
+                existing_run = run
+                break
+
+        if existing_run:
+            await g.patch(
+                existing_run["url"],
+                data={
+                    "status": "completed",
+                    "conclusion": conclusion,
+                    "output": output,
+                },
             )
-
-            existing_run = None
-            for run in check_runs["check_runs"]:
-                if run["name"] == check_run_name:
-                    existing_run = run
-                    break
-
-            if existing_run:
-                await g.patch(
-                    existing_run["url"],
-                    data={
-                        "status": "completed",
-                        "conclusion": conclusion,
-                        "output": output,
-                    },
-                )
-            else:
-                await g.post(
-                    check_runs_url,
-                    data={
-                        "name": check_run_name,
-                        "head_sha": sha,
-                        "status": "completed",
-                        "conclusion": conclusion,
-                        "output": output,
-                    },
-                )
+        else:
+            await g.post(
+                check_runs_url,
+                data={
+                    "name": check_run_name,
+                    "head_sha": sha,
+                    "status": "completed",
+                    "conclusion": conclusion,
+                    "output": output,
+                },
+            )
 
 
 async def github_webhook_service(
