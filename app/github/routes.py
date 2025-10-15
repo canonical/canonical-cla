@@ -162,11 +162,23 @@ async def github_logout(
     return response
 
 
-@github_router.post("/webhook")
+@github_router.post("/webhook", responses=error_status_codes([403]))
 async def webhook(
     request: Request,
     github_webhook_service: GithubWebhookService = Depends(github_webhook_service),
-):
+) -> TypedDict("WebhookResponse", {"message": str}):
+    """
+    Handles GitHub webhooks.
+
+    This endpoint should be used as the webhook URL when creating a GitHub App.
+    The GitHub App must have the following permissions:
+    - **Pull Requests**: `Read-only`
+    - **Checks**: `Read & write`
+
+    And be subscribed to the following events:
+    - `Pull request`
+    - `Check run`
+    """
     payload_body = await request.body()
     signature_header = request.headers.get("x-hub-signature-256")
     github_webhook_service.verify_signature(payload_body, signature_header)
