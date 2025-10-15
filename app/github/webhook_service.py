@@ -57,9 +57,7 @@ class GithubWebhookService:
     def __init__(self, cla_service: CLAService):
         self.cla_service = cla_service
 
-    def verify_signature(
-        self, payload_body: bytes, signature_header: str | None
-    ):
+    def verify_signature(self, payload_body: bytes, signature_header: str | None):
         """Verify that the payload was sent from GitHub by validating SHA256.
 
         Raise and return 403 if not authorized.
@@ -75,9 +73,7 @@ class GithubWebhookService:
             )
 
         hash_object = hmac.new(
-            config.github_app.secret.get_secret_value().encode(
-                "utf-8"
-            ),
+            config.github_app.secret.get_secret_value().encode("utf-8"),
             msg=payload_body,
             digestmod=hashlib.sha256,
         )
@@ -104,9 +100,7 @@ class GithubWebhookService:
             sha = payload["pull_request"]["head"]["sha"]
             pr_number = payload["pull_request"]["number"]
             installation_id = payload["installation"]["id"]
-            await self.update_check_run(
-                sha, repo_full_name, pr_number, installation_id
-            )
+            await self.update_check_run(sha, repo_full_name, pr_number, installation_id)
             return {"message": "Pull request event processed"}
 
         # Handle the "Re-run" event from the GitHub UI
@@ -143,9 +137,7 @@ class GithubWebhookService:
 
             authors_cla_status = await self._check_authors_cla(commit_authors)
 
-            conclusion, output = self._create_check_run_output(
-                authors_cla_status
-            )
+            conclusion, output = self._create_check_run_output(authors_cla_status)
 
             await self._update_or_create_check_run(
                 g, repo_full_name, sha, conclusion, output
@@ -180,18 +172,14 @@ class GithubWebhookService:
         async for commit_data in commits:
             commit = await g.getitem(commit_data["url"])
             # Check for implicit license
-            if has_implicit_license(
-                commit["commit"]["message"], repo_full_name
-            ):
+            if has_implicit_license(commit["commit"]["message"], repo_full_name):
                 continue
 
             author_email = commit["commit"]["author"]["email"]
             if not author_email:
                 continue
 
-            author_login = (
-                commit["author"]["login"] if commit["author"] else None
-            )
+            author_login = commit["author"]["login"] if commit["author"] else None
 
             if author_email not in commit_authors:
                 commit_authors[author_email] = {
@@ -232,17 +220,14 @@ class GithubWebhookService:
             if not author["signed"]:
                 username = author["username"]
                 is_signed = cla_status.emails.get(email, False) or (
-                    username
-                    and cla_status.github_usernames.get(username, False)
+                    username and cla_status.github_usernames.get(username, False)
                 )
 
                 if is_signed:
                     author["signed"] = True
         return commit_authors
 
-    def _create_check_run_output(
-        self, authors_cla_status: dict
-    ) -> tuple[str, dict]:
+    def _create_check_run_output(self, authors_cla_status: dict) -> tuple[str, dict]:
         """
         Create the output for the check run based on authors' CLA status.
         """
@@ -259,9 +244,7 @@ class GithubWebhookService:
             if author["signed"]:
                 signed_authors.append(f"- {username} ✓ (CLA signed)")
             else:
-                unsigned_authors.append(
-                    f"- {username} ({email}) ✗ (CLA not signed)"
-                )
+                unsigned_authors.append(f"- {username} ({email}) ✗ (CLA not signed)")
 
         if not unsigned_authors:
             conclusion = "success"
@@ -297,9 +280,7 @@ class GithubWebhookService:
         """Create or update the GitHub check run."""
         check_run_name = "Canonical CLA"
         check_runs_url = f"/repos/{repo_full_name}/check-runs"
-        commit_check_runs_url = (
-            f"/repos/{repo_full_name}/commits/{sha}/check-runs"
-        )
+        commit_check_runs_url = f"/repos/{repo_full_name}/commits/{sha}/check-runs"
         check_runs = await g.getitem(
             commit_check_runs_url,
         )
