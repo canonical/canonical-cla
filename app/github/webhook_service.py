@@ -1,6 +1,6 @@
 import re
 
-from fastapi import Depends
+from fastapi import Depends, Response
 from github import Github, GithubIntegration
 
 from app.cla.service import CLAService, cla_service
@@ -63,6 +63,9 @@ class GithubWebhookService:
             sha = payload["pull_request"]["head"]["sha"]
             pr_number = payload["pull_request"]["number"]
             await self.update_check_run(sha, repo_full_name, pr_number)
+            return Response(
+                content="Pull request event processed", status_code=200
+            )
 
         # Handle the "Re-run" event from the GitHub UI
         elif "check_run" in payload and action == "rerequested":
@@ -70,6 +73,16 @@ class GithubWebhookService:
             if payload["check_run"]["pull_requests"]:
                 pr_number = payload["check_run"]["pull_requests"][0]["number"]
                 await self.update_check_run(sha, repo_full_name, pr_number)
+                return Response(
+                    content="Re-run event processed", status_code=200
+                )
+            else:
+                return Response(
+                    content="Re-run event ignored, no pull request",
+                    status_code=200,
+                )
+
+        return Response(content="Event not processed", status_code=200)
 
     async def update_check_run(
         self, sha: str, repo_full_name: str, pr_number: int

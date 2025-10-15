@@ -161,11 +161,11 @@ async def github_logout(
     response.delete_cookie(github_cookie_session.model.name)
     return response
 
+
 @github_router.post("/webhook")
 async def webhook(
     request: Request,
     github_webhook_service: GithubWebhookService = Depends(github_webhook_service),
 ):
     payload = await request.json()
-    await github_webhook_service.process_webhook(payload)
-    return {"status": "ok"}
+    return await github_webhook_service.process_webhook(payload)
