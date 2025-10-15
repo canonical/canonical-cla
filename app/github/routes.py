@@ -2,12 +2,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
+from starlette.requests import Request
 from starlette.responses import Response
 from typing_extensions import TypedDict
 
 from app.config import config
 from app.github.models import GithubProfile
 from app.github.service import GithubService, github_cookie_session, github_service
+from app.github.webhook_service import (
+    GithubWebhookService,
+    github_webhook_service,
+)
 from app.utils import Base64, error_status_codes, update_query_params
 
 github_router = APIRouter(prefix="/github", tags=["GitHub"])
@@ -155,3 +160,12 @@ async def github_logout(
         )
     response.delete_cookie(github_cookie_session.model.name)
     return response
+
+@github_router.post("/webhook")
+async def webhook(
+    request: Request,
+    github_webhook_service: GithubWebhookService = Depends(github_webhook_service),
+):
+    payload = await request.json()
+    await github_webhook_service.process_webhook(payload)
+    return {"status": "ok"}
