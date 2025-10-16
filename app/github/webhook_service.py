@@ -34,25 +34,6 @@ def has_implicit_license(commit_message: str, repo_name: str) -> str:
     return ""
 
 
-async def get_github_client(
-    owner: str, repo_name: str, user_login: str, installation_id: int
-):
-    async with httpx.AsyncClient() as client:
-        gh = GitHubAPI(client, requester=user_login)
-        access_token_response = await get_installation_access_token(
-            gh,
-            installation_id=installation_id,
-            app_id=config.github_app.id,
-            private_key=config.github_app.private_key.get_secret_value(),
-        )
-
-        return GitHubAPI(
-            client,
-            requester=user_login,
-            oauth_token=access_token_response["token"],
-        )
-
-
 class GithubWebhookService:
     def __init__(self, cla_service: CLAService):
         self.cla_service = cla_service
