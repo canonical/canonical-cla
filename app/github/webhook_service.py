@@ -35,8 +35,9 @@ def has_implicit_license(commit_message: str, repo_name: str) -> str:
 
 
 class GithubWebhookService:
-    def __init__(self, cla_service: CLAService):
+    def __init__(self, cla_service: CLAService, http_client: httpx.AsyncClient):
         self.cla_service = cla_service
+        self.http_client = http_client
 
     def verify_signature(self, payload_body: bytes, signature_header: str | None):
         """Verify that the payload was sent from GitHub by validating SHA256.
@@ -107,28 +108,27 @@ class GithubWebhookService:
         """
         owner, _ = repo_full_name.split("/")
 
-        async with httpx.AsyncClient() as client:
-            g = await self._get_github_api_for_installation(
-                client, owner, installation_id
-            )
+        g = await self._get_github_api_for_installation(
+            owner, installation_id
+        )
 
-            commit_authors = await self._get_commit_authors(
-                g, repo_full_name, pr_number
-            )
+        commit_authors = await self._get_commit_authors(
+            g, repo_full_name, pr_number
+        )
 
-            authors_cla_status = await self._check_authors_cla(commit_authors)
+        authors_cla_status = await self._check_authors_cla(commit_authors)
 
-            conclusion, output = self._create_check_run_output(authors_cla_status)
+        conclusion, output = self._create_check_run_output(authors_cla_status)
 
-            await self._update_or_create_check_run(
-                g, repo_full_name, sha, conclusion, output
-            )
+        await self._update_or_create_check_run(
+            g, repo_full_name, sha, conclusion, output
+        )
 
     async def _get_github_api_for_installation(
-        self, client: httpx.AsyncClient, owner: str, installation_id: int
+        self, owner: str, installation_id: int
     ) -> GitHubAPI:
         """Get an authenticated GitHubAPI instance for an installation."""
-        gh = GitHubAPI(client, requester=owner)
+        gh = GitHubAPI(self.http_client, requester=owner)
         access_token_response = await get_installation_access_token(
             gh,
             installation_id=installation_id,
@@ -137,7 +137,7 @@ class GithubWebhookService:
         )
 
         return GitHubAPI(
-            client,
+            self.http_client,
             requester=owner,
             oauth_token=access_token_response["token"],
         )
@@ -295,6 +295,6 @@ class GithubWebhookService:
 
 
 async def github_webhook_service(
-    cla_service: CLAService = Depends(cla_service),
+    cla_service: CLAService = Depends(cla_service), http_client: httpx.AsyncClient = Depends(http_client)
 ) -> "GithubWebhookService":
-    return GithubWebhookService(cla_service)
+    return GithubWebhookService(cla_service, http_client)
