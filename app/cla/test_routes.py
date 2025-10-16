@@ -110,7 +110,12 @@ async def test_visit_manage_organization(
     template_response.assert_called_with(
         request=request,
         name="manage_organization.j2",
-        context={"organization": {"id": 1}, "organization_id": "encrypted_id", "message": None, "email_sent": None},
+        context={
+            "organization": {"id": 1},
+            "organization_id": "encrypted_id",
+            "message": None,
+            "email_sent": None,
+        },
     )
     assert cipher.decrypt.called
     assert organization_repository.get_organization_by_id.called
