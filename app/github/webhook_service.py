@@ -108,13 +108,9 @@ class GithubWebhookService:
         """
         owner, _ = repo_full_name.split("/")
 
-        g = await self._get_github_api_for_installation(
-            owner, installation_id
-        )
+        g = await self._get_github_api_for_installation(owner, installation_id)
 
-        commit_authors = await self._get_commit_authors(
-            g, repo_full_name, pr_number
-        )
+        commit_authors = await self._get_commit_authors(g, repo_full_name, pr_number)
 
         authors_cla_status = await self._check_authors_cla(commit_authors)
 
@@ -295,6 +291,7 @@ class GithubWebhookService:
 
 
 async def github_webhook_service(
-    cla_service: CLAService = Depends(cla_service), http_client: httpx.AsyncClient = Depends(http_client)
+    cla_service: CLAService = Depends(cla_service),
+    http_client: httpx.AsyncClient = Depends(http_client),
 ) -> "GithubWebhookService":
     return GithubWebhookService(cla_service, http_client)
