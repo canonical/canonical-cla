@@ -7,7 +7,7 @@ from starlette.responses import Response
 from typing_extensions import TypedDict
 
 from app.config import config
-from app.github.models import GithubProfile
+from app.github.models import GithubProfile, GitHubWebhookPayload
 from app.github.service import GithubService, github_cookie_session, github_service
 from app.github.webhook_service import GithubWebhookService, github_webhook_service
 from app.utils import Base64, error_status_codes, update_query_params
@@ -180,5 +180,5 @@ async def webhook(
     signature_header = request.headers.get("x-hub-signature-256")
     github_webhook_service.verify_signature(payload_body, signature_header)
 
-    payload = await request.json()
+    payload = GitHubWebhookPayload.model_validate(await request.json())
     return await github_webhook_service.process_webhook(payload)

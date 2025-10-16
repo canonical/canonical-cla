@@ -9,6 +9,7 @@ from gidgethub.httpx import GitHubAPI
 
 from app.cla.service import CLAService, cla_service
 from app.config import config
+from app.github.models import GitHubWebhookPayload
 from app.utils import http_client
 
 LICENSE_MAP = {
@@ -65,32 +66,31 @@ class GithubWebhookService:
                 status_code=403, detail="Request signatures didn't match!"
             )
 
-    async def process_webhook(self, payload: dict):
+    async def process_webhook(self, payload: GitHubWebhookPayload):
         """
         Main webhook processing function.
         Routes events to the appropriate handler.
         """
-        action = payload.get("action")
-        repo_full_name = payload["repository"]["full_name"]
+        repo_full_name = payload.repository.full_name
 
         # Handle pull request events for creating/updating checks
-        if "pull_request" in payload and action in [
+        if payload.pull_request and payload.action in [
             "opened",
             "reopened",
             "synchronize",
         ]:
-            sha = payload["pull_request"]["head"]["sha"]
-            pr_number = payload["pull_request"]["number"]
-            installation_id = payload["installation"]["id"]
+            sha = payload.pull_request.head.sha
+            pr_number = payload.pull_request.number
+            installation_id = payload.installation.id
             await self.update_check_run(sha, repo_full_name, pr_number, installation_id)
             return {"message": "Pull request event processed"}
 
         # Handle the "Re-run" event from the GitHub UI
-        elif "check_run" in payload and action == "rerequested":
-            sha = payload["check_run"]["head_sha"]
-            if payload["check_run"]["pull_requests"]:
-                pr_number = payload["check_run"]["pull_requests"][0]["number"]
-                installation_id = payload["installation"]["id"]
+        elif payload.check_run and payload.action == "rerequested":
+            sha = payload.check_run.head_sha
+            if payload.check_run.pull_requests:
+                pr_number = payload.check_run.pull_requests[0].number
+                installation_id = payload.installation.id
                 await self.update_check_run(
                     sha, repo_full_name, pr_number, installation_id
                 )
