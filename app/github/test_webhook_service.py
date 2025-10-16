@@ -253,9 +253,7 @@ class TestUpdateCheckRunHelpers:
         assert "All contributors have signed the CLA. Thank you!" in output["summary"]
         assert "- author1 ✓ (CLA signed)" in output["summary"]
 
-    def test_create_check_run_output_some_unsigned(
-        self, service: GithubWebhookService
-    ):
+    def test_create_check_run_output_some_unsigned(self, service: GithubWebhookService):
         authors = {
             "author1@example.com": {"username": "author1", "signed": True},
             "author2@example.com": {"username": "author2", "signed": False},

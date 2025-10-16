@@ -159,7 +159,7 @@ async def github_logout(
     return response
 
 
-@github_router.post("/webhook", responses=error_status_codes([403]))
+@github_router.post("/webhook", responses=error_status_codes([400, 403]))
 async def webhook(
     request: Request,
     github_webhook_service: GithubWebhookService = Depends(github_webhook_service),
@@ -170,6 +170,7 @@ async def webhook(
     This endpoint should be used as the webhook URL when creating a GitHub App.
     The GitHub App must have the following permissions:
     - **Pull Requests**: `Read-only`
+    - **Contents**: `Read-only` (required for private repositories)
     - **Checks**: `Read & write`
 
     And be subscribed to the following events:
@@ -180,5 +181,11 @@ async def webhook(
     signature_header = request.headers.get("x-hub-signature-256")
     github_webhook_service.verify_signature(payload_body, signature_header)
 
-    payload = GitHubWebhookPayload.model_validate(await request.json())
+    try:
+        payload = GitHubWebhookPayload.model_validate(await request.json())
+    except Exception as e:
+        from pydantic_core import _pydantic_core
+        if isinstance(e, _pydantic_core.ValidationError):
+            raise HTTPException(status_code=400, detail="Invalid webhook payload")
+        raise
     return await github_webhook_service.process_webhook(payload)
