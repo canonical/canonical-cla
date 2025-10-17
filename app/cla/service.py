@@ -11,7 +11,7 @@ from app.cla.models import (
     OrganizationCreateForm,
 )
 from app.database.models import Individual, Organization
-from app.github.models import GithubProfile
+from app.github.models import GitHubProfile
 from app.github.service import GithubService, github_service
 from app.launchpad.models import LaunchpadProfile
 from app.launchpad.service import LaunchpadService, launchpad_service
@@ -268,7 +268,7 @@ class CLAService:
 
     async def gh_and_lp_profiles(
         self, gh_session: str | None, lp_session: dict | None
-    ) -> tuple[GithubProfile | None, LaunchpadProfile | None]:
+    ) -> tuple[GitHubProfile | None, LaunchpadProfile | None]:
         github_profile = (
             await self.github_service.profile(gh_session) if gh_session else None
         )

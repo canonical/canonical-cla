@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 
 from app.cla.excluded_emails import excluded_email
 from app.config import config
-from app.github.models import GitHubAccessTokenResponse, GithubProfile
+from app.github.models import GitHubAccessTokenResponse, GitHubProfile
 from app.utils import EncryptedAPIKeyCookie, http_client
 
 
@@ -77,7 +77,7 @@ class GithubService:
         access_token_response = GitHubAccessTokenResponse(**response)
         return access_token_response["access_token"]
 
-    async def profile(self, access_token: str) -> GithubProfile:
+    async def profile(self, access_token: str) -> GitHubProfile:
         response = await self.http_client.get(
             url="https://api.github.com/user/emails",
             headers={"Authorization": f"bearer {access_token}"},
@@ -104,7 +104,7 @@ class GithubService:
                 detail="Failed to get user profile from GitHub",
             )
         user_data = user.json()
-        return GithubProfile(
+        return GitHubProfile(
             _id=user_data["id"],
             username=user_data["login"],
             emails=all_emails,

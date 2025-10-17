@@ -7,7 +7,7 @@ from starlette.responses import Response
 from typing_extensions import TypedDict
 
 from app.config import config
-from app.github.models import GithubProfile, GitHubWebhookPayload
+from app.github.models import GitHubProfile, GitHubWebhookPayload
 from app.github.service import GithubService, github_cookie_session, github_service
 from app.github.webhook_service import GithubWebhookService, github_webhook_service
 from app.utils import Base64, error_status_codes, update_query_params
@@ -120,7 +120,7 @@ async def github_callback(
 async def github_profile(
     access_token: str | None = Depends(github_cookie_session),
     github_service: GithubService = Depends(github_service),
-) -> GithubProfile:
+) -> GitHubProfile:
     """
     Retrieves the GitHub profile of the authenticated user.
     """

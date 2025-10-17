@@ -14,7 +14,7 @@ class GitHubAccessTokenResponse(TypedDict):
     scope: str
 
 
-class GithubProfile(BaseModel):
+class GitHubProfile(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -35,31 +35,31 @@ class GithubProfile(BaseModel):
         self._id = _id
 
 
-class Repository(BaseModel):
+class GitHubRepository(BaseModel):
     full_name: str
 
 
-class PullRequestHead(BaseModel):
+class GitHubPullRequestHead(BaseModel):
     sha: str
 
 
-class PullRequest(BaseModel):
+class GitHubPullRequest(BaseModel):
     number: int
-    head: PullRequestHead
+    head: GitHubPullRequestHead
 
 
-class Installation(BaseModel):
+class GitHubInstallation(BaseModel):
     id: int
 
 
-class CheckRun(BaseModel):
+class GitHubCheckRun(BaseModel):
     head_sha: str
-    pull_requests: List[PullRequest] = []
+    pull_requests: List[GitHubPullRequest] = []
 
 
 class GitHubWebhookPayload(BaseModel):
     action: str
-    repository: Repository
-    installation: Installation
-    pull_request: Optional[PullRequest] = None
-    check_run: Optional[CheckRun] = None
+    repository: GitHubRepository
+    installation: GitHubInstallation
+    pull_request: Optional[GitHubPullRequest] = None
+    check_run: Optional[GitHubCheckRun] = None
