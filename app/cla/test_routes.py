@@ -101,16 +101,21 @@ async def test_visit_manage_organization(
         return_value=Organization({"id": 1})
     )
 
-    response = await manage_organization(
+    await manage_organization(
         request=request,
         id=organization_id,
         organization_repository=organization_repository,
         cipher=cipher,
     )
-    assert response.called_with(
+    template_response.assert_called_with(
         request=request,
         name="manage_organization.j2",
-        context={"organization": {"id": 1}, "organization_id": "1", "message": None},
+        context={
+            "organization": {"id": 1},
+            "organization_id": "encrypted_id",
+            "message": None,
+            "email_sent": None,
+        },
     )
     assert cipher.decrypt.called
     assert organization_repository.get_organization_by_id.called

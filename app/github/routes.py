@@ -2,12 +2,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
+from starlette.requests import Request
 from starlette.responses import Response
 from typing_extensions import TypedDict
 
 from app.config import config
-from app.github.models import GithubProfile
+from app.github.models import GitHubProfile, GitHubWebhookPayload
 from app.github.service import GithubService, github_cookie_session, github_service
+from app.github.webhook_service import GithubWebhookService, github_webhook_service
 from app.utils import Base64, error_status_codes, update_query_params
 
 github_router = APIRouter(prefix="/github", tags=["GitHub"])
@@ -118,7 +120,7 @@ async def github_callback(
 async def github_profile(
     access_token: str | None = Depends(github_cookie_session),
     github_service: GithubService = Depends(github_service),
-) -> GithubProfile:
+) -> GitHubProfile:
     """
     Retrieves the GitHub profile of the authenticated user.
     """
@@ -155,3 +157,35 @@ async def github_logout(
         )
     response.delete_cookie(github_cookie_session.model.name)
     return response
+
+
+@github_router.post("/webhook", responses=error_status_codes([400, 403]))
+async def webhook(
+    request: Request,
+    github_webhook_service: GithubWebhookService = Depends(github_webhook_service),
+) -> TypedDict("WebhookResponse", {"message": str}):
+    """
+    Handles GitHub webhooks.
+
+    This endpoint should be used as the webhook URL when creating a GitHub App.
+    The GitHub App must have the following permissions:
+    - **Pull Requests**: `Read-only`
+    - **Contents**: `Read-only` (required for private repositories)
+    - **Checks**: `Read & write`
+
+    And be subscribed to the following events:
+    - `Pull request`
+    - `Check run`
+    """
+    payload_body = await request.body()
+    signature_header = request.headers.get("x-hub-signature-256")
+    github_webhook_service.verify_signature(payload_body, signature_header)
+
+    try:
+        payload = GitHubWebhookPayload.model_validate(await request.json())
+    except Exception as e:
+        from pydantic_core import _pydantic_core
+        if isinstance(e, _pydantic_core.ValidationError):
+            raise HTTPException(status_code=400, detail="Invalid webhook payload")
+        raise
+    return await github_webhook_service.process_webhook(payload)

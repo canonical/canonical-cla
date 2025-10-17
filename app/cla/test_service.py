@@ -9,7 +9,7 @@ from app.cla.email_utils import clean_email
 from app.cla.models import CLACheckResponse, IndividualCreateForm
 from app.cla.service import CLAService
 from app.database.models import Individual, Organization
-from app.github.models import GithubProfile
+from app.github.models import GitHubProfile
 from app.launchpad.models import LaunchpadProfile
 
 
@@ -168,7 +168,7 @@ async def test_individual_cla_sign_case_insensitive_github_email(cla_service):
     )
 
     # Mock GitHub profile with lowercase email
-    github_profile = GithubProfile(
+    github_profile = GitHubProfile(
         username="testuser",
         _id="123456",
         emails=["user@example.com"],  # Lowercase in profile
@@ -240,7 +240,7 @@ async def test_individual_cla_sign_multiple_profile_emails_case_insensitive(
     )
 
     # Mock GitHub profile with multiple emails in different cases
-    github_profile = GithubProfile(
+    github_profile = GitHubProfile(
         username="testuser",
         _id="123456",
         emails=["secondary@test.com", "primary@example.com", "tertiary@test.org"],
@@ -274,7 +274,7 @@ async def test_individual_cla_sign_github_email_mismatch_error_message(cla_servi
     )
 
     # Mock GitHub profile with different emails
-    github_profile = GithubProfile(
+    github_profile = GitHubProfile(
         username="testuser",
         _id="123456",
         emails=["user@example.com", "test@example.com"],
@@ -340,7 +340,7 @@ async def test_individual_cla_sign_both_emails_case_insensitive(cla_service):
     )
 
     # Mock profiles with lowercase emails
-    github_profile = GithubProfile(
+    github_profile = GitHubProfile(
         username="testuser", _id="123456", emails=["github@example.com"]
     )
     launchpad_profile = LaunchpadProfile(

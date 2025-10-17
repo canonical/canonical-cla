@@ -44,6 +44,7 @@ opentelemetry-instrumentation-redis = "^0.51b0"
 opentelemetry-instrumentation-httpx = "^0.51b0"
 python-json-logger = "^3.2.1"
 opentelemetry-instrumentation-logging = "^0.51b0"
+gidgethub = {extras = ["httpx"], version = "^5.4.0"}
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.8.0"

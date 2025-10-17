@@ -7,5 +7,5 @@ from subprocess import run as process_run
 
 
 def run():
-    command = "fastapi dev app/main.py"
+    command = "uvicorn app.main:app --reload"
     exit(process_run(command, shell=True).returncode)

@@ -52,6 +52,18 @@ class GitHubOAuthConfig(BaseSettings):
     scope: str = "user:email"
 
 
+class GitHubAppConfig(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILES,
+        env_prefix="github_app_",
+        extra="ignore",
+    )
+
+    id: int
+    private_key: SecretStr
+    secret: SecretStr
+
+
 class LaunchpadOAuthConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_FILES,
@@ -123,6 +135,7 @@ class Config(BaseSettings):
     http_max_retries: int = 3
 
     github_oauth: GitHubOAuthConfig = GitHubOAuthConfig()  # type: ignore
+    github_app: GitHubAppConfig = GitHubAppConfig()  # type: ignore
     launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()  # type: ignore
     database: DatabaseConfig = DatabaseConfig()  # type: ignore
     redis: RedisConfig = RedisConfig()  # type: ignore
