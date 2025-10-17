@@ -170,6 +170,7 @@ async def webhook(
     This endpoint should be used as the webhook URL when creating a GitHub App.
     The GitHub App must have the following permissions:
     - **Pull Requests**: `Read-only`
+    - **Contents**: `Read-only` (required for private repositories)
     - **Checks**: `Read & write`
 
     And be subscribed to the following events:
