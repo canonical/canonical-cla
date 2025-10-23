@@ -6,8 +6,8 @@ import httpx
 from fastapi import Depends, HTTPException
 from fastapi.responses import RedirectResponse
 
-from app.cla.excluded_emails import excluded_email
 from app.config import config
+from app.emails.blocked.excluded_emails import excluded_email
 from app.github.models import GitHubAccessTokenResponse, GitHubProfile
 from app.utils import EncryptedAPIKeyCookie, http_client
 

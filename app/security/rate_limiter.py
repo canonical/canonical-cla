@@ -118,8 +118,7 @@ class RateLimiter:
                 headers={"Accept": "application/vnd.github.v3+json"},
             )
             if response.status_code != 200:
-                logger.error(
-                    f"Failed to update GitHub action runners: {response.text}")
+                logger.error(f"Failed to update GitHub action runners: {response.text}")
                 return
             data = response.json()
             github_ips = set()

@@ -1,6 +1,7 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi import Request
-from unittest.mock import AsyncMock, patch
 
 from app.security.rate_limiter import RateLimiter
 
@@ -8,7 +9,8 @@ from app.security.rate_limiter import RateLimiter
 def build_request(path: str, headers: dict[str, str] | None = None) -> Request:
     headers = headers or {}
     header_items = [
-        (key.encode("latin-1"), value.encode("latin-1")) for key, value in headers.items()
+        (key.encode("latin-1"), value.encode("latin-1"))
+        for key, value in headers.items()
     ]
     scope = {
         "type": "http",
@@ -76,14 +78,17 @@ async def test_github_runner_ip_is_whitelisted_after_meta_update():
     # Force update (last_update == 0)
     redis.get.return_value = "0"
     # After update, smembers should return the runners we added
-    redis.smembers.return_value = [
-        "20.207.73.0/25", "21.207.73.0/25", "1.2.3.4"]
+    redis.smembers.return_value = ["20.207.73.0/25", "21.207.73.0/25", "1.2.3.4"]
 
     class FakeResponse:
         status_code = 200
 
         def json(self):
-            return {"actions": ["20.207.73.0/25"], "hooks": ["21.207.73.0/25"], "api": ["1.2.3.4"]}
+            return {
+                "actions": ["20.207.73.0/25"],
+                "hooks": ["21.207.73.0/25"],
+                "api": ["1.2.3.4"],
+            }
 
         @property
         def text(self):
@@ -99,7 +104,9 @@ async def test_github_runner_ip_is_whitelisted_after_meta_update():
         async def get(self, *args, **kwargs):
             return FakeResponse()
 
-    with patch("app.security.rate_limiter.httpx.AsyncClient", return_value=FakeAsyncClient()):
+    with patch(
+        "app.security.rate_limiter.httpx.AsyncClient", return_value=FakeAsyncClient()
+    ):
         limiter = RateLimiter(
             request=request,
             limit=1,

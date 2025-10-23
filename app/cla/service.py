@@ -3,14 +3,16 @@ import logging
 from fastapi import Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 
-from app.cla.email_utils import clean_email, email_domain
-from app.cla.excluded_emails import excluded_email
+import app.emails.blocked.error_messages as email_error_messages
 from app.cla.models import (
     CLACheckResponse,
     IndividualCreateForm,
     OrganizationCreateForm,
 )
 from app.database.models import Individual, Organization
+from app.emails.blocked.blocked_emails import is_email_blocked
+from app.emails.blocked.excluded_emails import excluded_email
+from app.emails.email_utils import clean_email, email_domain
 from app.github.models import GitHubProfile
 from app.github.service import GithubService, github_service
 from app.launchpad.models import LaunchpadProfile
@@ -150,7 +152,12 @@ class CLAService:
             if excluded_email(individual_form.github_email):
                 raise HTTPException(
                     status_code=400,
-                    detail="The provided GitHub email is not allowed",
+                    detail=email_error_messages.EXCLUDED_EMAIL_ERROR_MESSAGE,
+                )
+            if is_email_blocked(individual_form.github_email):
+                raise HTTPException(
+                    status_code=400,
+                    detail=email_error_messages.BLOCKED_EMAIL_ERROR_MESSAGE,
                 )
             if not gh_session:
                 raise HTTPException(
@@ -171,9 +178,13 @@ class CLAService:
             if excluded_email(individual_form.launchpad_email):
                 raise HTTPException(
                     status_code=400,
-                    detail="The provided Launchpad email is not allowed",
+                    detail=email_error_messages.EXCLUDED_EMAIL_ERROR_MESSAGE,
                 )
-
+            if is_email_blocked(individual_form.launchpad_email):
+                raise HTTPException(
+                    status_code=400,
+                    detail=email_error_messages.BLOCKED_EMAIL_ERROR_MESSAGE,
+                )
             if not lp_session:
                 raise HTTPException(
                     status_code=401, detail="Launchpad OAuth session is required"
@@ -255,6 +266,11 @@ class CLAService:
             raise HTTPException(
                 status_code=400,
                 detail="The provided email domain does not match any of the authenticated user emails",
+            )
+        if is_email_blocked(organization_form.email_domain):
+            raise HTTPException(
+                status_code=400,
+                detail=email_error_messages.BLOCKED_EMAIL_DOMAIN_ERROR_MESSAGE,
             )
 
         organization = Organization(**organization_form.model_dump())

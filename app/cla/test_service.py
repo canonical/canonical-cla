@@ -5,10 +5,14 @@ import pytest
 from fastapi import HTTPException
 from pytest_asyncio import fixture
 
-from app.cla.email_utils import clean_email
-from app.cla.models import CLACheckResponse, IndividualCreateForm
+from app.cla.models import (
+    CLACheckResponse,
+    IndividualCreateForm,
+    OrganizationCreateForm,
+)
 from app.cla.service import CLAService
 from app.database.models import Individual, Organization
+from app.emails.email_utils import clean_email
 from app.github.models import GitHubProfile
 from app.launchpad.models import LaunchpadProfile
 
@@ -222,6 +226,76 @@ async def test_individual_cla_sign_case_insensitive_launchpad_email(cla_service)
 
     assert result is not None
     cla_service.individual_repository.create_individual.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_individual_cla_sign_github_email_blocked_raises_http_exception(
+    cla_service,
+):
+    individual_form = IndividualCreateForm(
+        first_name="Test",
+        last_name="User",
+        phone_number="+1234567890",
+        address="123 Test St",
+        country="US",
+        github_email="user@intel.com",
+        launchpad_email=None,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await cla_service.individual_cla_sign(individual_form, None, None)
+
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_individual_cla_sign_launchpad_email_blocked_raises_http_exception(
+    cla_service,
+):
+    individual_form = IndividualCreateForm(
+        first_name="Test",
+        last_name="User",
+        phone_number="+1234567890",
+        address="123 Test St",
+        country="US",
+        github_email=None,
+        launchpad_email="user@intel.com",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await cla_service.individual_cla_sign(individual_form, None, None)
+
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_organization_cla_sign_blocked_domain_raises_http_exception(cla_service):
+    org_form = OrganizationCreateForm(
+        name="ACME",
+        email_domain="intel.com",
+        contact_name="Owner",
+        contact_job_title="CTO",
+        contact_email="owner@intel.com",
+        phone_number="+1234567890",
+        address="123 Test St",
+        country="US",
+    )
+
+    cla_service.github_service.profile = AsyncMock(
+        return_value=GitHubProfile(
+            username="owner", _id="1", emails=["owner@intel.com"]
+        )  # ensure domain ownership
+    )
+    cla_service.launchpad_service.profile = AsyncMock(
+        return_value=LaunchpadProfile(username="owner", _id="2", emails=[])
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await cla_service.organization_cla_sign(
+            org_form, "gh_session", {"session": "data"}
+        )
+
+    assert exc_info.value.status_code == 400
 
 
 @pytest.mark.asyncio

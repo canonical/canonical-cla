@@ -185,6 +185,7 @@ async def webhook(
         payload = GitHubWebhookPayload.model_validate(await request.json())
     except Exception as e:
         from pydantic_core import _pydantic_core
+
         if isinstance(e, _pydantic_core.ValidationError):
             raise HTTPException(status_code=400, detail="Invalid webhook payload")
         raise

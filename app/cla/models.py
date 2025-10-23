@@ -3,7 +3,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from pydantic_extra_types.country import CountryAlpha2
 
-from app.cla.email_utils import (
+from app.emails.email_utils import (
     clean_email,
     clean_email_domain,
     valid_email,
