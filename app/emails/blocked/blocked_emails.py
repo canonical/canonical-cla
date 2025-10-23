@@ -7,6 +7,9 @@ BLOCKED_EMAIL_DOMAINS = {
     "intel.com",
     "linux.intel.com",
     "habana.ai",
+    # FIXME temporary blocked email domains for testing
+    "goulin.fr",
+    "dazuzu.com"
 }
 
 
