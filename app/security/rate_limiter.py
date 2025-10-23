@@ -53,8 +53,8 @@ excluded_paths = {
 
 class RateLimiter:
     _script_sha: str
-    _github_runner_key = "rate_limiter:github_action_runners"
-    _github_runner_last_update_key = "rate_limiter:github_action_runners:last_update"
+    _github_ips_key = "rate_limiter:github_ips"
+    _github_ips_last_update_key = "rate_limiter:github_ips:last_update"
 
     def __init__(
         self,
@@ -62,7 +62,7 @@ class RateLimiter:
         limit: int,
         period: int,
         whitelist: list[str],
-        github_runners_update_interval: int = 24 * 60 * 60,  # 24 hours
+        github_ips_update_interval: int = 24 * 60 * 60,  # 24 hours
         redis: Redis = Redis.from_url(config.redis.dsn()),
     ):
         """
@@ -76,9 +76,9 @@ class RateLimiter:
         self.limit = limit
         self.period = period
         self.whitelist = whitelist
+        self.github_ips_update_interval = github_ips_update_interval
         self.redis = redis
         self._script_sha = None
-        self.github_runners_update_interval = github_runners_update_interval
 
     def _ip_address(self) -> str:
         """
@@ -103,13 +103,13 @@ class RateLimiter:
 
     async def _update_github_action_runners(self):
         """
-        Update the list of GitHub action runner IP addresses.
+        Aggregate all relevant GitHub CIDR sources and update the Redis set of GitHub IPs.
         """
         current_time = int(datetime.now().timestamp())
         last_update = int(
-            (await self.redis.get(self._github_runner_last_update_key)) or "0"
+            (await self.redis.get(self._github_ips_last_update_key)) or "0"
         )
-        if current_time - last_update < self.github_runners_update_interval:
+        if current_time - last_update < self.github_ips_update_interval:
             return
         async with httpx.AsyncClient() as http_client:
             logger.info("Updating GitHub action runners..")
@@ -118,19 +118,23 @@ class RateLimiter:
                 headers={"Accept": "application/vnd.github.v3+json"},
             )
             if response.status_code != 200:
-                logger.error(f"Failed to update GitHub action runners: {response.text}")
+                logger.error(
+                    f"Failed to update GitHub action runners: {response.text}")
                 return
             data = response.json()
-            runners = data.get("actions") or []
-            if not runners:
-                logger.error("No GitHub action runners found, ignoring")
+            github_ips = set()
+            for key in ("actions", "hooks", "api"):
+                values = data.get(key) or []
+                if isinstance(values, list):
+                    github_ips.update(v for v in values if isinstance(v, str))
+            if not github_ips:
+                logger.error("No GitHub IPs found, ignoring")
                 return
-            await self.redis.delete(self._github_runner_key)
-            await self.redis.sadd(self._github_runner_key, *runners)
-            await self.redis.set(self._github_runner_last_update_key, current_time)
-            logger.info("GitHub action runners updated")
+            await self.redis.delete(self._github_ips_key)
+            await self.redis.sadd(self._github_ips_key, *list(github_ips))
+            await self.redis.set(self._github_ips_last_update_key, current_time)
+            logger.info(f"GitHub IPs ({len(github_ips)}) updated")
 
-    # @profile
     async def _is_whitelisted(self) -> bool:
         """
         Check if the client's IP address is in the whitelist.
@@ -147,7 +151,7 @@ class RateLimiter:
                         return True
                 except ValueError:
                     continue
-            for runner in await self.redis.smembers(self._github_runner_key):
+            for runner in await self.redis.smembers(self._github_ips_key):
                 try:
                     if ip_address in ipaddress.ip_network(runner):
                         return True
