@@ -1,39 +1,15 @@
 import logging
 
-from opentelemetry import trace
 from pythonjsonlogger import jsonlogger
 
 from app.config import config
 
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
-    service_name: str
+    service_name: str = "canonical-cla"
 
     def add_fields(self, log_record, record, message_dict):
         super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
-
-        # Add trace and span IDs if they exist
-        span_context = trace.get_current_span().get_span_context()
-        if span_context.is_valid:
-            log_record["trace_id"] = format(span_context.trace_id, "032x")
-            log_record["span_id"] = format(span_context.span_id, "016x")
-            log_record["trace_flags"] = format(span_context.trace_flags, "02x")
-
-        # Add service name
-        if not log_record.get("service"):
-            try:
-                tracer_provider = trace.get_tracer_provider()
-                if hasattr(tracer_provider, "resource") and hasattr(
-                    tracer_provider.resource, "attributes"
-                ):
-                    self.service_name = tracer_provider.resource.attributes.get(
-                        "service.name", "canonical-cla"
-                    )
-                else:
-                    self.service_name = "canonical-cla"
-            except (AttributeError, Exception):
-                self.service_name = "canonical-cla"
-
         log_record["service"] = self.service_name
         log_record["severity"] = record.levelname
         log_record["timestamp"] = self.formatTime(record)

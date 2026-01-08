@@ -103,16 +103,6 @@ class RateLimitConfig(BaseSettings):
     whitelist: list[str] = []
 
 
-class OTELExporterConfig(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=ENV_FILES,
-        env_prefix="otel_exporter_",
-        extra="ignore",
-    )
-
-    otlp_endpoint: str | None = None
-
-
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_FILES,
@@ -142,8 +132,6 @@ class Config(BaseSettings):
     smtp: SMTPConfig = SMTPConfig()  # type: ignore
 
     rate_limit: RateLimitConfig = RateLimitConfig()  # type: ignore
-    otel_exporter: OTELExporterConfig = OTELExporterConfig()  # type: ignore
-    # Not used anymore
     sentry_dsn: str | None = None
 
 
