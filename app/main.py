@@ -1,17 +1,25 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
-from prometheus_fastapi_instrumentator import Instrumentator
+import sentry_sdk
+from fastapi import Depends, FastAPI, Request
+from prometheus_fastapi_instrumentator import Instrumentator as PrometheusInstrumentator
+from sentry_sdk.integrations.asyncpg import AsyncPGIntegration
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.httpx import HttpxIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.cla.routes import cla_router
 from app.config import config
 from app.docs import get_redoc_html
 from app.github.routes import github_router
+from app.http_client import HTTPClient
 from app.launchpad.routes import launchpad_router
 from app.logging import configure_logger
 from app.middlewares import register_middlewares
-from app.opentelemtry import register_tracer
+from app.repository.individual import IndividualRepository, individual_repository
+from app.utils import http_client
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +31,22 @@ async def lifespan(app: FastAPI):
     yield
 
 
+if config.sentry_dsn:
+    logger.info("Sentry is enabled")
+    sentry_sdk.init(
+        dsn=config.sentry_dsn,
+        environment=config.environment,
+        debug=config.debug_mode,
+        traces_sample_rate=1.0,
+        integrations=[
+            FastApiIntegration(),
+            SqlalchemyIntegration(),
+            RedisIntegration(),
+            HttpxIntegration(),
+            AsyncPGIntegration(),
+        ],
+    )
+
 app = FastAPI(
     title=config.app_name,
     version="1.0.0-alpha",
@@ -31,9 +55,10 @@ app = FastAPI(
     redoc_url=None,
     docs_url=None,
 )
+
+PrometheusInstrumentator().instrument(app).expose(app)
+
 on_app_ready_callback = register_middlewares(app)
-Instrumentator().instrument(app).expose(app)
-register_tracer(app)
 
 app.include_router(cla_router)
 app.include_router(github_router)
@@ -54,7 +79,14 @@ def debug_ip(request: Request):
 
 
 @app.get("/debug-error", include_in_schema=False)
-def debug_error():
+async def debug_error(
+    individual_repository: IndividualRepository = Depends(
+        individual_repository),
+    http_client: HTTPClient = Depends(http_client),
+):
+    # XXX remove this once tested on prod
+    await http_client.get("https://example.com")
+    await individual_repository.get_individuals(emails=["test@example.com"])
     1 / 0
 
 

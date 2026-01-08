@@ -9,7 +9,7 @@ BLOCKED_EMAIL_DOMAINS = {
     "habana.ai",
     # FIXME temporary blocked email domains for testing
     "goulin.fr",
-    "dazuzu.com"
+    "dazuzu.com",
 }
 
 
