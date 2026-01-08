@@ -35,6 +35,7 @@ if config.sentry_dsn:
     logger.info("Sentry is enabled")
     sentry_sdk.init(
         dsn=config.sentry_dsn,
+        environment=config.environment,
         debug=config.debug_mode,
         traces_sample_rate=1.0,
         integrations=[
@@ -79,7 +80,8 @@ def debug_ip(request: Request):
 
 @app.get("/debug-error", include_in_schema=False)
 async def debug_error(
-    individual_repository: IndividualRepository = Depends(individual_repository),
+    individual_repository: IndividualRepository = Depends(
+        individual_repository),
     http_client: HTTPClient = Depends(http_client),
 ):
     # XXX remove this once tested on prod
