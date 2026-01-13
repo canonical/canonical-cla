@@ -55,7 +55,7 @@ curl --location 'http://localhost:8000/cla/check?emails=john.doe@canonical.com'
 ### Signing organization CLA (for a company)
 
 ```sh
-curl --location 'http://localhost:8000/cla/corporate/sign' \
+curl --location 'http://localhost:8000/cla/organization/sign' \
 --header 'Content-Type: application/json' \
 --header "Cookie: github_oauth2_session=$GITHUB_SESSION_COOKIE; launchpad_oauth2_session=$LAUNCHPAD_SESSION_COOKIE" \
 --data-raw '{

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from starlette.responses import PlainTextResponse
 
 from app.config import config
+from app.security.config import private_paths
 from app.security.rate_limiter import RateLimiter
 from app.utils import ip_address, is_local_request
 
@@ -20,8 +21,6 @@ allowed_origins = [
     "*.canonical.com",
     "*.demos.haus",
 ]
-
-private_paths = ["/_status/check", "/metrics"]
 
 
 def is_url_match(url, patterns):
@@ -118,7 +117,7 @@ def register_middlewares(app: FastAPI):
 
     @app.middleware("http")
     async def protect_private_paths(request: Request, call_next):
-        if request.url.path in private_paths and not is_local_request(request):
+        if request.url.path in list(private_paths) and not is_local_request(request):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         else:
             return await call_next(request)

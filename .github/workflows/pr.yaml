@@ -1,0 +1,43 @@
+name: PR Checks
+
+on:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Check Formatting
+        run: |
+          poetry run format
+          # Check if any files have changed
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Formatting issues found. Please run 'poetry run format' locally and push changes."
+            git status
+            git diff
+            exit 1
+          fi
+
+      - name: Run Tests
+        run: poetry run test
