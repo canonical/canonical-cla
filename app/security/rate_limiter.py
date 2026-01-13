@@ -9,6 +9,7 @@ from fastapi import Request
 from redis.asyncio import Redis
 
 from app.config import config
+from app.security.config import excluded_paths, private_paths, whitelistable_paths
 from app.utils import ip_address
 
 logger = logging.getLogger(__name__)
@@ -36,19 +37,6 @@ else
     return 0
 end
 """
-
-# other paths can't be whitelisted
-# this will prevent users from bypassing rate limiting by sending requests from a GitHub action or similar service
-whitelistable_paths = {"cla/check"}
-
-# rate limiting health could cause a deadlock
-excluded_paths = {
-    "/_status/check",
-    "/docs",
-    "/",
-    "/github/profile",
-    "/launchpad/profile",
-}
 
 
 class RateLimiter:
@@ -162,17 +150,22 @@ class RateLimiter:
 
     async def is_allowed(
         self,
-        ignore_whitelist=False,
-        ignore_excluded_paths=False,
         key: str | None = None,
     ) -> Tuple[bool, int]:
         """
         Check if the request is allowed based on the rate limit.
         This also increments the request count in Redis on each call.
+
+        :return: A tuple containing a boolean indicating if the request is allowed
+        and the time left (TTL in seconds) until the request is allowed again.
         """
-        if not ignore_excluded_paths and self.request.scope["path"] in excluded_paths:
+        request_path = self.request.scope["path"]
+
+        if request_path in private_paths:
             return (True, 0)
-        if not ignore_whitelist and await self._is_whitelisted():
+        if request_path in excluded_paths:
+            return (True, 0)
+        if await self._is_whitelisted():
             return (True, 0)
         key = key or self._request_identifier()
         try:
@@ -196,6 +189,4 @@ class RateLimiter:
 
         :param key: The key to use for rate limiting. If None, the request path and client IP address will be used.
         """
-        return await self.is_allowed(
-            ignore_whitelist=True, ignore_excluded_paths=True, key=key
-        )
+        return await self.is_allowed(key=key)

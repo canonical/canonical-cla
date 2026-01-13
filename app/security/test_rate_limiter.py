@@ -17,6 +17,7 @@ def build_request(path: str, headers: dict[str, str] | None = None) -> Request:
         "method": "GET",
         "path": path,
         "headers": header_items,
+        "client": ("127.0.0.1", 12345),
     }
     return Request(scope)
 
@@ -45,7 +46,7 @@ async def test_excluded_path_is_allowed():
 async def test_whitelisted_ip_on_whitelistable_path_bypasses_limit():
     # Path must match exactly the whitelistable path value (no leading slash)
     request = build_request(
-        "cla/check",
+        "/cla/check",
         headers={"x-forwarded-for": "1.2.3.4"},
     )
     redis = AsyncMock()
@@ -71,7 +72,7 @@ async def test_whitelisted_ip_on_whitelistable_path_bypasses_limit():
 async def test_github_runner_ip_is_whitelisted_after_meta_update():
     # IP falls within returned GitHub Actions CIDR
     request = build_request(
-        "cla/check",
+        "/cla/check",
         headers={"x-forwarded-for": "20.207.73.10"},
     )
     redis = AsyncMock()
@@ -176,3 +177,78 @@ async def test_is_allowed_handles_redis_error():
 
     assert allowed is True
     assert time_left == 0
+
+
+@pytest.mark.asyncio
+async def test_private_path_bypasses_rate_limit():
+    request = build_request("/metrics")
+    redis = AsyncMock()
+
+    limiter = RateLimiter(
+        request=request,
+        limit=10,
+        period=60,
+        whitelist=[],
+        redis=redis,
+    )
+
+    allowed, time_left = await limiter.is_allowed()
+
+    assert allowed is True
+    assert time_left == 0
+    # Ensure Redis was not touched for rate limiting
+    redis.evalsha.assert_not_called()
+    redis.script_load.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_excluded_path_bypasses_rate_limit():
+    request = build_request("/docs")
+    redis = AsyncMock()
+
+    limiter = RateLimiter(
+        request=request,
+        limit=10,
+        period=60,
+        whitelist=[],
+        redis=redis,
+    )
+
+    allowed, time_left = await limiter.is_allowed()
+
+    assert allowed is True
+    assert time_left == 0
+    # Ensure Redis was not touched for rate limiting
+    redis.evalsha.assert_not_called()
+    redis.script_load.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_standard_path_enforces_rate_limit():
+    request = build_request("/api/resource")
+    redis = AsyncMock()
+    redis.script_load.return_value = "mock_sha"
+    # Return 0 means allowed (count incremented)
+    redis.evalsha.return_value = 0
+
+    limiter = RateLimiter(
+        request=request,
+        limit=5,
+        period=60,
+        whitelist=[],
+        redis=redis,
+    )
+
+    allowed, time_left = await limiter.is_allowed()
+
+    assert allowed is True
+    assert time_left == 0
+
+    redis.script_load.assert_awaited_once()
+    redis.evalsha.assert_awaited_once_with(
+        "mock_sha",
+        1,
+        limiter._request_identifier(),
+        "5",
+        "60",
+    )
