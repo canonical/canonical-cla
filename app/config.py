@@ -74,6 +74,30 @@ class LaunchpadOAuthConfig(BaseSettings):
     scope: str = "READ_PRIVATE"
 
 
+class CanonicalOIDCConfig(BaseSettings):
+    """
+    Canonical OIDC configuration for company login.
+    See: https://login.canonical.com/.well-known/openid-configuration
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILES,
+        env_prefix="canonical_oidc_",
+        extra="ignore",
+    )
+
+    enabled: bool = True
+    client_id: str = ""
+    client_secret: SecretStr = SecretStr("")
+    server_url: str = "https://login.canonical.com"
+    scope: str = "openid profile email"
+    token_endpoint_auth_method: str = "client_secret_post"
+
+    @property
+    def discovery_url(self) -> str:
+        return f"{self.server_url}/.well-known/openid-configuration"
+
+
 class SMTPConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_FILES,
@@ -127,6 +151,7 @@ class Config(BaseSettings):
     github_oauth: GitHubOAuthConfig = GitHubOAuthConfig()  # type: ignore
     github_app: GitHubAppConfig = GitHubAppConfig()  # type: ignore
     launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()  # type: ignore
+    canonical_oidc: CanonicalOIDCConfig = CanonicalOIDCConfig()  # type: ignore
     database: DatabaseConfig = DatabaseConfig()  # type: ignore
     redis: RedisConfig = RedisConfig()  # type: ignore
     smtp: SMTPConfig = SMTPConfig()  # type: ignore

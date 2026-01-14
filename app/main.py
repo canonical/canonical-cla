@@ -18,6 +18,7 @@ from app.http_client import HTTPClient
 from app.launchpad.routes import launchpad_router
 from app.logging import configure_logger
 from app.middlewares import register_middlewares
+from app.oidc.routes import oidc_router
 from app.repository.individual import IndividualRepository, individual_repository
 from app.security.config import private_paths
 from app.utils import http_client
@@ -72,6 +73,7 @@ on_app_ready_callback = register_middlewares(app)
 app.include_router(cla_router)
 app.include_router(github_router)
 app.include_router(launchpad_router)
+app.include_router(oidc_router)
 
 
 @app.get("/", include_in_schema=False)

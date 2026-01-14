@@ -285,7 +285,6 @@ async def delete_organization(
     Delete the organization CLA.
     """
     decrypted_organization_id = cipher.decrypt(id)
-    print(decrypted_organization_id)
     if not decrypted_organization_id:
         await sleep(10)
         raise HTTPException(status_code=404, detail="Organization not found")
