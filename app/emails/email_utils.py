@@ -1,6 +1,6 @@
 import validators
 
-from app.cla.email_providers import EMAIL_PROVIDERS
+from app.emails.blocked.email_providers import EMAIL_PROVIDERS
 
 
 def clean_email_domain(domain: str):

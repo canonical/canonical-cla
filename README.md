@@ -11,7 +11,10 @@ Canonical Contribution Licence Agreement (CLA) Service.
 
 ```
 poetry install
+poetry run setup
 ```
+
+The `setup` command installs pre-commit hooks that will automatically format your code before each commit.
 
 ## Usage
 
