@@ -13,6 +13,7 @@ packages = [{ include = "scripts" }]
 [tool.poetry.scripts]
 dev = "scripts.app_start_dev:run"
 format = "scripts.format_project:run"
+check = "scripts.check:run"
 test = "scripts.unit_test:run"
 migrate = "scripts.migration:run"
 setup = "scripts.setup:run"
@@ -42,14 +43,34 @@ gidgethub = {extras = ["httpx"], version = "^5.4.0"}
 sentry-sdk = {extras = ["asyncpg", "fastapi", "httpx", "redis", "sqlalchemy"], version = "^2.48.0"}
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.8.0"
 pytest = "^8.3.2"
 pytest-asyncio = "^0.23.8"
 pytest-mock = "^3.14.0"
-isort = "^5.13.2"
 coverage = "^7.6.1"
 djlint = "^1.34.1"
 pre-commit = "^3.7.0"
+ruff = "^0.14.11"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "scripts", "migrations"]
 
 [build-system]
 requires = ["poetry-core"]
