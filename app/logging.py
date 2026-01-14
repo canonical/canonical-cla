@@ -9,7 +9,7 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
     service_name: str = "canonical-cla"
 
     def add_fields(self, log_record, record, message_dict):
-        super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
+        super().add_fields(log_record, record, message_dict)
         log_record["service"] = self.service_name
         log_record["severity"] = record.levelname
         log_record["timestamp"] = self.formatTime(record)

@@ -1,12 +1,12 @@
-import asyncio
 import base64
 import binascii
 import ipaddress
 import json
 import logging
+from collections.abc import AsyncIterator
 from datetime import datetime
 from hashlib import sha256
-from typing import AsyncIterator, Literal, ParamSpec, TypeVar
+from typing import Literal, ParamSpec, TypeVar
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import httpx
@@ -24,7 +24,7 @@ from app.http_client import HTTPClient
 logger = logging.getLogger(__name__)
 
 
-class AESCipher(object):
+class AESCipher:
     def __init__(self, key: str):
         self.bs = AES.block_size
         self.key = sha256(key.encode()).digest()
@@ -61,8 +61,10 @@ class Base64:
         try:
             output = base64.b64decode(data.encode())
             return output.decode() if text else output
-        except binascii.Error:
-            raise HTTPException(status_code=400, detail="Invalid base64 encoding")
+        except binascii.Error as err:
+            raise HTTPException(
+                status_code=400, detail="Invalid base64 encoding"
+            ) from err
 
 
 T = TypeVar("T")
@@ -70,7 +72,6 @@ P = ParamSpec("P")
 
 
 class EncryptedAPIKeyCookie(APIKeyCookie):
-
     def __init__(self, secret, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.secret = secret

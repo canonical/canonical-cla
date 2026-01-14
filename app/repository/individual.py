@@ -110,6 +110,6 @@ class SQLIndividualRepository(IndividualRepository):
 
 
 def individual_repository(
-    session: Annotated[AsyncSession, Depends(async_session)]
+    session: Annotated[AsyncSession, Depends(async_session)],
 ) -> IndividualRepository:
     return SQLIndividualRepository(session)

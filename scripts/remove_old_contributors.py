@@ -20,7 +20,7 @@ logger = create_logger("import_contributors")
 
 
 async def remove_old_contributors(
-    session: Annotated[AsyncSession, Depends(async_session)]
+    session: Annotated[AsyncSession, Depends(async_session)],
 ):
     """
     Import contributors from a JSON file.

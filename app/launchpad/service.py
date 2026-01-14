@@ -165,7 +165,7 @@ class LaunchpadService:
                     'OAuth realm="https://api.launchpad.net/"',
                     f'oauth_consumer_key="{config.app_name}"',
                     f'oauth_token="{session_data["oauth_token"]}"',
-                    f'oauth_signature_method="PLAINTEXT"',
+                    'oauth_signature_method="PLAINTEXT"',
                     f'oauth_signature="&{session_data["oauth_token_secret"]}"',
                     f"oauth_timestamp={int(time.time())}",
                     f"oauth_nonce={secrets.randbelow(2**50)}",

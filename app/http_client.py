@@ -23,9 +23,9 @@ class HTTPClient(httpx.AsyncClient):
             )
         try:
             return await self.client.request(method, url, *args, **kwargs)
-        except httpx.HTTPError:
+        except httpx.HTTPError as err:
             host = httpx._urls.URL(url).host
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to connect to {host}, please try again later",
-            )
+            ) from err

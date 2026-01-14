@@ -170,7 +170,7 @@ class GithubWebhookService:
         Check CLA status for commit authors and return the updated authors dict.
         """
         # Exclude bot accounts
-        for email, author in commit_authors.items():
+        for _, author in commit_authors.items():
             username = author["username"]
             if username and username.endswith("[bot]"):
                 author["signed"] = True

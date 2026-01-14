@@ -268,17 +268,21 @@ class TestUpdateCheckRunHelpers:
 
 @pytest.mark.asyncio
 async def test_update_check_run(service: GithubWebhookService):
-    with patch.object(
-        service, "_get_github_api_for_installation", new_callable=AsyncMock
-    ) as get_api_mock, patch.object(
-        service, "_get_commit_authors", new_callable=AsyncMock
-    ) as get_authors_mock, patch.object(
-        service, "_check_authors_cla", new_callable=AsyncMock
-    ) as check_cla_mock, patch.object(
-        service, "_create_check_run_output"
-    ) as create_output_mock, patch.object(
-        service, "_update_or_create_check_run", new_callable=AsyncMock
-    ) as update_run_mock:
+    with (
+        patch.object(
+            service, "_get_github_api_for_installation", new_callable=AsyncMock
+        ) as get_api_mock,
+        patch.object(
+            service, "_get_commit_authors", new_callable=AsyncMock
+        ) as get_authors_mock,
+        patch.object(
+            service, "_check_authors_cla", new_callable=AsyncMock
+        ) as check_cla_mock,
+        patch.object(service, "_create_check_run_output") as create_output_mock,
+        patch.object(
+            service, "_update_or_create_check_run", new_callable=AsyncMock
+        ) as update_run_mock,
+    ):
         get_authors_mock.return_value = {
             "author1@example.com": {"username": "author1", "signed": False}
         }

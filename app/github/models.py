@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
 
@@ -54,12 +52,12 @@ class GitHubInstallation(BaseModel):
 
 class GitHubCheckRun(BaseModel):
     head_sha: str
-    pull_requests: List[GitHubPullRequest] = []
+    pull_requests: list[GitHubPullRequest] = []
 
 
 class GitHubWebhookPayload(BaseModel):
     action: str
     repository: GitHubRepository
     installation: GitHubInstallation
-    pull_request: Optional[GitHubPullRequest] = None
-    check_run: Optional[GitHubCheckRun] = None
+    pull_request: GitHubPullRequest | None = None
+    check_run: GitHubCheckRun | None = None

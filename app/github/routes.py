@@ -187,6 +187,8 @@ async def webhook(
         from pydantic_core import _pydantic_core
 
         if isinstance(e, _pydantic_core.ValidationError):
-            raise HTTPException(status_code=400, detail="Invalid webhook payload")
+            raise HTTPException(
+                status_code=400, detail="Invalid webhook payload"
+            ) from e
         raise
     return await github_webhook_service.process_webhook(payload)

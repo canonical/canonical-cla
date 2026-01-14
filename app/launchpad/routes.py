@@ -1,7 +1,7 @@
 import json
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from starlette.responses import RedirectResponse, Response
 from typing_extensions import TypedDict

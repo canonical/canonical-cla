@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
 
@@ -69,7 +67,7 @@ class LaunchpadEmailResponse(TypedDict):
 
 
 class LaunchpadEmailListResponse(TypedDict):
-    entries: List[LaunchpadEmailResponse]
+    entries: list[LaunchpadEmailResponse]
     start: int
     total_size: int
     resource_type_link: str

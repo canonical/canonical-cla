@@ -216,7 +216,7 @@ class CLAService:
             if not existing_individual.is_imported():
                 raise HTTPException(
                     status_code=400,
-                    detail=f"The provided email address is already associated with a CLA",
+                    detail="The provided email address is already associated with a CLA",
                 )
 
         individual = Individual(
@@ -242,7 +242,7 @@ class CLAService:
             raise HTTPException(
                 status_code=409,
                 detail=f"An individual with the provided {provided_email} already signed the CLA",
-            )
+            ) from e
 
     async def organization_cla_sign(
         self,
@@ -276,11 +276,11 @@ class CLAService:
         organization = Organization(**organization_form.model_dump())
         try:
             return await self.organization_repository.create_organization(organization)
-        except IntegrityError:
+        except IntegrityError as e:
             raise HTTPException(
                 status_code=409,
                 detail="An organization with the provided email domain already signed the CLA",
-            )
+            ) from e
 
     async def gh_and_lp_profiles(
         self, gh_session: str | None, lp_session: dict | None

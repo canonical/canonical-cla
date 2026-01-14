@@ -125,7 +125,7 @@ async def test_github_runner_ip_is_whitelisted_after_meta_update():
         redis.sadd.assert_awaited()
         # Ensure CIDRs from actions, hooks and api were added to Redis
         sadd_call = redis.sadd.await_args
-        sadd_args = getattr(sadd_call, "args", tuple())
+        sadd_args = getattr(sadd_call, "args", ())
         assert sadd_args[0] == limiter._github_ips_key
         added = set(sadd_args[1:])
         assert added == {"20.207.73.0/25", "21.207.73.0/25", "1.2.3.4"}

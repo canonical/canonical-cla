@@ -2,7 +2,7 @@ import base64
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from fastapi.responses import RedirectResponse
 
 from app.github.routes import (
@@ -21,7 +21,7 @@ async def test_login():
     )
 
     response = await github_login(
-        base64.b64encode("https://example.com".encode()).decode("utf-8"),
+        base64.b64encode(b"https://example.com").decode("utf-8"),
         github_service,
     )
     assert response.status_code == 307
