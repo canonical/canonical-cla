@@ -40,9 +40,10 @@ async def oidc_login(
     oidc_service: OIDCService = Depends(oidc_service),
 ) -> RedirectResponse:
     """Redirects to Canonical OIDC login page."""
+    redirect_url_decoded = str(Base64.decode(redirect_url)) if redirect_url else None
     return await oidc_service.login(
         callback_url=f"{config.app_url}/oidc/callback",
-        redirect_url=Base64.decode(redirect_url) if redirect_url else None,
+        redirect_url=redirect_url_decoded,
     )
 
 
@@ -141,7 +142,8 @@ async def oidc_logout(
     """Clears the OIDC session cookie."""
     response: Response
     if redirect_url:
-        response = RedirectResponse(url=Base64.decode(redirect_url))
+        redirect_url_decoded = str(Base64.decode(redirect_url))
+        response = RedirectResponse(url=redirect_url_decoded)
     else:
         response = JSONResponse(
             content={

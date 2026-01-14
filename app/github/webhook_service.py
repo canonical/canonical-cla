@@ -127,8 +127,8 @@ class GithubWebhookService:
         gh = GitHubAPI(self.http_client, requester=owner)
         access_token_response = await get_installation_access_token(
             gh,
-            installation_id=installation_id,
-            app_id=config.github_app.id,
+            installation_id=str(installation_id),
+            app_id=str(config.github_app.id),
             private_key=config.github_app.private_key.get_secret_value(),
         )
 

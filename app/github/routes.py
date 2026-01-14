@@ -29,9 +29,10 @@ async def github_login(
     """
     Redirects to GitHub OAuth login page.
     """
+    redirect_url_decoded = str(Base64.decode(redirect_url)) if redirect_url else None
     return await github_service.login(
         f"{config.app_url}/github/callback",
-        redirect_url=Base64.decode(redirect_url) if redirect_url else None,
+        redirect_url=redirect_url_decoded,
     )
 
 
@@ -146,8 +147,8 @@ async def github_logout(
     """
     response: Response
     if redirect_url:
-        redirect_url = Base64.decode(redirect_url)
-        response = RedirectResponse(url=redirect_url)
+        redirect_url_decoded = str(Base64.decode(redirect_url))
+        response = RedirectResponse(url=redirect_url_decoded)
     else:
         response = JSONResponse(
             content={

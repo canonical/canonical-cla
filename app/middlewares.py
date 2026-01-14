@@ -39,12 +39,12 @@ def is_url_match(url, patterns):
     return False
 
 
-request_ip_address_context_var: ContextVar[str] = ContextVar(
+request_ip_address_context_var: ContextVar[str | None] = ContextVar(
     "request_ip_address", default=None
 )
 
 
-def request_ip():
+def request_ip() -> str | None:
     return request_ip_address_context_var.get()
 
 

@@ -39,9 +39,10 @@ async def launchpad_login(
     """
     Redirects to Launchpad OAuth login page.
     """
+    redirect_url_decoded = str(Base64.decode(redirect_url)) if redirect_url else None
     return await launchpad_service.login(
         callback_url=f"{config.app_url}/launchpad/callback",
-        redirect_url=Base64.decode(redirect_url) if redirect_url else None,
+        redirect_url=redirect_url_decoded,
     )
 
 
@@ -126,8 +127,8 @@ async def launchpad_logout(
     """
     response: Response
     if redirect_url:
-        redirect_url = Base64.decode(redirect_url)
-        response = RedirectResponse(url=redirect_url)
+        redirect_url_decoded = str(Base64.decode(redirect_url))
+        response = RedirectResponse(url=redirect_url_decoded)
     else:
         response = JSONResponse(
             content={

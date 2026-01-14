@@ -7,7 +7,7 @@ from app.config import config
 
 
 class HTTPClient(httpx.AsyncClient):
-    client: httpx.AsyncClient = None
+    client: httpx.AsyncClient | None = None
 
     async def request(
         self,

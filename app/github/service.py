@@ -33,7 +33,9 @@ class GithubService:
         self.cookie_session = cookie_session
         self.http_client = http_client
 
-    async def login(self, callback_url: str, redirect_url: str) -> RedirectResponse:
+    async def login(
+        self, callback_url: str, redirect_url: str | None = None
+    ) -> RedirectResponse:
         state = secrets.token_urlsafe(16)
         params = urlencode(
             {

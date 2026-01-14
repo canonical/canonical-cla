@@ -1,3 +1,4 @@
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -84,7 +85,7 @@ async def test_profile_success():
     http_client = MagicMock()
     http_client.get = AsyncMock(
         side_effect=lambda url, **kwargs: httpx.Response(
-            status_code=mock_responses[url]["status_code"],
+            status_code=cast(int, mock_responses[url]["status_code"]),
             json=mock_responses[url]["json"],
         )
     )

@@ -1,4 +1,5 @@
 import json
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -30,7 +31,10 @@ def access_token_session():
 @pytest.fixture
 def request_token_session():
     return RequestTokenSession(
-        oauth_token="test_token", oauth_token_secret="test_secret", state="test_state"
+        oauth_token="test_token",
+        oauth_token_secret="test_secret",
+        state="test_state",
+        redirect_url="not_used_in_this_test",
     )
 
 
@@ -129,7 +133,7 @@ async def test_profile_success(cookie_session, access_token_session):
     }
     http_client.get = AsyncMock(
         side_effect=lambda url, **kwargs: httpx.Response(
-            status_code=mock_responses[url]["status_code"],
+            status_code=cast(int, mock_responses[url]["status_code"]),
             json=mock_responses[url]["json"],
         )
     )

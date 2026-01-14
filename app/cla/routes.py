@@ -76,7 +76,9 @@ async def check_cla(
     """
     Checks if one or multiple contributors have signed the CLA.
     """
-    return await cla_service.check_cla(emails, github_usernames, launchpad_usernames)
+    return await cla_service.check_cla(
+        emails or [], github_usernames or [], launchpad_usernames or []
+    )
 
 
 @cla_router.post(
@@ -240,9 +242,9 @@ async def update_organization(
     organization.email_domain = email_domain
     organization.salesforce_url = salesforce_url
 
-    approved = approved == "on"
+    is_approved = approved == "on"
     current_approved_status = organization.is_active()
-    if approved:
+    if is_approved:
         if not organization.signed_at:
             organization.signed_at = datetime.now()
         if organization.revoked_at:
@@ -251,14 +253,14 @@ async def update_organization(
         organization.revoked_at = datetime.now()
     await organization_repository.update_organization(organization)
     email_sent = False
-    if current_approved_status != approved:
+    if current_approved_status != is_approved:
         email_sent = True
         background_tasks.add_task(
             send_organization_status_update,
             organization.contact_email,
             organization.contact_name,
             organization.name,
-            "approved" if approved else "disabled",
+            "approved" if is_approved else "disabled",
             organization.email_domain,
         )
 

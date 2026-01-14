@@ -189,7 +189,8 @@ class CLAService:
                 raise HTTPException(
                     status_code=401, detail="Launchpad OAuth session is required"
                 )
-            launchpad_profile = await self.launchpad_service.profile(lp_session)
+            # TODO: fix type
+            launchpad_profile = await self.launchpad_service.profile(lp_session)  # type: ignore
             if individual_form.launchpad_email.lower() not in [
                 email.lower() for email in launchpad_profile.emails
             ]:
@@ -288,8 +289,9 @@ class CLAService:
         github_profile = (
             await self.github_service.profile(gh_session) if gh_session else None
         )
+        # TODO: fix type
         launchpad_profile = (
-            await self.launchpad_service.profile(lp_session) if lp_session else None
+            await self.launchpad_service.profile(lp_session) if lp_session else None  # type: ignore
         )
         return github_profile, launchpad_profile
 

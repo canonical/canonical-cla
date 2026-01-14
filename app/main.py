@@ -81,11 +81,6 @@ def read_root(request: Request):
     }
 
 
-@app.get("/debug-ip", include_in_schema=False)
-def debug_ip(request: Request):
-    return {"client_ip": request.client.host}
-
-
 @app.get("/docs", include_in_schema=False)
 async def redoc_html():
     state = app.state._state

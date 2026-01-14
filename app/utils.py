@@ -6,7 +6,7 @@ import logging
 from collections.abc import AsyncIterator
 from datetime import datetime
 from hashlib import sha256
-from typing import Literal, ParamSpec, TypeVar
+from typing import Literal, ParamSpec, TypeVar, cast
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import httpx
@@ -14,6 +14,7 @@ from Crypto import Random
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from fastapi import Request, Response
+from fastapi.datastructures import Headers
 from fastapi.security import APIKeyCookie
 from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
@@ -37,7 +38,7 @@ class AESCipher:
 
     def decrypt(self, enc: str) -> str | None:
         try:
-            decoded_raw = Base64.decode(enc, text=False)
+            decoded_raw = cast(bytes, Base64.decode(enc, text=False))
             iv = decoded_raw[: AES.block_size]
             cipher = AES.new(self.key, AES.MODE_CBC, iv)
             return unpad(
@@ -143,19 +144,28 @@ def update_query_params(url: str, **params) -> str:
     return str(urlunparse(url_parts))
 
 
-def ip_address(request: Request | None = None, headers: dict | None = None) -> str:
+def ip_address(request: Request | None = None, headers: Headers | None = None) -> str:
     """
     Extract the client's IP address from the request headers.
     This takes into account the possibility of the request being forwarded by a proxy.
     """
+    if request is None:
+        raise ValueError("Request must be provided")
     headers = headers or request.headers
+    if not headers:
+        raise ValueError("Either request or headers must be provided")
     ip = None
     if "x-original-forwarded-for" in headers:
         ip = headers["x-original-forwarded-for"].split(",")[0]
     elif "x-forwarded-for" in headers:
         ip = headers["x-forwarded-for"].split(",")[0]
     else:
-        ip = request.client.host
+        request_client = request.client
+        if not request_client:
+            raise ValueError(
+                "Request must be provided when headers don't contain IP info"
+            )
+        ip = request_client.host
 
     if _is_local_request(ip):
         # consider the custom header only if the request is local (ubuntu.com backend proxy)

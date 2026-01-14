@@ -39,7 +39,7 @@ end
 
 
 class RateLimiter:
-    _script_sha: str
+    _script_sha: str | None = None
     _github_ips_key = "rate_limiter:github_ips"
     _github_ips_last_update_key = "rate_limiter:github_ips:last_update"
 
@@ -117,7 +117,7 @@ class RateLimiter:
                 logger.error("No GitHub IPs found, ignoring")
                 return
             await self.redis.delete(self._github_ips_key)
-            await self.redis.sadd(self._github_ips_key, *list(github_ips))
+            await self.redis.sadd(self._github_ips_key, *list(github_ips))  # ty: ignore[invalid-await]
             await self.redis.set(self._github_ips_last_update_key, current_time)
             logger.info(f"GitHub IPs ({len(github_ips)}) updated")
 
@@ -137,7 +137,7 @@ class RateLimiter:
                         return True
                 except ValueError:
                     continue
-            for runner in await self.redis.smembers(self._github_ips_key):
+            for runner in await self.redis.smembers(self._github_ips_key):  # ty: ignore[invalid-await]
                 try:
                     if ip_address in ipaddress.ip_network(runner):
                         return True
@@ -169,7 +169,7 @@ class RateLimiter:
         key = key or self._request_identifier()
         try:
             script_sha = await self._redis_script_sha()
-            time_left = await self.redis.evalsha(
+            time_left = await self.redis.evalsha(  # ty: ignore[invalid-await]
                 script_sha,
                 1,
                 key,

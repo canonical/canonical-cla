@@ -50,6 +50,7 @@ coverage = "^7.6.1"
 djlint = "^1.34.1"
 pre-commit = "^3.7.0"
 ruff = "^0.14.11"
+ty = "^0.0.11"
 
 [tool.ruff]
 target-version = "py310"
@@ -70,6 +71,12 @@ ignore = ["E203", "E501", "B008"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.ty.rules]
+unresolved-attribute = "ignore"
+invalid-type-form="ignore"
+missing-typed-dict-key="ignore"
+invalid-typed-dict-statement="ignore"
 
 [build-system]
 requires = ["poetry-core"]

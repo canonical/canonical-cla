@@ -150,13 +150,13 @@ class Config(BaseSettings):
 
     github_oauth: GitHubOAuthConfig = GitHubOAuthConfig()  # type: ignore
     github_app: GitHubAppConfig = GitHubAppConfig()  # type: ignore
-    launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()  # type: ignore
-    canonical_oidc: CanonicalOIDCConfig = CanonicalOIDCConfig()  # type: ignore
+    launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()
+    canonical_oidc: CanonicalOIDCConfig = CanonicalOIDCConfig()
     database: DatabaseConfig = DatabaseConfig()  # type: ignore
     redis: RedisConfig = RedisConfig()  # type: ignore
     smtp: SMTPConfig = SMTPConfig()  # type: ignore
 
-    rate_limit: RateLimitConfig = RateLimitConfig()  # type: ignore
+    rate_limit: RateLimitConfig = RateLimitConfig()
     sentry_dsn: str | None = None
 
 

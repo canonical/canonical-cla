@@ -1,8 +1,10 @@
 from datetime import datetime
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
+from pydantic_extra_types.country import CountryAlpha2
 from pytest_asyncio import fixture
 
 from app.cla.models import (
@@ -164,9 +166,8 @@ async def test_individual_cla_sign_case_insensitive_github_email(cla_service):
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email="User@Example.Com",  # Mixed case
         launchpad_email=None,
     )
@@ -174,7 +175,7 @@ async def test_individual_cla_sign_case_insensitive_github_email(cla_service):
     # Mock GitHub profile with lowercase email
     github_profile = GitHubProfile(
         username="testuser",
-        _id="123456",
+        _id=123456,
         emails=["user@example.com"],  # Lowercase in profile
     )
 
@@ -198,9 +199,8 @@ async def test_individual_cla_sign_case_insensitive_launchpad_email(cla_service)
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email=None,
         launchpad_email="User@Example.Com",  # Mixed case
     )
@@ -235,9 +235,8 @@ async def test_individual_cla_sign_github_email_blocked_raises_http_exception(
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email="user@intel.com",
         launchpad_email=None,
     )
@@ -255,9 +254,8 @@ async def test_individual_cla_sign_launchpad_email_blocked_raises_http_exception
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email=None,
         launchpad_email="user@intel.com",
     )
@@ -278,12 +276,12 @@ async def test_organization_cla_sign_blocked_domain_raises_http_exception(cla_se
         contact_email="owner@intel.com",
         phone_number="+1234567890",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
     )
 
     cla_service.github_service.profile = AsyncMock(
         return_value=GitHubProfile(
-            username="owner", _id="1", emails=["owner@intel.com"]
+            username="owner", _id=1, emails=["owner@intel.com"]
         )  # ensure domain ownership
     )
     cla_service.launchpad_service.profile = AsyncMock(
@@ -306,9 +304,8 @@ async def test_individual_cla_sign_multiple_profile_emails_case_insensitive(
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email="PRIMARY@Example.Com",  # Mixed case, should match second email
         launchpad_email=None,
     )
@@ -316,7 +313,7 @@ async def test_individual_cla_sign_multiple_profile_emails_case_insensitive(
     # Mock GitHub profile with multiple emails in different cases
     github_profile = GitHubProfile(
         username="testuser",
-        _id="123456",
+        _id=123456,
         emails=["secondary@test.com", "primary@example.com", "tertiary@test.org"],
     )
 
@@ -340,9 +337,8 @@ async def test_individual_cla_sign_github_email_mismatch_error_message(cla_servi
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email="user@different.com",
         launchpad_email=None,
     )
@@ -350,7 +346,7 @@ async def test_individual_cla_sign_github_email_mismatch_error_message(cla_servi
     # Mock GitHub profile with different emails
     github_profile = GitHubProfile(
         username="testuser",
-        _id="123456",
+        _id=123456,
         emails=["user@example.com", "test@example.com"],
     )
 
@@ -372,9 +368,8 @@ async def test_individual_cla_sign_launchpad_email_mismatch_error_message(cla_se
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email=None,
         launchpad_email="user@different.com",
     )
@@ -406,16 +401,15 @@ async def test_individual_cla_sign_both_emails_case_insensitive(cla_service):
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email="GitHub@Example.Com",
         launchpad_email="LaunchPad@Example.Com",
     )
 
     # Mock profiles with lowercase emails
     github_profile = GitHubProfile(
-        username="testuser", _id="123456", emails=["github@example.com"]
+        username="testuser", _id=123456, emails=["github@example.com"]
     )
     launchpad_profile = LaunchpadProfile(
         username="testuser", _id="654321", emails=["launchpad@example.com"]
