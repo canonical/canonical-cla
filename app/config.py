@@ -1,5 +1,6 @@
 import logging
 from email.utils import formataddr
+from typing import Optional
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict

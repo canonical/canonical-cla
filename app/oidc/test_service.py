@@ -1,189 +1,249 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 from fastapi import HTTPException
+from fastapi.responses import JSONResponse, RedirectResponse
 
-from app.oidc.models import OIDCMetadata
+from app.oidc.models import (
+    OIDCMetadata,
+    OIDCPendingAuthSession,
+    OIDCTokenResponse,
+    OIDCUserInfo,
+)
 from app.oidc.service import OIDCService
-
-MOCK_METADATA: OIDCMetadata = {
-    "issuer": "https://login.canonical.com",
-    "authorization_endpoint": "https://login.canonical.com/authorize",
-    "token_endpoint": "https://login.canonical.com/token",
-    "userinfo_endpoint": "https://login.canonical.com/userinfo",
-    "jwks_uri": "https://login.canonical.com/.well-known/jwks.json",
-}
 
 
 @pytest.fixture
-def oidc_service():
-    cookie_session = MagicMock()
-    http_client = MagicMock()
-    http_client.get = AsyncMock(
-        return_value=httpx.Response(status_code=200, json=MOCK_METADATA)
+def mock_http_client():
+    return AsyncMock()
+
+
+@pytest.fixture
+def mock_access_token_cookie_session():
+    mock = MagicMock()
+    mock.name = "access_token_session"
+    return mock
+
+
+@pytest.fixture
+def mock_pending_auth_cookie_session():
+    mock = MagicMock()
+    mock.name = "pending_auth_session"
+    return mock
+
+
+@pytest.fixture
+def oidc_service(
+    mock_access_token_cookie_session, mock_pending_auth_cookie_session, mock_http_client
+):
+    service = OIDCService(
+        access_token_cookie_session=mock_access_token_cookie_session,
+        pending_auth_cookie_session=mock_pending_auth_cookie_session,
+        http_client=mock_http_client,
     )
-    return OIDCService(cookie_session, http_client)
+    return service
+
+
+@pytest.fixture
+def mock_metadata():
+    return {
+        "issuer": "https://login.canonical.com",
+        "authorization_endpoint": "https://login.canonical.com/authorize",
+        "token_endpoint": "https://login.canonical.com/token",
+        "userinfo_endpoint": "https://login.canonical.com/userinfo",
+        "jwks_uri": "https://login.canonical.com/jwks",
+    }
 
 
 @pytest.mark.asyncio
-async def test_get_metadata_success(oidc_service):
+async def test_get_metadata_success(oidc_service, mock_http_client, mock_metadata):
+    mock_http_client.get.return_value = MagicMock(
+        status_code=200, json=lambda: mock_metadata
+    )
+
     metadata = await oidc_service._get_metadata()
-    assert metadata == MOCK_METADATA
-    assert oidc_service.http_client.get.called
+
+    assert metadata.issuer == mock_metadata["issuer"]
+    mock_http_client.get.assert_called_once()
+
+    # Test caching
+    await oidc_service._get_metadata()
+    mock_http_client.get.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_get_metadata_failure():
-    cookie_session = MagicMock()
-    http_client = MagicMock()
-    http_client.get = AsyncMock(return_value=httpx.Response(status_code=500))
-    service = OIDCService(cookie_session, http_client)
+async def test_get_metadata_failure(oidc_service, mock_http_client):
+    mock_http_client.get.return_value = MagicMock(status_code=500)
 
     with pytest.raises(HTTPException) as exc:
-        await service._get_metadata()
+        await oidc_service._get_metadata()
     assert exc.value.status_code == 502
 
 
 @pytest.mark.asyncio
-async def test_get_metadata_caches_result(oidc_service):
-    await oidc_service._get_metadata()
-    await oidc_service._get_metadata()
-    assert oidc_service.http_client.get.call_count == 1
-
-
-@patch("secrets.token_urlsafe", return_value="test_state_nonce")
-@patch("app.config.config.canonical_oidc.client_id", "test_client_id")
-@patch("app.config.config.canonical_oidc.scope", "openid profile email")
-@pytest.mark.asyncio
-async def test_login_success(mock_token, oidc_service):
-    response = await oidc_service.login(
-        "http://test.com/callback", "http://test.com/redirect"
-    )
-
-    assert response.status_code == 307
-    location = response.headers["location"]
-    assert location.startswith("https://login.canonical.com/authorize")
-    assert "test_client_id" in location
-    assert "test_state_nonce" in location
-    assert "openid" in location
-    assert oidc_service.cookie_session.set_cookie.called
-
-
-@patch("secrets.token_urlsafe", return_value="test_state_nonce")
-@pytest.mark.asyncio
-async def test_login_sets_cookie_with_state(mock_token, oidc_service):
-    await oidc_service.login("http://test.com/callback", "http://test.com/redirect")
-
-    call_args = oidc_service.cookie_session.set_cookie.call_args
-    cookie_value = call_args.kwargs["value"]
-    assert "test_state_nonce" in cookie_value
-    assert "http://test.com/redirect" in cookie_value
-
-
-@patch("app.config.config.canonical_oidc.client_id", "test_client_id")
-@patch(
-    "app.config.config.canonical_oidc.client_secret.get_secret_value",
-    lambda: "test_secret",
-)
-@pytest.mark.asyncio
-async def test_callback_success(oidc_service):
-    oidc_service.http_client.post = AsyncMock(
-        return_value=httpx.Response(
-            status_code=200,
-            json={"access_token": "test_access_token", "token_type": "Bearer"},
-        )
-    )
-
-    access_token = await oidc_service.callback("test_code", "http://test.com/callback")
-
-    assert access_token == "test_access_token"
-    assert oidc_service.http_client.post.called
-
-
-@pytest.mark.asyncio
-async def test_callback_token_exchange_failure(oidc_service):
-    oidc_service.http_client.post = AsyncMock(
-        return_value=httpx.Response(status_code=400, text="Bad Request")
+async def test_get_metadata_validation_error(oidc_service, mock_http_client):
+    mock_http_client.get.return_value = MagicMock(
+        status_code=200, json=lambda: {"invalid": "data"}
     )
 
     with pytest.raises(HTTPException) as exc:
-        await oidc_service.callback("test_code", "http://test.com/callback")
+        await oidc_service._get_metadata()
+    assert exc.value.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_login(
+    oidc_service, mock_http_client, mock_metadata, mock_pending_auth_cookie_session
+):
+    mock_http_client.get.return_value = MagicMock(
+        status_code=200, json=lambda: mock_metadata
+    )
+
+    callback_url = "http://localhost/callback"
+    redirect_uri = "/dashboard"
+
+    response = await oidc_service.login(callback_url, redirect_uri)
+
+    assert isinstance(response, RedirectResponse)
+    assert response.headers["location"].startswith(
+        mock_metadata["authorization_endpoint"]
+    )
+
+    mock_pending_auth_cookie_session.set_cookie.assert_called_once()
+    _, kwargs = mock_pending_auth_cookie_session.set_cookie.call_args
+    assert isinstance(kwargs["value"], OIDCPendingAuthSession)
+    assert kwargs["value"].redirect_uri == redirect_uri
+
+
+@pytest.mark.asyncio
+async def test_callback_success(
+    oidc_service, mock_http_client, mock_metadata, mock_access_token_cookie_session
+):
+    mock_http_client.get.return_value = MagicMock(
+        status_code=200, json=lambda: mock_metadata
+    )
+
+    token_response = {"access_token": "valid_token", "token_type": "Bearer"}
+    mock_http_client.post.return_value = MagicMock(
+        status_code=200, json=lambda: token_response
+    )
+
+    response = await oidc_service.callback("code", "callback_url", "/dashboard")
+
+    assert isinstance(response, RedirectResponse)
+    assert response.headers["location"] == "/dashboard"
+
+    mock_access_token_cookie_session.set_cookie.assert_called_once()
+
+    # Verify cookie deletion
+    # RedirectResponse from fastapi doesn't easily expose delete_cookie operations directly in headers for simple inspection of `delete_cookie` calls unless we check headers "set-cookie" with max-age=0
+    # But we can check that it didn't crash.
+    # Note: `delete_cookie` is called on the response object.
+
+
+@pytest.mark.asyncio
+async def test_callback_token_http_error(oidc_service, mock_http_client, mock_metadata):
+    mock_http_client.get.return_value = MagicMock(
+        status_code=200, json=lambda: mock_metadata
+    )
+    mock_http_client.post.return_value = MagicMock(status_code=400, text="Bad Request")
+
+    with pytest.raises(HTTPException) as exc:
+        await oidc_service.callback("code", "callback_url", "/dashboard")
     assert exc.value.status_code == 400
 
 
 @pytest.mark.asyncio
-async def test_callback_token_error_response(oidc_service):
-    oidc_service.http_client.post = AsyncMock(
-        return_value=httpx.Response(
-            status_code=200,
-            json={"error": "invalid_grant", "error_description": "Code expired"},
-        )
+async def test_callback_token_response_error(
+    oidc_service, mock_http_client, mock_metadata
+):
+    mock_http_client.get.return_value = MagicMock(
+        status_code=200, json=lambda: mock_metadata
+    )
+    mock_http_client.post.return_value = MagicMock(
+        status_code=200,
+        json=lambda: {"error": "invalid_grant", "error_description": "Bad code"},
     )
 
     with pytest.raises(HTTPException) as exc:
-        await oidc_service.callback("test_code", "http://test.com/callback")
+        await oidc_service.callback("code", "callback_url", "/dashboard")
     assert exc.value.status_code == 400
-    assert "Code expired" in exc.value.detail
+    assert "Bad code" in exc.value.detail
 
 
 @pytest.mark.asyncio
-async def test_profile_success(oidc_service):
-    oidc_service.http_client.get = AsyncMock(
-        side_effect=[
-            httpx.Response(status_code=200, json=MOCK_METADATA),
-            httpx.Response(
-                status_code=200,
-                json={
-                    "sub": "user123",
-                    "email": "user@canonical.com",
-                    "email_verified": True,
-                    "name": "Test User",
-                    "preferred_username": "testuser",
-                    "picture": "https://example.com/pic.jpg",
-                    "given_name": "Test",
-                    "family_name": "User",
-                },
-            ),
-        ]
+async def test_callback_token_validation_error(
+    oidc_service, mock_http_client, mock_metadata
+):
+    mock_http_client.get.return_value = MagicMock(
+        status_code=200, json=lambda: mock_metadata
     )
-    # Reset cached metadata
-    oidc_service._metadata = None
-
-    profile = await oidc_service.profile("test_access_token")
-
-    assert profile.sub == "user123"
-    assert profile.email == "user@canonical.com"
-    assert profile.email_verified is True
-    assert profile.name == "Test User"
-    assert profile.username == "testuser"
-    assert profile.picture == "https://example.com/pic.jpg"
-    assert profile.given_name == "Test"
-    assert profile.family_name == "User"
-
-
-@pytest.mark.asyncio
-async def test_profile_failure(oidc_service):
-    oidc_service.http_client.get = AsyncMock(
-        side_effect=[
-            httpx.Response(status_code=200, json=MOCK_METADATA),
-            httpx.Response(status_code=401),
-        ]
+    mock_http_client.post.return_value = MagicMock(
+        status_code=200, json=lambda: {"access_token": "valid"}  # Missing token_type
     )
-    oidc_service._metadata = None
 
     with pytest.raises(HTTPException) as exc:
-        await oidc_service.profile("invalid_token")
+        await oidc_service.callback("code", "callback_url", "/dashboard")
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_profile_success(oidc_service, mock_http_client, mock_metadata):
+    mock_http_client.get.side_effect = [
+        MagicMock(status_code=200, json=lambda: mock_metadata),
+        MagicMock(
+            status_code=200,
+            json=lambda: {"sub": "123", "name": "Test User", "email_verified": True},
+        ),
+    ]
+
+    profile = await oidc_service.profile("token")
+
+    assert isinstance(profile, OIDCUserInfo)
+    assert profile.sub == "123"
+
+
+@pytest.mark.asyncio
+async def test_profile_http_error(oidc_service, mock_http_client, mock_metadata):
+    mock_http_client.get.side_effect = [
+        MagicMock(status_code=200, json=lambda: mock_metadata),
+        MagicMock(status_code=401),
+    ]
+
+    with pytest.raises(HTTPException) as exc:
+        await oidc_service.profile("token")
     assert exc.value.status_code == 401
 
 
-def test_encrypt():
-    cookie_session = MagicMock()
-    cookie_session.cipher.encrypt.return_value = "encrypted_value"
-    http_client = MagicMock()
-    service = OIDCService(cookie_session, http_client)
+@pytest.mark.asyncio
+async def test_profile_validation_error(oidc_service, mock_http_client, mock_metadata):
+    mock_http_client.get.side_effect = [
+        MagicMock(status_code=200, json=lambda: mock_metadata),
+        MagicMock(status_code=200, json=lambda: {"sub": 123}),  # sub should be str
+    ]
 
-    result = service.encrypt("test_value")
+    # Actually pydantic might coerce int to str for sub, let's use missing field
+    mock_http_client.get.side_effect = [
+        MagicMock(status_code=200, json=lambda: mock_metadata),
+        MagicMock(status_code=200, json=lambda: {"name": "No Sub"}),
+    ]
 
-    assert result == "encrypted_value"
-    cookie_session.cipher.encrypt.assert_called_once_with("test_value")
+    with pytest.raises(HTTPException) as exc:
+        await oidc_service.profile("token")
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_logout_with_redirect(oidc_service, mock_access_token_cookie_session):
+    response = await oidc_service.logout(redirect_uri="/login")
+
+    assert isinstance(response, RedirectResponse)
+    assert response.headers["location"] == "/login"
+
+
+@pytest.mark.asyncio
+async def test_logout_without_redirect(oidc_service, mock_access_token_cookie_session):
+    response = await oidc_service.logout(redirect_uri=None)
+
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == 200

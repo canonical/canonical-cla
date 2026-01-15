@@ -11,7 +11,7 @@ from app.launchpad.models import (
     RequestTokenSession,
 )
 from app.launchpad.service import LaunchpadService
-from app.utils import EncryptedAPIKeyCookie
+from app.utils.api_cookie import EncryptedAPIKeyCookie
 
 
 @pytest.fixture

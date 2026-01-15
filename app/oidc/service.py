@@ -1,27 +1,44 @@
-import json
 import logging
 import secrets
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import Depends, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import ValidationError
 
 from app.config import config
-from app.oidc.models import OIDCMetadata, OIDCProfile
-from app.utils import EncryptedAPIKeyCookie, http_client
+from app.http_client import http_client
+from app.oidc.models import (
+    OIDCAccessTokenSession,
+    OIDCMetadata,
+    OIDCPendingAuthSession,
+    OIDCTokenResponse,
+    OIDCUserInfo,
+)
+from app.utils.api_cookie import APIKeyCookieModel
 
 logger = logging.getLogger(__name__)
 
 
-class OIDCCookieSession(EncryptedAPIKeyCookie):
-    pass
+class OIDCAccessTokenCookieSession(APIKeyCookieModel[OIDCAccessTokenSession]):
+    @property
+    def payload_model(self) -> type[OIDCAccessTokenSession]:
+        return OIDCAccessTokenSession
 
 
-oidc_cookie_session = OIDCCookieSession(
-    name="canonical_oidc_session",
-    secret=config.secret_key.get_secret_value(),
-    auto_error=False,
+class OIDCPendingAuthCookieSession(APIKeyCookieModel[OIDCPendingAuthSession]):
+    @property
+    def payload_model(self) -> type[OIDCPendingAuthSession]:
+        return OIDCPendingAuthSession
+
+
+oidc_access_token_cookie_session = OIDCAccessTokenCookieSession(
+    name="canonical_oidc_session", secret=config.secret_key.get_secret_value()
+)
+
+oidc_pending_auth_cookie_session = OIDCPendingAuthCookieSession(
+    name="canonical_oidc_login_session", secret=config.secret_key.get_secret_value()
 )
 
 
@@ -32,9 +49,13 @@ class OIDCService:
     """
 
     def __init__(
-        self, cookie_session: OIDCCookieSession, http_client: httpx.AsyncClient
+        self,
+        access_token_cookie_session: OIDCAccessTokenCookieSession,
+        pending_auth_cookie_session: OIDCPendingAuthCookieSession,
+        http_client: httpx.AsyncClient,
     ):
-        self.cookie_session = cookie_session
+        self.access_token_cookie_session = access_token_cookie_session
+        self.pending_auth_cookie_session = pending_auth_cookie_session
         self.http_client = http_client
         self._metadata: OIDCMetadata | None = None
 
@@ -46,16 +67,20 @@ class OIDCService:
                 raise HTTPException(
                     status_code=502, detail="Failed to fetch OIDC metadata"
                 )
-            self._metadata = response.json()
+            try:
+                self._metadata = OIDCMetadata.model_validate(response.json())
+            except ValidationError as e:
+                logger.error(f"Failed to validate OIDC metadata: {e}", exc_info=True)
+                raise HTTPException(
+                    status_code=502,
+                    detail="Failed to validate OIDC metadata, please try again later",
+                ) from e
         return self._metadata
 
-    async def login(
-        self, callback_url: str, redirect_url: str | None
-    ) -> RedirectResponse:
+    async def login(self, callback_url: str, redirect_uri: str) -> RedirectResponse:
         """Redirect to OIDC authorization endpoint."""
         metadata = await self._get_metadata()
         state = secrets.token_urlsafe(32)
-        nonce = secrets.token_urlsafe(32)
         params = urlencode(
             {
                 "client_id": config.canonical_oidc.client_id,
@@ -63,18 +88,16 @@ class OIDCService:
                 "scope": config.canonical_oidc.scope,
                 "redirect_uri": callback_url,
                 "state": state,
-                "nonce": nonce,
             }
         )
 
-        response = RedirectResponse(
-            url=f"{metadata['authorization_endpoint']}?{params}"
+        response = RedirectResponse(url=f"{metadata.authorization_endpoint}?{params}")
+        pending_auth_session = OIDCPendingAuthSession(
+            state=state, redirect_uri=redirect_uri
         )
-        self.cookie_session.set_cookie(
+        self.pending_auth_cookie_session.set_cookie(
             response,
-            value=json.dumps(
-                {"state": state, "nonce": nonce, "redirect_url": redirect_url}
-            ),
+            value=pending_auth_session,
             max_age=600,
             httponly=True,
             secure=not config.debug_mode,
@@ -82,7 +105,9 @@ class OIDCService:
         )
         return response
 
-    async def callback(self, code: str, callback_url: str) -> str:
+    async def callback(
+        self, code: str, callback_url: str, redirect_uri: str
+    ) -> RedirectResponse:
         """Exchange authorization code for access token."""
         metadata = await self._get_metadata()
 
@@ -95,7 +120,7 @@ class OIDCService:
         }
 
         response = await self.http_client.post(
-            url=metadata["token_endpoint"],
+            url=metadata.token_endpoint,
             data=token_data,
             headers={"Accept": "application/json"},
         )
@@ -112,15 +137,33 @@ class OIDCService:
                 status_code=400,
                 detail=f"Token error: {token_response.get('error_description', token_response['error'])}",
             )
+        try:
+            token_response_payload = OIDCTokenResponse.model_validate(token_response)
+        except ValidationError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to validate token response: {e}",
+            ) from e
+        response = RedirectResponse(url=redirect_uri)
+        access_token_session = OIDCAccessTokenSession(
+            access_token=token_response_payload.access_token
+        )
+        self.access_token_cookie_session.set_cookie(
+            response,
+            value=access_token_session,
+            httponly=True,
+            secure=not config.debug_mode,
+            samesite="lax",
+        )
+        response.delete_cookie(key=self.pending_auth_cookie_session.name)
+        return response
 
-        return token_response["access_token"]
-
-    async def profile(self, access_token: str) -> OIDCProfile:
+    async def profile(self, access_token: str) -> OIDCUserInfo:
         """Fetch user profile from OIDC userinfo endpoint."""
         metadata = await self._get_metadata()
 
         response = await self.http_client.get(
-            url=metadata["userinfo_endpoint"],
+            url=metadata.userinfo_endpoint,
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
@@ -129,23 +172,45 @@ class OIDCService:
                 status_code=response.status_code, detail="Failed to fetch user profile"
             )
 
-        userinfo = response.json()
-        return OIDCProfile(
-            sub=userinfo["sub"],
-            email=userinfo.get("email"),
-            email_verified=userinfo.get("email_verified", False),
-            name=userinfo.get("name"),
-            username=userinfo.get("preferred_username"),
-            picture=userinfo.get("picture"),
-            given_name=userinfo.get("given_name"),
-            family_name=userinfo.get("family_name"),
-        )
+        try:
+            return OIDCUserInfo.model_validate(response.json())
+        except ValidationError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to validate user profile: {e}",
+            ) from e
 
-    def encrypt(self, value: str) -> str:
-        return self.cookie_session.cipher.encrypt(value)
+    async def logout(self, redirect_uri: str | None) -> RedirectResponse | JSONResponse:
+        response: RedirectResponse | JSONResponse
+        if redirect_uri:
+            response = RedirectResponse(url=redirect_uri)
+        else:
+            response = JSONResponse(
+                content={
+                    "message": "Logged out",
+                    "login_url": f"{config.app_url}/oidc/login",
+                }
+            )
+        response.delete_cookie(key=self.access_token_cookie_session.name)
+        return response
 
 
 async def oidc_service(
     http_client: httpx.AsyncClient = Depends(http_client),
 ) -> OIDCService:
-    return OIDCService(oidc_cookie_session, http_client)
+    return OIDCService(
+        oidc_access_token_cookie_session, oidc_pending_auth_cookie_session, http_client
+    )
+
+
+async def oidc_user(
+    oidc_access_token_session: OIDCAccessTokenSession | None = Depends(
+        oidc_access_token_cookie_session
+    ),
+    oidc_service: OIDCService = Depends(oidc_service),
+) -> OIDCUserInfo:
+    if oidc_access_token_session is None:
+        raise HTTPException(
+            status_code=401, detail="Unauthorized(OIDC): Not authenticated"
+        )
+    return await oidc_service.profile(oidc_access_token_session.access_token)

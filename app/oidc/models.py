@@ -1,8 +1,9 @@
-from pydantic import BaseModel, Field
-from typing_extensions import TypedDict
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
 
 
-class OIDCMetadata(TypedDict):
+class OIDCMetadata(BaseModel):
     """OIDC provider metadata from discovery endpoint."""
 
     issuer: str
@@ -12,79 +13,55 @@ class OIDCMetadata(TypedDict):
     jwks_uri: str
 
 
-class OIDCPendingAuthSession(TypedDict):
+class OIDCPendingAuthSession(BaseModel):
     """Session state stored during OIDC authentication flow."""
 
     state: str
-    nonce: str
-    redirect_url: str | None
+
+    # The redirect URI to redirect to after authentication.
+    # This cannot be a full URL, it must be a relative path.
+    redirect_uri: str
 
 
-class OIDCTokenResponse(TypedDict):
+class OIDCAccessTokenSession(BaseModel):
+    """Session state stored during OIDC authentication flow."""
+
+    access_token: str
+
+
+class OIDCTokenResponse(BaseModel):
     """Response from OIDC token endpoint."""
 
     access_token: str
     token_type: str
-    expires_in: int
-    id_token: str
-    refresh_token: str | None
 
 
 class OIDCUserInfo(BaseModel):
     """User information from OIDC userinfo endpoint."""
 
-    sub: str = Field(
+    sub: Annotated[str, StringConstraints(max_length=255)] = Field(
         ..., description="Subject identifier (unique user ID)", examples=["abc123"]
     )
-    email: str | None = Field(
+    email: Annotated[str | None, StringConstraints(max_length=100)] = Field(
         None, description="User's email address", examples=["user@canonical.com"]
     )
     email_verified: bool = Field(
         False, description="Whether the email is verified", examples=[True]
     )
-    name: str | None = Field(
+    name: Annotated[str | None, StringConstraints(max_length=100)] = Field(
         None, description="User's full name", examples=["John Doe"]
     )
-    given_name: str | None = Field(None, description="User's given/first name")
-    family_name: str | None = Field(
+    given_name: Annotated[str | None, StringConstraints(max_length=50)] = Field(
+        None, description="User's given/first name"
+    )
+    family_name: Annotated[str | None, StringConstraints(max_length=50)] = Field(
         None, description="User's family/last name", examples=["Doe"]
     )
-    preferred_username: str | None = Field(
-        None, description="Preferred username", examples=["jdoe"]
+    preferred_username: Annotated[str | None, StringConstraints(max_length=100)] = (
+        Field(None, description="Preferred username", examples=["jdoe"])
     )
-    picture: str | None = Field(
+    picture: Annotated[str | None, StringConstraints(max_length=500)] = Field(
         None,
         description="URL to user's profile picture",
         examples=["https://example.com/profile.jpg"],
-    )
-
-
-class OIDCProfile(BaseModel):
-    """Processed OIDC profile for the application."""
-
-    sub: str = Field(
-        ..., description="Subject identifier (unique user ID)", examples=["abc123"]
-    )
-    email: str | None = Field(
-        None, description="User's email address", examples=["user@canonical.com"]
-    )
-    email_verified: bool = Field(
-        False, description="Whether the email is verified", examples=[True]
-    )
-    name: str | None = Field(
-        None, description="User's full name", examples=["John Doe"]
-    )
-    username: str | None = Field(
-        None, description="Preferred username", examples=["jdoe"]
-    )
-    picture: str | None = Field(
-        None,
-        description="URL to user's profile picture",
-        examples=["https://example.com/profile.jpg"],
-    )
-    given_name: str | None = Field(
-        None, description="User's given/first name", examples=["John"]
-    )
-    family_name: str | None = Field(
-        None, description="User's family/last name", examples=["Doe"]
     )

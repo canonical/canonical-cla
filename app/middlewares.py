@@ -9,7 +9,7 @@ from starlette.responses import PlainTextResponse
 from app.config import config
 from app.security.config import private_paths
 from app.security.rate_limiter import RateLimiter
-from app.utils import ip_address, is_local_request
+from app.utils.request import ip_address, is_local_request
 
 logger = logging.getLogger(__name__)
 

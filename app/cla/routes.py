@@ -36,7 +36,7 @@ from app.notifications.emails import (
     send_organization_status_update,
 )
 from app.repository.organization import OrganizationRepository, organization_repository
-from app.utils import AESCipher, cipher
+from app.utils.crypto import AESCipher, cipher
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
