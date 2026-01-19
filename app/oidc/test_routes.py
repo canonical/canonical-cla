@@ -1,12 +1,10 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException
 
-from app.config import config
 from app.oidc.models import OIDCPendingAuthSession, OIDCUserInfo
 from app.oidc.routes import (
-    check_oidc_enabled,
     oidc_callback,
     oidc_login,
     oidc_logout,
@@ -115,14 +113,3 @@ async def test_oidc_profile(mock_oidc_service):
 async def test_oidc_logout(mock_oidc_service):
     await oidc_logout(redirect_uri="/login", oidc_service=mock_oidc_service)
     mock_oidc_service.logout.assert_called_once_with("/login")
-
-
-def test_check_oidc_enabled():
-    with patch("app.oidc.routes.config") as mock_config:
-        mock_config.canonical_oidc.enabled = False
-        with pytest.raises(HTTPException) as exc:
-            check_oidc_enabled()
-        assert exc.value.status_code == 503
-
-        mock_config.canonical_oidc.enabled = True
-        check_oidc_enabled()  # Should not raise
