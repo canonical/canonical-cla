@@ -1,4 +1,3 @@
-import base64
 from hashlib import sha256
 
 from Crypto import Random
@@ -19,7 +18,7 @@ class AESCipher(object):
         encoded_raw = pad(raw.encode(), AES.block_size)
         iv = Random.new().read(AES.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        return base64.b64encode(iv + cipher.encrypt(encoded_raw)).decode("utf-8")
+        return Base64.encode(iv + cipher.encrypt(encoded_raw))
 
     def decrypt(self, enc: str) -> str | None:
         try:

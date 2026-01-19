@@ -1,6 +1,5 @@
 import logging
 from email.utils import formataddr
-from typing import Optional
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -87,9 +86,8 @@ class CanonicalOIDCConfig(BaseSettings):
         extra="ignore",
     )
 
-    enabled: bool = True
-    client_id: str = ""
-    client_secret: SecretStr = SecretStr("")
+    client_id: str
+    client_secret: SecretStr
     server_url: str = "https://login.canonical.com"
     scope: str = "openid profile email"
     token_endpoint_auth_method: str = "client_secret_post"
@@ -151,13 +149,13 @@ class Config(BaseSettings):
 
     github_oauth: GitHubOAuthConfig = GitHubOAuthConfig()  # type: ignore
     github_app: GitHubAppConfig = GitHubAppConfig()  # type: ignore
-    launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()  # type: ignore
+    launchpad_oauth: LaunchpadOAuthConfig = LaunchpadOAuthConfig()
     canonical_oidc: CanonicalOIDCConfig = CanonicalOIDCConfig()  # type: ignore
     database: DatabaseConfig = DatabaseConfig()  # type: ignore
     redis: RedisConfig = RedisConfig()  # type: ignore
     smtp: SMTPConfig = SMTPConfig()  # type: ignore
 
-    rate_limit: RateLimitConfig = RateLimitConfig()  # type: ignore
+    rate_limit: RateLimitConfig = RateLimitConfig()
     sentry_dsn: str | None = None
 
 

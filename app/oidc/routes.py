@@ -3,10 +3,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.config import config
-from app.oidc.models import OIDCAccessTokenSession, OIDCPendingAuthSession, OIDCUserInfo
+from app.oidc.models import  OIDCPendingAuthSession, OIDCUserInfo
 from app.oidc.service import (
     OIDCService,
-    oidc_access_token_cookie_session,
     oidc_pending_auth_cookie_session,
     oidc_service,
     oidc_user,
@@ -16,15 +15,10 @@ from app.utils.request import error_status_codes
 oidc_router = APIRouter(prefix="/oidc", tags=["Canonical OIDC"])
 
 
-def check_oidc_enabled():
-    if not config.canonical_oidc.enabled:
-        raise HTTPException(status_code=503, detail="Canonical OIDC is not enabled")
-
 
 @oidc_router.get(
     "/login",
     status_code=307,
-    dependencies=[Depends(check_oidc_enabled)],
     openapi_extra={"summary": "Login to Canonical OIDC"},
 )
 async def oidc_login(
@@ -48,7 +42,6 @@ async def oidc_login(
     "/callback",
     status_code=307,
     responses=error_status_codes([400, 401]),
-    dependencies=[Depends(check_oidc_enabled)],
     openapi_extra={"summary": "Callback from Canonical OIDC"},
 )
 async def oidc_callback(
@@ -84,7 +77,6 @@ async def oidc_callback(
 @oidc_router.get(
     "/profile",
     responses=error_status_codes([401, 503]),
-    dependencies=[Depends(check_oidc_enabled)],
     openapi_extra={"summary": "Profile from Canonical OIDC"},
 )
 async def oidc_profile(
@@ -96,7 +88,6 @@ async def oidc_profile(
 
 @oidc_router.get(
     "/logout",
-    dependencies=[Depends(check_oidc_enabled)],
     openapi_extra={"summary": "Logout from Canonical OIDC"},
 )
 async def oidc_logout(
