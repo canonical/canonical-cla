@@ -101,15 +101,14 @@ class OIDCUserInfo(BaseModel):
         str,
         StringConstraints(max_length=255),
         Field(
-            description="Subject identifier (unique user ID)", examples=["1ee396e6-e522-41f5-b4a4-5480d9543358 "]
+            description="Subject identifier (unique user ID)",
+            examples=["1ee396e6-e522-41f5-b4a4-5480d9543358 "],
         ),
     ]
     email: Annotated[
         str | None,
         StringConstraints(max_length=100),
-        Field(
-            description="User's email address", examples=["user@canonical.com"]
-        ),
+        Field(description="User's email address", examples=["user@canonical.com"]),
     ] = None
     email_verified: Annotated[
         bool,

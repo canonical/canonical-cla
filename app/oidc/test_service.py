@@ -198,7 +198,8 @@ async def test_callback_token_validation_error(
         status_code=200, json=lambda: mock_metadata
     )
     mock_http_client.post.return_value = MagicMock(
-        status_code=200, json=lambda: {"access_token": "valid"}  # Missing token_type
+        status_code=200,
+        json=lambda: {"access_token": "valid"},  # Missing token_type
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -270,8 +271,14 @@ async def test_logout_without_redirect(oidc_service, mock_access_token_cookie_se
 
 def test_relative_non_login_path(oidc_service):
     assert oidc_service._relative_non_login_path("/dashboard") == "/dashboard"
-    assert oidc_service._relative_non_login_path("/dashboard?foo=bar") == "/dashboard?foo=bar"
-    assert oidc_service._relative_non_login_path("http://example.com/dashboard") == "/dashboard"
+    assert (
+        oidc_service._relative_non_login_path("/dashboard?foo=bar")
+        == "/dashboard?foo=bar"
+    )
+    assert (
+        oidc_service._relative_non_login_path("http://example.com/dashboard")
+        == "/dashboard"
+    )
     assert oidc_service._relative_non_login_path("/login") is None
     assert oidc_service._relative_non_login_path("/logout") is None
     assert oidc_service._relative_non_login_path("/foo/login") is None

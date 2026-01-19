@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.config import config
-from app.oidc.models import  OIDCPendingAuthSession, OIDCUserInfo
+from app.oidc.models import OIDCPendingAuthSession, OIDCUserInfo
 from app.oidc.service import (
     OIDCService,
     oidc_pending_auth_cookie_session,
@@ -13,7 +13,6 @@ from app.oidc.service import (
 from app.utils.request import error_status_codes
 
 oidc_router = APIRouter(prefix="/oidc", tags=["Canonical OIDC"])
-
 
 
 @oidc_router.get(

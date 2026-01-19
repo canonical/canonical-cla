@@ -7,7 +7,9 @@ from fastapi import HTTPException
 class Base64:
     @staticmethod
     def encode(data: str | bytes) -> str:
-        return _base64.b64encode(data.encode() if isinstance(data, str) else data).decode()
+        return _base64.b64encode(
+            data.encode() if isinstance(data, str) else data
+        ).decode()
 
     @staticmethod
     def decode(data: str, text: bool | None = True) -> str | bytes:
