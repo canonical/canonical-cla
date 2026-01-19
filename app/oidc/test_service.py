@@ -1,13 +1,11 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.oidc.models import (
-    OIDCMetadata,
     OIDCPendingAuthSession,
-    OIDCTokenResponse,
     OIDCUserInfo,
 )
 from app.oidc.service import OIDCService
@@ -116,6 +114,32 @@ async def test_login(
 
 
 @pytest.mark.asyncio
+async def test_login_invalid_redirect_uri(oidc_service):
+    callback_url = "http://localhost/callback"
+
+    # Test launchpad/login
+    with pytest.raises(HTTPException) as exc:
+        await oidc_service.login(callback_url, "launchpad/login")
+    assert exc.value.status_code == 400
+    assert exc.value.detail.startswith("Invalid redirect_uri")
+
+    # Test github/login
+    with pytest.raises(HTTPException) as exc:
+        await oidc_service.login(callback_url, "github/login")
+    assert exc.value.status_code == 400
+    assert exc.value.detail.startswith("Invalid redirect_uri")
+
+    # Test paths ending with blocked paths
+    with pytest.raises(HTTPException) as exc:
+        await oidc_service.login(callback_url, "/some/path/launchpad/login")
+    assert exc.value.status_code == 400
+
+    with pytest.raises(HTTPException) as exc:
+        await oidc_service.login(callback_url, "/some/path/github/login")
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_callback_success(
     oidc_service, mock_http_client, mock_metadata, mock_access_token_cookie_session
 ):
@@ -134,11 +158,6 @@ async def test_callback_success(
     assert response.headers["location"] == "/dashboard"
 
     mock_access_token_cookie_session.set_cookie.assert_called_once()
-
-    # Verify cookie deletion
-    # RedirectResponse from fastapi doesn't easily expose delete_cookie operations directly in headers for simple inspection of `delete_cookie` calls unless we check headers "set-cookie" with max-age=0
-    # But we can check that it didn't crash.
-    # Note: `delete_cookie` is called on the response object.
 
 
 @pytest.mark.asyncio
@@ -247,3 +266,14 @@ async def test_logout_without_redirect(oidc_service, mock_access_token_cookie_se
 
     assert isinstance(response, JSONResponse)
     assert response.status_code == 200
+
+
+def test_relative_non_login_path(oidc_service):
+    assert oidc_service._relative_non_login_path("/dashboard") == "/dashboard"
+    assert oidc_service._relative_non_login_path("/dashboard?foo=bar") == "/dashboard?foo=bar"
+    assert oidc_service._relative_non_login_path("http://example.com/dashboard") == "/dashboard"
+    assert oidc_service._relative_non_login_path("/login") is None
+    assert oidc_service._relative_non_login_path("/logout") is None
+    assert oidc_service._relative_non_login_path("/foo/login") is None
+    assert oidc_service._relative_non_login_path("http://example.com/foo/login") is None
+    assert oidc_service._relative_non_login_path("/login/") is None

@@ -61,9 +61,6 @@ async def oidc_callback(
     oidc_service: OIDCService = Depends(oidc_service),
 ):
     """Handles the Canonical OIDC callback."""
-    print("--------------------------------")
-    print(oidc_pending_auth_session)
-    print("--------------------------------")
     if oidc_pending_auth_session is None or not code or not state:
         raise HTTPException(
             status_code=401,

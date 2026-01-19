@@ -31,9 +31,6 @@ class EncryptedAPIKeyCookie(APIKeyCookie):
         if encrypted_api_key is None:
             return None
         cookie_value = self.cipher.decrypt(encrypted_api_key)
-        print("--------------------------------")
-        print(cookie_value)
-        print("--------------------------------")
 
         if not cookie_value:
             return None

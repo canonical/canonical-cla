@@ -1,6 +1,6 @@
 import logging
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -79,6 +79,13 @@ class OIDCService:
 
     async def login(self, callback_url: str, redirect_uri: str) -> RedirectResponse:
         """Redirect to OIDC authorization endpoint."""
+        validated_redirect_uri = self._relative_non_login_path(redirect_uri)
+        if not validated_redirect_uri:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid redirect_uri: login path is not allowed",
+            )
+
         metadata = await self._get_metadata()
         state = secrets.token_urlsafe(32)
         params = urlencode(
@@ -93,7 +100,7 @@ class OIDCService:
 
         response = RedirectResponse(url=f"{metadata.authorization_endpoint}?{params}")
         pending_auth_session = OIDCPendingAuthSession(
-            state=state, redirect_uri=redirect_uri
+            state=state, redirect_uri=validated_redirect_uri
         )
         self.pending_auth_cookie_session.set_cookie(
             response,
@@ -193,6 +200,22 @@ class OIDCService:
             )
         response.delete_cookie(key=self.access_token_cookie_session.name)
         return response
+
+    def _relative_non_login_path(self, path: str) -> str | None:
+        """Extract the relative path and query string
+
+        return None if the path ends with `/login`, else return the relative path and query string."""
+
+        parsed = urlparse(path)
+        rel_path_with_query = parsed.path or "/"
+        if parsed.query:
+            rel_path_with_query += "?" + parsed.query
+
+        if rel_path_with_query.rstrip("/").endswith(
+            "/login"
+        ) or rel_path_with_query.rstrip("/").endswith("/logout"):
+            return None
+        return rel_path_with_query
 
 
 async def oidc_service(
