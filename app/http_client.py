@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, AsyncIterator
 
 import httpx
 from fastapi import HTTPException
@@ -7,7 +7,7 @@ from app.config import config
 
 
 class HTTPClient(httpx.AsyncClient):
-    client: httpx.AsyncClient = None
+    client: httpx.AsyncClient | None = None
 
     async def request(
         self,
@@ -29,3 +29,8 @@ class HTTPClient(httpx.AsyncClient):
                 status_code=500,
                 detail=f"Failed to connect to {host}, please try again later",
             )
+
+
+async def http_client() -> AsyncIterator[httpx.AsyncClient]:
+    async with HTTPClient() as client:
+        yield client

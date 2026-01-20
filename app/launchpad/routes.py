@@ -17,7 +17,8 @@ from app.launchpad.service import (
     launchpad_cookie_session,
     launchpad_service,
 )
-from app.utils import Base64, error_status_codes, update_query_params
+from app.utils.base64 import Base64
+from app.utils.request import error_status_codes, update_query_params
 
 launchpad_router = APIRouter(prefix="/launchpad", tags=["Launchpad"])
 

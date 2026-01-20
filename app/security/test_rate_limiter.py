@@ -53,15 +53,17 @@ async def test_whitelisted_ip_on_whitelistable_path_bypasses_limit():
     redis.get.return_value = "0"
     redis.smembers.return_value = []
 
-    limiter = RateLimiter(
-        request=request,
-        limit=1,
-        period=60,
-        whitelist=["1.2.3.0/24"],
-        redis=redis,
-    )
+    # Avoid network calls in sandbox by skipping GitHub meta refresh.
+    with patch.object(RateLimiter, "_update_github_action_runners", new=AsyncMock()):
+        limiter = RateLimiter(
+            request=request,
+            limit=1,
+            period=60,
+            whitelist=["1.2.3.0/24"],
+            redis=redis,
+        )
 
-    allowed, time_left = await limiter.is_allowed()
+        allowed, time_left = await limiter.is_allowed()
 
     assert allowed is True
     assert time_left == 0

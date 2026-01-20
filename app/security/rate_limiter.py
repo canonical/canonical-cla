@@ -10,7 +10,7 @@ from redis.asyncio import Redis
 
 from app.config import config
 from app.security.config import excluded_paths, private_paths, whitelistable_paths
-from app.utils import ip_address
+from app.utils.request import ip_address
 
 logger = logging.getLogger(__name__)
 

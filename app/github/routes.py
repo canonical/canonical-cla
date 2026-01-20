@@ -10,7 +10,8 @@ from app.config import config
 from app.github.models import GitHubProfile, GitHubWebhookPayload
 from app.github.service import GithubService, github_cookie_session, github_service
 from app.github.webhook_service import GithubWebhookService, github_webhook_service
-from app.utils import Base64, error_status_codes, update_query_params
+from app.utils.base64 import Base64
+from app.utils.request import error_status_codes, update_query_params
 
 github_router = APIRouter(prefix="/github", tags=["GitHub"])
 

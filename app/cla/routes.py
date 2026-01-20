@@ -36,7 +36,7 @@ from app.notifications.emails import (
     send_organization_status_update,
 )
 from app.repository.organization import OrganizationRepository, organization_repository
-from app.utils import AESCipher, cipher
+from app.utils.crypto import AESCipher, cipher
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
@@ -285,7 +285,6 @@ async def delete_organization(
     Delete the organization CLA.
     """
     decrypted_organization_id = cipher.decrypt(id)
-    print(decrypted_organization_id)
     if not decrypted_organization_id:
         await sleep(10)
         raise HTTPException(status_code=404, detail="Organization not found")

@@ -10,7 +10,7 @@ from gidgethub.httpx import GitHubAPI
 from app.cla.service import CLAService, cla_service
 from app.config import config
 from app.github.models import GitHubWebhookPayload
-from app.utils import http_client
+from app.http_client import http_client
 
 LICENSE_MAP = {
     "canonical/lxd": ["Apache-2.0"],

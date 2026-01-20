@@ -61,5 +61,5 @@ class GitHubWebhookPayload(BaseModel):
     action: str
     repository: GitHubRepository
     installation: GitHubInstallation
-    pull_request: Optional[GitHubPullRequest] = None
-    check_run: Optional[GitHubCheckRun] = None
+    pull_request: GitHubPullRequest | None = None
+    check_run: GitHubCheckRun | None = None

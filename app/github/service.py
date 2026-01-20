@@ -9,7 +9,8 @@ from fastapi.responses import RedirectResponse
 from app.config import config
 from app.emails.blocked.excluded_emails import excluded_email
 from app.github.models import GitHubAccessTokenResponse, GitHubProfile
-from app.utils import EncryptedAPIKeyCookie, http_client
+from app.http_client import http_client
+from app.utils.api_cookie import EncryptedAPIKeyCookie
 
 
 class GithubOAuthCookieSession(EncryptedAPIKeyCookie):
