@@ -99,16 +99,18 @@ class OIDCUserInfo(BaseModel):
 
     sub: Annotated[
         str,
-        StringConstraints(max_length=255),
         Field(
+            max_length=255,
             description="Subject identifier (unique user ID)",
             examples=["1ee396e6-e522-41f5-b4a4-5480d9543358 "],
         ),
     ]
     email: Annotated[
         str | None,
-        StringConstraints(max_length=100),
-        Field(description="User's email address", examples=["user@canonical.com"]),
+        Field(
+            description="User's email address",
+            examples=["user@canonical.com"],
+        ),
     ] = None
     email_verified: Annotated[
         bool,
@@ -116,27 +118,22 @@ class OIDCUserInfo(BaseModel):
     ] = False
     name: Annotated[
         str | None,
-        StringConstraints(max_length=100),
         Field(description="User's full name", examples=["John Doe"]),
     ] = None
     given_name: Annotated[
         str | None,
-        StringConstraints(max_length=50),
         Field(description="User's given/first name", examples=["John"]),
     ] = None
     family_name: Annotated[
         str | None,
-        StringConstraints(max_length=50),
         Field(description="User's family/last name", examples=["Doe"]),
     ] = None
     preferred_username: Annotated[
         str | None,
-        StringConstraints(max_length=100),
         Field(description="Preferred username", examples=["jdoe"]),
     ] = None
     picture: Annotated[
         str | None,
-        StringConstraints(max_length=500),
         Field(
             description="URL to user's profile picture",
             examples=["https://example.com/profile.jpg"],

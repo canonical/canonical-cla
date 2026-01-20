@@ -1,3 +1,4 @@
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -254,16 +255,110 @@ async def test_profile_validation_error(oidc_service, mock_http_client, mock_met
 
 
 @pytest.mark.asyncio
-async def test_logout_with_redirect(oidc_service, mock_access_token_cookie_session):
-    response = await oidc_service.logout(redirect_uri="/login")
+async def test_logout_without_redirect(oidc_service, mock_access_token_cookie_session):
+    response = await oidc_service.logout(redirect_uri=None)
 
-    assert isinstance(response, RedirectResponse)
-    assert response.headers["location"] == "/login"
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_logout_without_redirect(oidc_service, mock_access_token_cookie_session):
-    response = await oidc_service.logout(redirect_uri=None)
+async def test_logout_valid_redirect_uri(oidc_service, mock_access_token_cookie_session):
+    """Test logout with valid redirect URI returns RedirectResponse."""
+    response = await oidc_service.logout(redirect_uri="/dashboard")
+
+    assert isinstance(response, RedirectResponse)
+    assert response.headers["location"] == "/dashboard"
+
+
+@pytest.mark.asyncio
+async def test_logout_valid_redirect_uri_with_query(
+    oidc_service, mock_access_token_cookie_session
+):
+    """Test logout with valid redirect URI and query string."""
+    response = await oidc_service.logout(redirect_uri="/dashboard?foo=bar&baz=qux")
+
+    assert isinstance(response, RedirectResponse)
+    assert response.headers["location"] == "/dashboard?foo=bar&baz=qux"
+
+
+@pytest.mark.asyncio
+async def test_logout_valid_redirect_uri_full_url(
+    oidc_service, mock_access_token_cookie_session
+):
+    """Test logout with full URL extracts relative path."""
+    response = await oidc_service.logout(redirect_uri="http://example.com/dashboard")
+
+    assert isinstance(response, RedirectResponse)
+    assert response.headers["location"] == "/dashboard"
+
+
+@pytest.mark.asyncio
+async def test_logout_invalid_redirect_uri_login(
+    oidc_service, mock_access_token_cookie_session
+):
+    """Test logout with redirect URI ending in /login returns JSONResponse."""
+    response = await oidc_service.logout(redirect_uri="/login")
+
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == 200
+    content = json.loads(response.body.decode())
+    assert content["message"] == "Logged out"
+    assert "login_url" in content
+
+
+@pytest.mark.asyncio
+async def test_logout_invalid_redirect_uri_logout(
+    oidc_service, mock_access_token_cookie_session
+):
+    """Test logout with redirect URI ending in /logout returns JSONResponse."""
+    response = await oidc_service.logout(redirect_uri="/logout")
+
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == 200
+    content = json.loads(response.body.decode())
+    assert content["message"] == "Logged out"
+
+
+@pytest.mark.asyncio
+async def test_logout_invalid_redirect_uri_nested_login(
+    oidc_service, mock_access_token_cookie_session
+):
+    """Test logout with redirect URI ending in nested /login path returns JSONResponse."""
+    response = await oidc_service.logout(redirect_uri="/some/path/login")
+
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_logout_invalid_redirect_uri_nested_logout(
+    oidc_service, mock_access_token_cookie_session
+):
+    """Test logout with redirect URI ending in nested /logout path returns JSONResponse."""
+    response = await oidc_service.logout(redirect_uri="/some/path/logout")
+
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_logout_invalid_redirect_uri_full_url_login(
+    oidc_service, mock_access_token_cookie_session
+):
+    """Test logout with full URL ending in /login returns JSONResponse."""
+    response = await oidc_service.logout(redirect_uri="http://example.com/login")
+
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_logout_invalid_redirect_uri_login_with_trailing_slash(
+    oidc_service, mock_access_token_cookie_session
+):
+    """Test logout with redirect URI ending in /login/ returns JSONResponse."""
+    response = await oidc_service.logout(redirect_uri="/login/")
 
     assert isinstance(response, JSONResponse)
     assert response.status_code == 200

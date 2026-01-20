@@ -189,8 +189,11 @@ class OIDCService:
 
     async def logout(self, redirect_uri: str | None) -> RedirectResponse | JSONResponse:
         response: RedirectResponse | JSONResponse
-        if redirect_uri:
-            response = RedirectResponse(url=redirect_uri)
+        validated_redirect_uri = (
+            self._relative_non_login_path(redirect_uri) if redirect_uri else None
+        )
+        if validated_redirect_uri:
+            response = RedirectResponse(url=validated_redirect_uri)
         else:
             response = JSONResponse(
                 content={
