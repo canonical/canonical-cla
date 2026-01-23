@@ -69,3 +69,17 @@ def create_logger(name: str):
     stream_handler.setFormatter(log_formatter)
     logger.addHandler(stream_handler)
     return logger
+
+
+class Colors:
+    """ANSI color codes for terminal output."""
+
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    CYAN = "\033[96m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    MAGENTA = "\033[95m"
+    WHITE = "\033[97m"
+    GRAY = "\033[90m"
