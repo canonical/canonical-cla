@@ -26,8 +26,12 @@ from app.cla.models import (
 )
 from app.cla.service import CLAService, cla_service
 from app.config import config
-from app.github.service import github_cookie_session
-from app.launchpad.service import launchpad_cookie_session
+from app.github.models import GitHubProfile
+from app.github.service import optional_github_user
+from app.launchpad.models import LaunchpadProfile
+from app.launchpad.service import (
+    optional_launchpad_user,
+)
 from app.notifications.emails import (
     send_individual_confirmation_email,
     send_legal_notification,
@@ -76,7 +80,9 @@ async def check_cla(
     """
     Checks if one or multiple contributors have signed the CLA.
     """
-    return await cla_service.check_cla(emails, github_usernames, launchpad_usernames)
+    return await cla_service.check_cla(
+        emails or [], github_usernames or [], launchpad_usernames or []
+    )
 
 
 @cla_router.post(
@@ -89,8 +95,8 @@ async def sign_cla_individual(
     individual: IndividualCreateForm,
     background_tasks: BackgroundTasks,
     cla_service: CLAService = Depends(cla_service),
-    gh_session: str | None = Depends(github_cookie_session),
-    lp_session: dict | None = Depends(launchpad_cookie_session),
+    github_user: GitHubProfile | None = Depends(optional_github_user),
+    launchpad_user: LaunchpadProfile | None = Depends(optional_launchpad_user),
 ):
     """
     Signs the CLA as an individual contributor.
@@ -103,8 +109,9 @@ async def sign_cla_individual(
             status_code=503,
             detail="Canonical CLA is currently under maintenance. Please try again later.",
         )
+
     created_individual = await cla_service.individual_cla_sign(
-        individual, gh_session, lp_session
+        individual, github_user, launchpad_user
     )
 
     for email in {created_individual.github_email, created_individual.launchpad_email}:
@@ -130,8 +137,8 @@ async def sign_cla_organization(
     background_tasks: BackgroundTasks,
     cla_service: CLAService = Depends(cla_service),
     cipher: AESCipher = Depends(cipher),
-    gh_session: str | None = Depends(github_cookie_session),
-    lp_session: dict | None = Depends(launchpad_cookie_session),
+    github_user: GitHubProfile | None = Depends(optional_github_user),
+    launchpad_user: LaunchpadProfile | None = Depends(optional_launchpad_user),
 ):
     """
     Signs the CLA as an organization, representing a group of contributors.
@@ -145,7 +152,7 @@ async def sign_cla_organization(
             detail="Canonical CLA is currently under maintenance. Please try again later.",
         )
     created_organization = await cla_service.organization_cla_sign(
-        organization, gh_session, lp_session
+        organization, github_user, launchpad_user
     )
     manage_organization_url = list(
         urlparse(urljoin(config.app_url, "/cla/organization"))
@@ -161,7 +168,6 @@ async def sign_cla_organization(
         created_organization.contact_email,
         created_organization.phone_number,
         created_organization.contact_job_title,
-        created_organization.address,
         created_organization.country,
         created_organization.email_domain,
         urlunparse(manage_organization_url),
@@ -240,9 +246,9 @@ async def update_organization(
     organization.email_domain = email_domain
     organization.salesforce_url = salesforce_url
 
-    approved = approved == "on"
+    approved_status = approved == "on"
     current_approved_status = organization.is_active()
-    if approved:
+    if approved_status:
         if not organization.signed_at:
             organization.signed_at = datetime.now()
         if organization.revoked_at:
@@ -251,14 +257,14 @@ async def update_organization(
         organization.revoked_at = datetime.now()
     await organization_repository.update_organization(organization)
     email_sent = False
-    if current_approved_status != approved:
+    if current_approved_status != approved_status:
         email_sent = True
         background_tasks.add_task(
             send_organization_status_update,
             organization.contact_email,
             organization.contact_name,
             organization.name,
-            "approved" if approved else "disabled",
+            "approved" if approved_status else "disabled",
             organization.email_domain,
         )
 

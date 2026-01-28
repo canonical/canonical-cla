@@ -2,7 +2,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
-from fastapi.datastructures import URL
 
 from app.cla.routes import (
     check_cla,
@@ -10,17 +9,29 @@ from app.cla.routes import (
     sign_cla_individual,
     sign_cla_organization,
 )
+from app.cla.models import (
+    CLACheckResponse,
+    IndividualCreateForm,
+    OrganizationCreateForm,
+)
+from app.github.models import GitHubProfile
+from app.launchpad.models import LaunchpadProfile
+from pydantic_extra_types.country import CountryAlpha2
 
 
 @pytest.mark.asyncio
 async def test_cla_check():
     cla_service = MagicMock()
     cla_service.check_cla = AsyncMock(
-        return_value={
-            "emails": {"email1": True, "email2": False},
-            "github_usernames": {"dev1": False, "dev2": True},
-            "launchpad_usernames": {"lp_dev1": True, "dev1": False, "lp_dev2": True},
-        }
+        return_value=CLACheckResponse(
+            emails={"email1": True, "email2": False},
+            github_usernames={"dev1": False, "dev2": True},
+            launchpad_usernames={
+                "lp_dev1": True,
+                "dev1": False,
+                "lp_dev2": True,
+            },
+        )
     )
     response = await check_cla(
         emails=["email1", "email2"],
@@ -37,21 +48,23 @@ async def test_cla_check():
 async def test_sign_cla_individual():
     cla_service = MagicMock()
     cla_service.individual_cla_sign = AsyncMock()
-    individual_form = {
-        "first_name": "test",
-        "last_name": "test",
-        "address": "address",
-        "country": "France",
-        "github_email": "email1@email.com",
-        "launchpad_email": "email2@email.com",
-    }
+    individual_form = IndividualCreateForm(
+        first_name="test",
+        last_name="test",
+        address="address",
+        country=CountryAlpha2("FR"),
+        github_email="email1@email.com",
+        launchpad_email="email2@email.com",
+    )
     background_tasks = MagicMock()
     await sign_cla_individual(
-        individual_form,
-        cla_service=cla_service,
-        gh_session="session",
-        lp_session="session",
+        individual=individual_form,
         background_tasks=background_tasks,
+        cla_service=cla_service,
+        github_user=GitHubProfile(username="u", _id=1, emails=["email1@email.com"]),
+        launchpad_user=LaunchpadProfile(
+            username="u", _id="lp1", emails=["email2@email.com"]
+        ),
     )
 
     assert cla_service.individual_cla_sign.called
@@ -62,13 +75,16 @@ async def test_sign_cla_individual():
 async def test_sign_cla_organization():
     cla_service = MagicMock()
     cla_service.organization_cla_sign = AsyncMock()
-    organization_form = {
-        "name": "test",
-        "address": "address",
-        "country": "France",
-        "phone_number": "1234567890",
-        "email_domain": "email.com",
-    }
+    organization_form = OrganizationCreateForm(
+        name="test",
+        address="address",
+        country=CountryAlpha2("FR"),
+        phone_number="1234567890",
+        email_domain="email.com",
+        contact_name="test",
+        contact_job_title="test",
+        contact_email="test@email.com",
+    )
     background_tasks = MagicMock()
     cipher = MagicMock()
     await sign_cla_organization(
@@ -76,6 +92,8 @@ async def test_sign_cla_organization():
         cla_service=cla_service,
         background_tasks=background_tasks,
         cipher=cipher,
+        github_user=GitHubProfile(username="u", _id=1, emails=["u@email.com"]),
+        launchpad_user=LaunchpadProfile(username="u", _id="lp1", emails=[]),
     )
     assert background_tasks.add_task.called
     assert cla_service.organization_cla_sign.called

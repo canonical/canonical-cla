@@ -16,30 +16,14 @@ from app.oidc.models import (
     OIDCTokenResponse,
     OIDCUserInfo,
 )
-from app.utils.api_cookie import APIKeyCookieModel
+from app.oidc.cookies import (
+    oidc_access_token_cookie_session,
+    oidc_pending_auth_cookie_session,
+    OIDCAccessTokenCookieSession,
+    OIDCPendingAuthCookieSession,
+)
 
 logger = logging.getLogger(__name__)
-
-
-class OIDCAccessTokenCookieSession(APIKeyCookieModel[OIDCAccessTokenSession]):
-    @property
-    def payload_model(self) -> type[OIDCAccessTokenSession]:
-        return OIDCAccessTokenSession
-
-
-class OIDCPendingAuthCookieSession(APIKeyCookieModel[OIDCPendingAuthSession]):
-    @property
-    def payload_model(self) -> type[OIDCPendingAuthSession]:
-        return OIDCPendingAuthSession
-
-
-oidc_access_token_cookie_session = OIDCAccessTokenCookieSession(
-    name="canonical_oidc_session", secret=config.secret_key.get_secret_value()
-)
-
-oidc_pending_auth_cookie_session = OIDCPendingAuthCookieSession(
-    name="canonical_oidc_login_session", secret=config.secret_key.get_secret_value()
-)
 
 
 class OIDCService:

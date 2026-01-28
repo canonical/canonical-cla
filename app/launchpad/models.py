@@ -1,115 +1,99 @@
-from typing import List
-
-from pydantic import BaseModel, ConfigDict, Field
-from typing_extensions import TypedDict
+from typing import Annotated
+from pydantic import BaseModel, Field
 
 
-class LaunchpadPersonResponse(TypedDict):
-    self_link: str
-    web_link: str
-    resource_type_link: str
-    recipes_collection_link: str
-    latitude: str
-    longitude: str
-    time_zone: str
-    private: str
-    is_valid: str
-    is_team: str
-    visibility: str
-    name: str
-    display_name: str
-    logo_link: str
-    is_probationary: str
-    id: str
-    karma: str
-    homepage_content: str
-    description: str
-    mugshot_link: str
-    languages_collection_link: str
-    hide_email_addresses: str
-    date_created: str
-    sshkeys_collection_link: str
-    is_ubuntu_coc_signer: str
-    gpg_keys_collection_link: str
-    wiki_names_collection_link: str
-    irc_nicknames_collection_link: str
-    jabber_ids_collection_link: str
-    social_accounts_collection_link: str
-    memberships_details_collection_link: str
-    open_membership_invitations_collection_link: str
-    confirmed_email_addresses_collection_link: str
-    team_owner_link: str
-    preferred_email_address_link: str
-    mailing_list_auto_subscribe_policy: str
-    archive_link: str
-    ppas_collection_link: str
-    sub_teams_collection_link: str
-    super_teams_collection_link: str
-    members_collection_link: str
-    admins_collection_link: str
-    participants_collection_link: str
-    deactivated_members_collection_link: str
-    expired_members_collection_link: str
-    invited_members_collection_link: str
-    members_details_collection_link: str
-    proposed_members_collection_link: str
-    http_etag: str
-
-    def __str__(self):
-        return f"Launchpad User: {self.display_name}"
+class LaunchpadPersonResponse(BaseModel):
+    id: Annotated[str, Field(description="The id")]
+    name: Annotated[str, Field(description="The name")]
+    preferred_email_address_link: Annotated[
+        str, Field(description="The preferred email address link")
+    ]
+    confirmed_email_addresses_collection_link: Annotated[
+        str, Field(description="The confirmed email addresses collection link")
+    ]
 
 
-class LaunchpadEmailResponse(TypedDict):
-    self_link: str
-    web_link: str
-    resource_type_link: str
-    email: str
-    person_link: str
-    http_etag: str
+class LaunchpadEmailResponse(BaseModel):
+    self_link: Annotated[str, Field(description="The self link")]
+    web_link: Annotated[str, Field(description="The web link")]
+    resource_type_link: Annotated[str, Field(description="The resource type link")]
+    email: Annotated[str, Field(description="The email")]
+    person_link: Annotated[str, Field(description="The person link")]
+    http_etag: Annotated[str, Field(description="The http etag")]
 
 
-class LaunchpadEmailListResponse(TypedDict):
-    entries: List[LaunchpadEmailResponse]
-    start: int
-    total_size: int
-    resource_type_link: str
+class LaunchpadEmailListResponse(BaseModel):
+    entries: Annotated[list[LaunchpadEmailResponse], Field(description="The entries")]
+    start: Annotated[int, Field(description="The start")]
+    total_size: Annotated[int, Field(description="The total size")]
+    resource_type_link: Annotated[str, Field(description="The resource type link")]
 
 
-class LaunchpadRequestTokenResponse(TypedDict):
-    oauth_token: str
-    oauth_token_secret: str
-    oauth_token_consumer: str
+class LaunchpadRequestTokenResponse(BaseModel):
+    """Response from Launchpad request token endpoint, used to obtain an OAuth token and secret during the authentication flow."""
+
+    oauth_token: Annotated[
+        str, Field(description="The OAuth token", examples=["oauth_token_string"])
+    ]
+    oauth_token_secret: Annotated[
+        str,
+        Field(description="The OAuth token secret", examples=["oauth_secret_string"]),
+    ]
+    oauth_token_consumer: Annotated[
+        str,
+        Field(
+            description="The OAuth token consumer", examples=["oauth_consumer_string"]
+        ),
+    ]
 
 
-class LaunchpadAccessTokenResponse(TypedDict):
-    oauth_token: str
-    oauth_token_secret: str
+class LaunchpadAccessTokenResponse(BaseModel):
+    """Response from Launchpad access token endpoint, used to obtain an access token after successful authentication."""
+
+    oauth_token: Annotated[
+        str, Field(description="The OAuth token", examples=["oauth_token_string"])
+    ]
+    oauth_token_secret: Annotated[
+        str,
+        Field(description="The OAuth token secret", examples=["oauth_secret_string"]),
+    ]
 
 
-class AccessTokenSession(TypedDict):
-    oauth_token: str
-    oauth_token_secret: str
+class AccessTokenSession(BaseModel):
+    """Access token session state stored after successful Launchpad OAuth authentication."""
+
+    oauth_token: Annotated[
+        str, Field(description="The OAuth token", examples=["oauth_token_string"])
+    ]
+    oauth_token_secret: Annotated[
+        str,
+        Field(description="The OAuth token secret", examples=["oauth_secret_string"]),
+    ]
 
 
-class RequestTokenSession(TypedDict):
-    oauth_token: str
-    oauth_token_secret: str
-    state: str
-    redirect_url: str | None
+class RequestTokenSession(BaseModel):
+    """Session state stored during Launchpad OAuth authentication flow."""
+
+    oauth_token: Annotated[str, Field(description="The OAuth token")]
+    oauth_token_secret: Annotated[str, Field(description="The OAuth token secret")]
+    state: Annotated[str, Field(description="The OAuth state")]
+    redirect_url: Annotated[str, Field(description="The redirect URL")]
 
 
 class LaunchpadProfile(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "username": "canonical",
-                "emails": ["contact@canonica.com", "contact@ubuntu.com"],
-            }
-        }
-    )
+    """Launchpad user profile."""
+
     _id: str
-    username: str = Field(..., description="Launchpad username")
-    emails: list[str] = Field(..., description="List of verified email addresses")
+    username: Annotated[
+        str, Field(description="Launchpad username", examples=["canonical"])
+    ]
+    emails: Annotated[
+        list[str],
+        Field(
+            description="List of verified email addresses",
+            examples=["contact@canonica.com", "contact@ubuntu.com"],
+        ),
+    ]
 
     def __init__(self, _id: str, **data):
         super().__init__(_id=_id, **data)
