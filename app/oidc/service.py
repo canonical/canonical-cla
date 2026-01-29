@@ -117,9 +117,8 @@ class OIDCService:
         )
 
         if response.status_code != 200:
-            logger.error(f"Token exchange failed: {response.text}")
             raise HTTPException(
-                status_code=400, detail="Failed to exchange code for token"
+                status_code=400, detail=f"Failed to exchange code for token: {response.text}"
             )
 
         token_response = response.json()

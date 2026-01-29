@@ -85,15 +85,11 @@ class GithubService:
             headers={"Accept": "application/json"},
         )
         if response.status_code != 200:
-            logger.error(f"Failed to get access token from GitHub: {response.text}")
             raise HTTPException(
                 status_code=response.status_code,
                 detail="Failed to get access token from GitHub",
             )
         if "error" in response.json():
-            logger.error(
-                f"Failed to get access token from GitHub: {response.json()['error']}"
-            )
             raise HTTPException(
                 status_code=400,
                 detail=f"Failed to get access token from GitHub: {response.json()['error']}",
@@ -103,7 +99,6 @@ class GithubService:
                 response.json()
             )
         except ValidationError as e:
-            logger.error(f"Failed to validate access token response from GitHub: {e}")
             raise HTTPException(
                 status_code=400,
                 detail=f"Failed to validate access token response from GitHub: {e}",

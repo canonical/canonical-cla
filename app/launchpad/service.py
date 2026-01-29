@@ -8,7 +8,7 @@ from app.launchpad.cookies import (
     launchpad_access_token_cookie_session,
 )
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode
 import httpx
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -121,21 +121,15 @@ class LaunchpadService:
         )
         response_body = response.text
         if response.status_code != 200 or not response_body:
-            logger.error(f"Failed to get access token from Launchpad: {response_body}")
             raise HTTPException(
                 status_code=response.status_code,
-                detail="Failed to get access token from Launchpad",
+                detail=f"Failed to get access token from Launchpad: {response_body}",
             )
         try:
+            # Launchpad API returns application/x-www-form-urlencoded so we need to parse the response body
+            parsed_response_body = dict(parse_qsl(response_body, keep_blank_values=True))
             access_token_response = LaunchpadAccessTokenResponse.model_validate(
-                {
-                    key: value
-                    for key, value in [
-                        # Launchpad API doesn't return a JSON object, so we need to parse the response body
-                        pair.split("=")
-                        for pair in response_body.split("&")
-                    ]
-                }
+                parsed_response_body
             )
         except ValidationError as e:
             raise HTTPException(
