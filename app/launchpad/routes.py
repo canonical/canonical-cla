@@ -1,24 +1,21 @@
-import json
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
-from starlette.responses import RedirectResponse, Response
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing_extensions import TypedDict
 
 from app.config import config
+from app.launchpad.cookies import launchpad_pending_auth_cookie_session
 from app.launchpad.models import (
-    AccessTokenSession,
     LaunchpadProfile,
     RequestTokenSession,
 )
 from app.launchpad.service import (
     LaunchpadService,
-    launchpad_cookie_session,
     launchpad_service,
+    launchpad_user,
 )
 from app.utils.base64 import Base64
-from app.utils.request import error_status_codes, update_query_params
+from app.utils.request import error_status_codes
 
 launchpad_router = APIRouter(prefix="/launchpad", tags=["Launchpad"])
 
@@ -42,7 +39,9 @@ async def launchpad_login(
     """
     return await launchpad_service.login(
         callback_url=f"{config.app_url}/launchpad/callback",
-        redirect_url=Base64.decode(redirect_url) if redirect_url else None,
+        redirect_url=Base64.decode_str(redirect_url)
+        if redirect_url
+        else f"{config.app_url}/launchpad/profile",
     )
 
 
@@ -54,7 +53,9 @@ async def launchpad_login(
 )
 async def launchpad_callback(
     state: Annotated[str, Query(description="The OAuth state returned by Launchpad.")],
-    launchpad_session: dict | None = Depends(launchpad_cookie_session),
+    launchpad_session: Annotated[
+        RequestTokenSession | None, Depends(launchpad_pending_auth_cookie_session)
+    ],
     launchpad_service: LaunchpadService = Depends(launchpad_service),
 ):
     """
@@ -64,53 +65,24 @@ async def launchpad_callback(
         raise HTTPException(
             status_code=401, detail="Unauthorized: OAuth session is missing"
         )
-    session_data = RequestTokenSession(**launchpad_session)
-    if state != session_data["state"]:
+    if state != launchpad_session.state:
         raise HTTPException(
             status_code=401, detail="Unauthorized: OAuth state mismatch"
         )
-    redirect_url = session_data.get("redirect_url")
-    try:
-        access_token = await launchpad_service.callback(session_data=session_data)
-    except HTTPException as e:
-        if redirect_url:
-            redirect_url = update_query_params(redirect_url, launchpad_error=e.detail)
-            return RedirectResponse(url=redirect_url)
-        else:
-            raise e
 
-    encrypted_access_token = launchpad_service.encrypt(json.dumps(access_token))
-
-    if redirect_url:
-        redirect_url = update_query_params(
-            redirect_url, access_token=encrypted_access_token
-        )
-    else:
-        redirect_url = f"{config.app_url}/launchpad/profile"
-
-    redirect_response = RedirectResponse(url=redirect_url)
-    launchpad_cookie_session.set_cookie(
-        redirect_response,
-        value=json.dumps(access_token),
-        httponly=True,
+    return await launchpad_service.callback(
+        oauth_token=launchpad_session.oauth_token,
+        oauth_token_secret=launchpad_session.oauth_token_secret,
+        redirect_url=launchpad_session.redirect_url,
     )
-    return redirect_response
 
 
 @launchpad_router.get("/profile", responses=error_status_codes([401]))
 async def launchpad_profile(
-    launchpad_session: dict | None = Depends(launchpad_cookie_session),
-    launchpad_service: LaunchpadService = Depends(launchpad_service),
+    launchpad_user: LaunchpadProfile = Depends(launchpad_user),
 ) -> LaunchpadProfile:
-    """
-    Fetches the Launchpad profile of the authenticated user.
-    """
-    if launchpad_session is None:
-        raise HTTPException(
-            status_code=400, detail="Bad Request: OAuth session is missing"
-        )
-    session_data = AccessTokenSession(**launchpad_session)
-    return await launchpad_service.profile(session_data=session_data)
+    """Retrieves the Launchpad profile of the authenticated user."""
+    return launchpad_user
 
 
 @launchpad_router.get("/logout")
@@ -121,20 +93,9 @@ async def launchpad_logout(
             description="The URL to redirect to after successful logout (base64 encoded).",
         ),
     ] = None,
-) -> TypedDict("LogoutResponse", {"message": str, "login_url": str}):
-    """
-    Clears the Launchpad session.
-    """
-    response: Response
-    if redirect_url:
-        redirect_url = Base64.decode(redirect_url)
-        response = RedirectResponse(url=redirect_url)
-    else:
-        response = JSONResponse(
-            content={
-                "message": "Logged out",
-                "login_url": f"{config.app_url}/launchpad/login",
-            }
-        )
-    response.delete_cookie(launchpad_cookie_session.model.name)
-    return response
+    launchpad_service: LaunchpadService = Depends(launchpad_service),
+):
+    """Clears the Launchpad session cookie."""
+    return launchpad_service.logout(
+        Base64.decode_str(redirect_url) if redirect_url else None
+    )

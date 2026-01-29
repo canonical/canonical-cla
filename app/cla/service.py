@@ -1,3 +1,4 @@
+from app.github.models import GitHubProfile
 import logging
 
 from fastapi import Depends, HTTPException
@@ -13,7 +14,6 @@ from app.database.models import Individual, Organization
 from app.emails.blocked.blocked_emails import is_email_blocked
 from app.emails.blocked.excluded_emails import excluded_email
 from app.emails.email_utils import clean_email, email_domain
-from app.github.models import GitHubProfile
 from app.github.service import GithubService, github_service
 from app.launchpad.models import LaunchpadProfile
 from app.launchpad.service import LaunchpadService, launchpad_service
@@ -134,72 +134,62 @@ class CLAService:
     async def individual_cla_sign(
         self,
         individual_form: IndividualCreateForm,
-        gh_session: str | None,
-        lp_session: dict | None,
+        github_user: GitHubProfile | None,
+        launchpad_user: LaunchpadProfile | None,
     ) -> Individual:
-        (github_profile, launchpad_profile) = await self.gh_and_lp_profiles(
-            gh_session if individual_form.github_email else None,
-            lp_session if individual_form.launchpad_email else None,
-        )
-
-        if github_profile is None and launchpad_profile is None:
+        # Validate the provided emails and ensure they belong to the authenticated user
+        if github_user is None and launchpad_user is None:
             raise HTTPException(
                 status_code=400,
                 detail="At least one email address is required to sign the CLA",
             )
 
-        if individual_form.github_email:
-            if excluded_email(individual_form.github_email):
+        if individual_form.github_email and github_user is None:
+            raise HTTPException(
+                status_code=400,
+                detail="The selected GitHub email does not match any of the authenticated user emails",
+            )
+        if individual_form.launchpad_email and launchpad_user is None:
+            raise HTTPException(
+                status_code=400,
+                detail="The selected Launchpad email does not match any of the authenticated user emails",
+            )
+
+        for email in [individual_form.github_email, individual_form.launchpad_email]:
+            if not email:
+                continue
+            if excluded_email(email):
                 raise HTTPException(
                     status_code=400,
                     detail=email_error_messages.EXCLUDED_EMAIL_ERROR_MESSAGE,
                 )
-            if is_email_blocked(individual_form.github_email):
+            if is_email_blocked(email):
                 raise HTTPException(
                     status_code=400,
                     detail=email_error_messages.BLOCKED_EMAIL_ERROR_MESSAGE,
                 )
-            if not gh_session:
-                raise HTTPException(
-                    status_code=401, detail="GitHub OAuth2 session is required"
-                )
-            github_profile = await self.github_service.profile(gh_session)
-            if individual_form.github_email.lower() not in [
-                email.lower() for email in github_profile.emails
-            ]:
-                raise HTTPException(
-                    status_code=400,
-                    detail="The selected GitHub email does not match any of the authenticated user emails",
-                )
-        else:
-            # avoid storing the github id and username if no email is provided
-            github_profile = None
-        if individual_form.launchpad_email:
-            if excluded_email(individual_form.launchpad_email):
-                raise HTTPException(
-                    status_code=400,
-                    detail=email_error_messages.EXCLUDED_EMAIL_ERROR_MESSAGE,
-                )
-            if is_email_blocked(individual_form.launchpad_email):
-                raise HTTPException(
-                    status_code=400,
-                    detail=email_error_messages.BLOCKED_EMAIL_ERROR_MESSAGE,
-                )
-            if not lp_session:
-                raise HTTPException(
-                    status_code=401, detail="Launchpad OAuth session is required"
-                )
-            launchpad_profile = await self.launchpad_service.profile(lp_session)
-            if individual_form.launchpad_email.lower() not in [
-                email.lower() for email in launchpad_profile.emails
-            ]:
-                raise HTTPException(
-                    status_code=400,
-                    detail="The selected Launchpad email does not match any of the authenticated user emails",
-                )
-        else:
-            # avoid storing the launchpad id and username if no email is provided
-            launchpad_profile = None
+
+        if (
+            github_user
+            and individual_form.github_email
+            and individual_form.github_email.lower()
+            not in [email.lower() for email in github_user.emails]
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="The selected GitHub email does not match any of the authenticated user emails",
+            )
+
+        if (
+            launchpad_user
+            and individual_form.launchpad_email
+            and individual_form.launchpad_email.lower()
+            not in [email.lower() for email in launchpad_user.emails]
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="The selected Launchpad email does not match any of the authenticated user emails",
+            )
 
         # check if the email addresses are unique
         emails = []
@@ -216,17 +206,16 @@ class CLAService:
             if not existing_individual.is_imported():
                 raise HTTPException(
                     status_code=400,
-                    detail=f"The provided email address is already associated with a CLA",
+                    detail="The provided email address is already associated with a CLA",
                 )
 
+        # Create the individual record in the database
         individual = Individual(
             **individual_form.model_dump(),
-            github_username=github_profile.username if github_profile else None,
-            github_account_id=github_profile._id if github_profile else None,
-            launchpad_username=(
-                launchpad_profile.username if launchpad_profile else None
-            ),
-            launchpad_account_id=launchpad_profile._id if launchpad_profile else None,
+            github_username=github_user.username if github_user else None,
+            github_account_id=github_user._id if github_user else None,
+            launchpad_username=(launchpad_user.username if launchpad_user else None),
+            launchpad_account_id=launchpad_user._id if launchpad_user else None,
         )
         try:
             return await self.individual_repository.create_individual(individual)
@@ -247,18 +236,15 @@ class CLAService:
     async def organization_cla_sign(
         self,
         organization_form: OrganizationCreateForm,
-        gh_session: str | None,
-        lp_session: dict | None,
+        github_user: GitHubProfile | None,
+        launchpad_user: LaunchpadProfile | None,
     ) -> Organization:
-        (github_profile, launchpad_profile) = await self.gh_and_lp_profiles(
-            gh_session, lp_session
-        )
         owned_email_domains = set()
-        emails = set()
-        if github_profile:
-            emails.update(github_profile.emails)
-        if launchpad_profile:
-            emails.update(launchpad_profile.emails)
+        emails = set[str]()
+        if github_user:
+            emails.update(github_user.emails)
+        if launchpad_user:
+            emails.update(launchpad_user.emails)
         for email in emails:
             owned_email_domains.add(email_domain(email))
 
@@ -281,17 +267,6 @@ class CLAService:
                 status_code=409,
                 detail="An organization with the provided email domain already signed the CLA",
             )
-
-    async def gh_and_lp_profiles(
-        self, gh_session: str | None, lp_session: dict | None
-    ) -> tuple[GitHubProfile | None, LaunchpadProfile | None]:
-        github_profile = (
-            await self.github_service.profile(gh_session) if gh_session else None
-        )
-        launchpad_profile = (
-            await self.launchpad_service.profile(lp_session) if lp_session else None
-        )
-        return github_profile, launchpad_profile
 
 
 async def cla_service(

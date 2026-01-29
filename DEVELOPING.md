@@ -11,7 +11,7 @@ Once login flow is done and successful, you should see the GitHub or Launchpad l
 
 You need to grab your session cookie:
 
-1. Toggle web tools view → Application → Cookies → `github_oauth2_session`, `launchpad_oauth2_session`
+1. Toggle web tools view → Application → Cookies → `github_access_token_session`, `launchpad_access_token_session`
 2. Copy the `Value` column and save it in your terminal session
 
 ```sh
@@ -26,7 +26,7 @@ export LAUNCHPAD_SESSION_COOKIE=...
 ```sh
 curl --location 'http://localhost:8000/cla/individual/sign' \
 --header 'Content-Type: application/json' \
---header "Cookie: github_oauth2_session=$GITHUB_SESSION_COOKIE; launchpad_oauth2_session=$LAUNCHPAD_SESSION_COOKIE" \
+--header "Cookie: github_access_token_session=$GITHUB_SESSION_COOKIE; launchpad_access_token_session=$LAUNCHPAD_SESSION_COOKIE" \
 --data-raw '{
     "first_name": "John",
     "last_name": "Doe",
@@ -41,7 +41,7 @@ curl --location 'http://localhost:8000/cla/individual/sign' \
 
 Note:
 
-`launchpad_email` is the email address of the user you want to sign the CLA for, when provided the cookie `launchpad_oauth2_session` is used to sign the CLA, if `github_email` is provided the cookie `github_oauth2_session` is used to sign the CLA.
+`launchpad_email` is the email address of the user you want to sign the CLA for, when provided the cookie `launchpad_access_token_session` is used to sign the CLA, if `github_email` is provided the cookie `github_access_token_session` is used to sign the CLA.
 
 ### Checking the status of the individual CLA
 
@@ -57,7 +57,7 @@ curl --location 'http://localhost:8000/cla/check?emails=john.doe@canonical.com'
 ```sh
 curl --location 'http://localhost:8000/cla/organization/sign' \
 --header 'Content-Type: application/json' \
---header "Cookie: github_oauth2_session=$GITHUB_SESSION_COOKIE; launchpad_oauth2_session=$LAUNCHPAD_SESSION_COOKIE" \
+--header "Cookie: github_access_token_session=$GITHUB_SESSION_COOKIE; launchpad_access_token_session=$LAUNCHPAD_SESSION_COOKIE" \
 --data-raw '{
     "name": "ACME Corp",
     "email_domain": "canonical.com",

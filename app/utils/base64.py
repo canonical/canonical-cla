@@ -18,3 +18,10 @@ class Base64:
             return output.decode() if text else output
         except binascii.Error:
             raise HTTPException(status_code=400, detail="Invalid base64 encoding")
+
+    @staticmethod
+    def decode_str(data: str) -> str:
+        decoded_data = Base64.decode(data)
+        if isinstance(decoded_data, bytes):
+            return decoded_data.decode("utf-8")
+        return decoded_data
