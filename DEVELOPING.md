@@ -4,8 +4,8 @@
 
 Easiest option is via browser because this will redirect to GitHub or Launchpad and redirect back to the local instance.
 
-- http://127.0.0.1:8000/github/login
-- http://127.0.0.1:8000/launchpad/login
+- http://localhost:8000/github/login
+- http://localhost:8000/launchpad/login
 
 Once login flow is done and successful, you should see the GitHub or Launchpad list of emails in JSON format.
 
