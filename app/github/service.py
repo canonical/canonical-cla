@@ -1,25 +1,32 @@
-import json
+from pydantic import ValidationError, TypeAdapter
 import secrets
 from urllib.parse import urlencode
-
+import json
 import httpx
 from fastapi import Depends, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.config import config
 from app.emails.blocked.excluded_emails import excluded_email
-from app.github.models import GitHubAccessTokenResponse, GitHubProfile
-from app.http_client import http_client
-from app.utils.api_cookie import EncryptedAPIKeyCookie
-
-
-class GithubOAuthCookieSession(EncryptedAPIKeyCookie):
-    pass
-
-
-github_cookie_session = GithubOAuthCookieSession(
-    name="github_oauth2_session", secret=config.secret_key.get_secret_value()
+from app.github.models import (
+    GitHubAccessTokenResponse,
+    GitHubEmailResponse,
+    GitHubProfile,
+    GithubPendingAuthSession,
+    GitHubAccessTokenSession,
 )
+from app.http_client import http_client
+from app.github.cookies import (
+    GithubPendingAuthCookieSession,
+    GithubAccessTokenCookieSession,
+    github_pending_auth_cookie_session,
+    github_access_token_cookie_session,
+)
+import logging
+
+from app.utils.request import update_query_params
+
+logger = logging.getLogger(__name__)
 
 
 class GithubService:
@@ -29,9 +36,13 @@ class GithubService:
     """
 
     def __init__(
-        self, cookie_session: GithubOAuthCookieSession, http_client: httpx.AsyncClient
+        self,
+        pending_auth_cookie_session: GithubPendingAuthCookieSession,
+        access_token_cookie_session: GithubAccessTokenCookieSession,
+        http_client: httpx.AsyncClient,
     ):
-        self.cookie_session = cookie_session
+        self.pending_auth_cookie_session = pending_auth_cookie_session
+        self.access_token_cookie_session = access_token_cookie_session
         self.http_client = http_client
 
     async def login(self, callback_url: str, redirect_url: str) -> RedirectResponse:
@@ -47,57 +58,106 @@ class GithubService:
         response = RedirectResponse(
             url=f"https://github.com/login/oauth/authorize?{params}"
         )
-        self.cookie_session.set_cookie(
+        pending_auth_session = GithubPendingAuthSession(
+            state=state, redirect_url=redirect_url
+        )
+        self.pending_auth_cookie_session.set_cookie(
             response,
-            value=json.dumps({"state": state, "redirect_url": redirect_url}),
-            max_age=600,  # 10 minutes (GitHub OAuth2 session timeout)
+            value=pending_auth_session,
+            max_age=600,
             httponly=True,
+            secure=not config.debug_mode,
+            samesite="lax",
         )
         return response
 
     async def callback(
         self,
         code: str,
-    ) -> str:
+        redirect_url: str,
+    ) -> RedirectResponse:
         access_token_data = {
             "client_id": config.github_oauth.client_id,
             "client_secret": config.github_oauth.client_secret.get_secret_value(),
             "code": code,
         }
-        response = (
-            await self.http_client.post(
-                url="https://github.com/login/oauth/access_token",
-                json=access_token_data,
-                headers={"Accept": "application/json"},
-            )
-        ).json()
-        if "error" in response:
+        response = await self.http_client.post(
+            url="https://github.com/login/oauth/access_token",
+            json=access_token_data,
+            headers={"Accept": "application/json"},
+        )
+        if response.status_code != 200:
             raise HTTPException(
-                status_code=400, detail=f"Bad Request: {response['error_description']}"
+                status_code=response.status_code,
+                detail="Failed to get access token from GitHub",
             )
-        access_token_response = GitHubAccessTokenResponse(**response)
-        return access_token_response["access_token"]
+        if "error" in response.json():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to get access token from GitHub: {response.json()['error']}",
+            )
+        try:
+            access_token_session = GitHubAccessTokenResponse.model_validate(
+                response.json()
+            )
+        except ValidationError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to validate access token response from GitHub: {e}",
+            ) from e
+        access_token_session = GitHubAccessTokenSession.model_validate(
+            access_token_session.model_dump()
+        )
+        # XXX: This is a hack to get the access token into the redirect URL
+        # Remove this once we migrate the CLA form over to this domain
+        if redirect_url != f"{config.app_url}/github/profile":
+            redirect_url = update_query_params(
+                redirect_url,
+                access_token=self.access_token_cookie_session.cipher.encrypt(
+                    json.dumps(access_token_session.model_dump())
+                ),
+            )
+        response = RedirectResponse(url=redirect_url)
 
-    async def profile(self, access_token: str) -> GitHubProfile:
+        self.access_token_cookie_session.set_cookie(
+            response,
+            value=access_token_session,
+            httponly=True,
+            secure=not config.debug_mode,
+            samesite="lax",
+        )
+        response.delete_cookie(key=self.pending_auth_cookie_session.name)
+        return response
+
+    async def profile(self, access_token: GitHubAccessTokenSession) -> GitHubProfile:
         response = await self.http_client.get(
             url="https://api.github.com/user/emails",
-            headers={"Authorization": f"bearer {access_token}"},
+            headers={"Authorization": f"bearer {access_token.access_token}"},
         )
         if response.status_code != 200:
             raise HTTPException(
                 status_code=response.status_code,
                 detail="Failed to get emails from GitHub",
             )
-        emails = response.json()
-        all_emails = [
-            email["email"]
+        try:
+            emails: list[GitHubEmailResponse] = TypeAdapter(
+                list[GitHubEmailResponse]
+            ).validate_python(response.json())
+        except ValidationError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to validate emails from GitHub: {e}",
+            ) from e
+
+        all_emails: list[str] = [
+            email.email
             for email in emails
-            if email["verified"] and not excluded_email(email["email"])
+            if email.verified and not excluded_email(email.email)
         ]
 
         user = await self.http_client.get(
             url="https://api.github.com/user",
-            headers={"Authorization": f"bearer {access_token}"},
+            headers={"Authorization": f"bearer {access_token.access_token}"},
         )
         if user.status_code != 200:
             raise HTTPException(
@@ -111,11 +171,49 @@ class GithubService:
             emails=all_emails,
         )
 
-    def encrypt(self, value: str) -> str:
-        return self.cookie_session.cipher.encrypt(value)
+    def logout(self, redirect_url: str | None) -> RedirectResponse | JSONResponse:
+        response: RedirectResponse | JSONResponse
+        if redirect_url:
+            response = RedirectResponse(url=redirect_url)
+        else:
+            response = JSONResponse(
+                content={
+                    "message": "Logged out",
+                    "login_url": f"{config.app_url}/github/login",
+                }
+            )
+        response.delete_cookie(key=self.access_token_cookie_session.name)
+        return response
 
 
 async def github_service(
     http_client: httpx.AsyncClient = Depends(http_client),
 ) -> GithubService:
-    return GithubService(github_cookie_session, http_client)
+    return GithubService(
+        github_pending_auth_cookie_session,
+        github_access_token_cookie_session,
+        http_client,
+    )
+
+
+async def optional_github_user(
+    github_access_token_session: GitHubAccessTokenSession | None = Depends(
+        github_access_token_cookie_session
+    ),
+    github_service: GithubService = Depends(github_service),
+) -> GitHubProfile | None:
+    if github_access_token_session is None:
+        return None
+    return await github_service.profile(access_token=github_access_token_session)
+
+
+async def github_user(
+    github_access_token_session: GitHubAccessTokenSession | None = Depends(
+        github_access_token_cookie_session
+    ),
+    github_service: GithubService = Depends(github_service),
+) -> GitHubProfile:
+    user = await optional_github_user(github_access_token_session, github_service)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return user

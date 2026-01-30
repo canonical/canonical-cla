@@ -9,7 +9,7 @@ from gidgethub.httpx import GitHubAPI
 
 from app.cla.service import CLAService, cla_service
 from app.config import config
-from app.github.models import GitHubWebhookPayload
+from app.github.models import GitHubWebhookPayload, WebhookResponse
 from app.http_client import http_client
 
 LICENSE_MAP = {
@@ -66,7 +66,7 @@ class GithubWebhookService:
                 status_code=403, detail="Request signatures didn't match!"
             )
 
-    async def process_webhook(self, payload: GitHubWebhookPayload):
+    async def process_webhook(self, payload: GitHubWebhookPayload) -> WebhookResponse:
         """
         Main webhook processing function.
         Routes events to the appropriate handler.
@@ -83,7 +83,7 @@ class GithubWebhookService:
             pr_number = payload.pull_request.number
             installation_id = payload.installation.id
             await self.update_check_run(sha, repo_full_name, pr_number, installation_id)
-            return {"message": "Pull request event processed"}
+            return WebhookResponse(message="Pull request event processed")
 
         # Handle the "Re-run" event from the GitHub UI
         elif payload.check_run and payload.action == "rerequested":
@@ -94,11 +94,11 @@ class GithubWebhookService:
                 await self.update_check_run(
                     sha, repo_full_name, pr_number, installation_id
                 )
-                return {"message": "Re-run event processed"}
+                return WebhookResponse(message="Re-run event processed")
             else:
-                return {"message": "Re-run event ignored, no pull request"}
+                return WebhookResponse(message="Re-run event ignored, no pull request")
 
-        return {"message": "Event not processed"}
+        return WebhookResponse(message="Event not processed")
 
     async def update_check_run(
         self, sha: str, repo_full_name: str, pr_number: int, installation_id: int

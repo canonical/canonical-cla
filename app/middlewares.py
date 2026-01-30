@@ -9,37 +9,13 @@ from starlette.responses import PlainTextResponse
 from app.config import config
 from app.security.config import private_paths
 from app.security.rate_limiter import RateLimiter
+from app.utils.open_redirects import is_url_from_trusted_website
 from app.utils.request import ip_address, is_local_request
+from app.utils.trusted_websites import TRUSTED_WEBSITES
 
 logger = logging.getLogger(__name__)
 
-allowed_origins = [
-    "localhost",
-    "127.0.0.1",
-    "0.0.0.0",
-    "*.ubuntu.com",
-    "*.canonical.com",
-    "*.demos.haus",
-]
-
-
-def is_url_match(url, patterns):
-    # Remove protocol and path from the URL
-    domain = url.split("://")[-1].split("/")[0]
-
-    # Remove port if present
-    domain = domain.split(":")[0]
-
-    for pattern in patterns:
-        if pattern.startswith("*"):
-            if domain.endswith(pattern[1:]):
-                return True
-        elif domain == pattern:
-            return True
-    return False
-
-
-request_ip_address_context_var: ContextVar[str] = ContextVar(
+request_ip_address_context_var: ContextVar[str | None] = ContextVar(
     "request_ip_address", default=None
 )
 
@@ -83,7 +59,7 @@ def register_middlewares(app: FastAPI):
     async def strict_cors_middleware(request: Request, call_next):
         origin = request.headers.get("Origin")
         headers = {}
-        if origin and is_url_match(origin, allowed_origins):
+        if origin and is_url_from_trusted_website(origin, TRUSTED_WEBSITES):
             headers["Access-Control-Allow-Origin"] = origin
         else:  # Allow all origins, which will not allow to include credentials
             headers["Access-Control-Allow-Origin"] = "*"
@@ -150,7 +126,7 @@ def register_middlewares(app: FastAPI):
     def on_app_ready_callback():
         logger.info(
             "CORS middleware is enabled with allowed origins %s",
-            allowed_origins,
+            TRUSTED_WEBSITES,
         )
         logger.info(
             f"Rate limiting is enabled with limit {config.rate_limit.limit} requests per {config.rate_limit.period} seconds and whitelist %s",

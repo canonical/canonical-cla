@@ -72,7 +72,7 @@ class TestProcessWebhook:
             service, "update_check_run", new_callable=AsyncMock
         ) as update_check_run_mock:
             result = await service.process_webhook(payload)
-            assert result == {"message": "Pull request event processed"}
+            assert result.message == "Pull request event processed"
             update_check_run_mock.assert_awaited_once_with(
                 "test_sha", "canonical/lxd", 123, 456
             )
@@ -93,7 +93,7 @@ class TestProcessWebhook:
             service, "update_check_run", new_callable=AsyncMock
         ) as update_check_run_mock:
             result = await service.process_webhook(payload)
-            assert result == {"message": "Re-run event processed"}
+            assert result.message == "Re-run event processed"
             update_check_run_mock.assert_awaited_once_with(
                 "test_sha", "canonical/lxd", 123, 456
             )
@@ -114,7 +114,7 @@ class TestProcessWebhook:
             service, "update_check_run", new_callable=AsyncMock
         ) as update_check_run_mock:
             result = await service.process_webhook(payload)
-            assert result == {"message": "Re-run event ignored, no pull request"}
+            assert result.message == "Re-run event ignored, no pull request"
             update_check_run_mock.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -128,7 +128,7 @@ class TestProcessWebhook:
             service, "update_check_run", new_callable=AsyncMock
         ) as update_check_run_mock:
             result = await service.process_webhook(payload)
-            assert result == {"message": "Event not processed"}
+            assert result.message == "Event not processed"
             update_check_run_mock.assert_not_awaited()
 
 

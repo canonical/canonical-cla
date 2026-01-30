@@ -1,17 +1,45 @@
-from typing import List, Optional
+from typing import Annotated, List
 
 from pydantic import BaseModel, ConfigDict, Field
-from typing_extensions import TypedDict
 
 
-class GithubPendingAuthSession(TypedDict):
-    state: str
+class GithubPendingAuthSession(BaseModel):
+    state: Annotated[
+        str,
+        Field(description="State", examples=["state_string"]),
+    ]
+
+    redirect_url: Annotated[
+        str,
+        Field(description="Redirect URL", examples=["https://example.com/dashboard"]),
+    ]
 
 
-class GitHubAccessTokenResponse(TypedDict):
-    access_token: str
-    token_type: str
-    scope: str
+class GitHubAccessTokenResponse(BaseModel):
+    access_token: Annotated[
+        str,
+        Field(
+            description="GitHub access token",
+            examples=["access_token_string"],
+        ),
+    ]
+    token_type: Annotated[
+        str,
+        Field(description="Token type", examples=["Bearer"]),
+    ]
+    scope: Annotated[
+        str,
+        Field(description="Scope", examples=["user:email"]),
+    ]
+
+
+class GitHubAccessTokenSession(GitHubAccessTokenResponse):
+    """Access token session state stored after successful GitHub OAuth authentication."""
+    pass
+
+class GitHubEmailResponse(BaseModel):
+    email: Annotated[str, Field(description="The email address")]
+    verified: Annotated[bool, Field(description="Whether the email is verified")]
 
 
 class GitHubProfile(BaseModel):
@@ -63,3 +91,7 @@ class GitHubWebhookPayload(BaseModel):
     installation: GitHubInstallation
     pull_request: GitHubPullRequest | None = None
     check_run: GitHubCheckRun | None = None
+
+
+class WebhookResponse(BaseModel):
+    message: str = Field(description="Message", examples=["Webhook processed"])

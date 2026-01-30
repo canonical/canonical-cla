@@ -64,7 +64,7 @@ class OIDCPendingAuthSession(BaseModel):
 
 
 class OIDCAccessTokenSession(BaseModel):
-    """Session state stored during OIDC authentication flow."""
+    """Access token session state stored after successful OIDC authentication."""
 
     access_token: Annotated[
         str,

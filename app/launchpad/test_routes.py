@@ -1,17 +1,47 @@
-import base64
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from fastapi.responses import RedirectResponse
 
-from app.launchpad.models import LaunchpadAccessTokenResponse, LaunchpadProfile
+from app.launchpad.models import LaunchpadProfile, RequestTokenSession
 from app.launchpad.routes import (
     launchpad_callback,
     launchpad_login,
     launchpad_logout,
     launchpad_profile,
 )
+from app.utils.base64 import Base64
+
+
+@pytest.mark.asyncio
+async def test_login_raises_for_untrusted_redirect_url():
+    """Login rejects base64-encoded redirect_url whose host is not in TRUSTED_WEBSITES."""
+    launchpad_service = MagicMock()
+    redirect_url = Base64.encode("https://evil.com/callback")
+    with pytest.raises(HTTPException) as exc_info:
+        await launchpad_login(
+            redirect_url=redirect_url,
+            launchpad_service=launchpad_service,
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not launchpad_service.login.called
+
+
+@pytest.mark.asyncio
+async def test_logout_raises_for_untrusted_redirect_url():
+    """Logout rejects base64-encoded redirect_url whose host is not in TRUSTED_WEBSITES."""
+    launchpad_service = MagicMock()
+    redirect_url = Base64.encode("https://evil.com/logout")
+    with pytest.raises(HTTPException) as exc_info:
+        await launchpad_logout(
+            redirect_url=redirect_url,
+            launchpad_service=launchpad_service,
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not launchpad_service.logout.called
 
 
 @pytest.mark.asyncio
@@ -22,7 +52,7 @@ async def test_login():
     )
 
     response = await launchpad_login(
-        redirect_url=base64.b64encode("https://example.com".encode()).decode("utf-8"),
+        redirect_url=Base64.encode("https://login.ubuntu.com/callback"),
         launchpad_service=launchpad_service,
     )
     assert response.status_code == 307
@@ -34,84 +64,93 @@ async def test_login():
 async def test_callback_success():
     launchpad_service = MagicMock()
     launchpad_service.callback = AsyncMock(
-        return_value=LaunchpadAccessTokenResponse(
-            oauth_token="test_oauth_token", oauth_token_secret="test_oauth_token_secret"
-        )
+        return_value=RedirectResponse(url="http://test.com/profile")
     )
-    launchpad_service.encrypt = MagicMock(return_value="test_encrypted_token")
     state = "test_state"
-    launchpad_session = {
-        "state": state,
-        "redirect_url": "http://test.com/profile",
-    }
-    response = await launchpad_callback(state, launchpad_session, launchpad_service)
+    launchpad_session = RequestTokenSession(
+        oauth_token="test_oauth_token",
+        oauth_token_secret="test_oauth_token_secret",
+        state=state,
+        redirect_url="http://test.com/profile",
+    )
+    response = await launchpad_callback(
+        state=state,
+        launchpad_session=launchpad_session,
+        launchpad_service=launchpad_service,
+    )
 
     assert response.status_code == 307
-    assert (
-        response.headers["location"]
-        == "http://test.com/profile?access_token=test_encrypted_token"
-    )
+    assert response.headers["location"] == "http://test.com/profile"
     assert launchpad_service.callback.called
 
 
 @pytest.mark.asyncio
-async def test_callback_invalid_params():
+async def test_callback_missing_session():
     launchpad_service = MagicMock()
-    launchpad_service.callback = AsyncMock(
-        return_value=LaunchpadAccessTokenResponse(
-            oauth_token="test_oauth_token", oauth_token_secret="test_oauth_token_secret"
-        )
-    )
-    state = None
-
-    launchpad_session = {"state": "test_state"}
-    with pytest.raises(HTTPException):
-        await launchpad_callback(state, launchpad_session, launchpad_service)
-
-    assert not launchpad_service.callback.called
-
     state = "test_state"
-    launchpad_session = None
-    with pytest.raises(HTTPException):
-        await launchpad_callback(state, launchpad_session, launchpad_service)
-
-    assert not launchpad_service.callback.called
-
-    state = "invalid_test_state"
-    launchpad_session = {"state": "test_state"}
-    with pytest.raises(HTTPException):
-        await launchpad_callback(state, launchpad_session, launchpad_service)
-
+    with pytest.raises(HTTPException) as exc_info:
+        await launchpad_callback(
+            state=state,
+            launchpad_session=None,
+            launchpad_service=launchpad_service,
+        )
+    assert exc_info.value.status_code == 401
     assert not launchpad_service.callback.called
 
 
 @pytest.mark.asyncio
-async def test_profile():
+async def test_callback_state_mismatch():
     launchpad_service = MagicMock()
-    launchpad_service.profile = AsyncMock(
-        return_value=LaunchpadProfile(
-            emails=["email1", "email2"], _id="test_id", username="test_username"
-        )
+    state = "test_state"
+    launchpad_session = RequestTokenSession(
+        oauth_token="test_oauth_token",
+        oauth_token_secret="test_oauth_token_secret",
+        state="different_state",
+        redirect_url="http://test.com/profile",
     )
+    with pytest.raises(HTTPException) as exc_info:
+        await launchpad_callback(
+            state=state,
+            launchpad_session=launchpad_session,
+            launchpad_service=launchpad_service,
+        )
+    assert exc_info.value.status_code == 401
+    assert not launchpad_service.callback.called
 
-    launchpad_session = {"state": "test_state"}
-    response = await launchpad_profile(launchpad_session, launchpad_service)
 
-    assert response.model_dump() == {
-        "emails": ["email1", "email2"],
-        "username": "test_username",
-    }
-    assert launchpad_service.profile.called
-
-    launchpad_session = None
-    launchpad_service.profile.reset_mock()
-    with pytest.raises(HTTPException):
-        await launchpad_profile(launchpad_session, launchpad_service)
-
-    assert not launchpad_service.profile.called
+@pytest.mark.asyncio
+async def test_profile_success():
+    launchpad_user = LaunchpadProfile(
+        emails=["email1", "email2"], _id="test_id", username="test_username"
+    )
+    response = await launchpad_profile(launchpad_user=launchpad_user)
+    assert response == launchpad_user
 
 
 @pytest.mark.asyncio
 async def test_logout():
-    response = await launchpad_logout()
-    assert response.status_code == 200
+    launchpad_service = MagicMock()
+    launchpad_service.logout = MagicMock(return_value=RedirectResponse(url="http://t"))
+    response = await launchpad_logout(
+        redirect_url=None,
+        launchpad_service=launchpad_service,
+    )
+    assert response.status_code == 307
+    launchpad_service.logout.assert_called_once_with(None)
+
+
+@pytest.mark.asyncio
+async def test_logout_with_redirect():
+    launchpad_service = MagicMock()
+    redirect_url = Base64.encode("https://login.ubuntu.com/logout")
+    launchpad_service.logout = MagicMock(
+        return_value=RedirectResponse(url="https://login.ubuntu.com/logout")
+    )
+    response = await launchpad_logout(
+        redirect_url=redirect_url,
+        launchpad_service=launchpad_service,
+    )
+    assert response.status_code == 307
+    launchpad_service.logout.assert_called_once_with(
+        Base64.decode_str(redirect_url)
+    )
