@@ -1,7 +1,7 @@
 from pydantic import ValidationError, TypeAdapter
 import secrets
 from urllib.parse import urlencode
-
+import json
 import httpx
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -23,6 +23,8 @@ from app.github.cookies import (
     github_access_token_cookie_session,
 )
 import logging
+
+from app.utils.request import update_query_params
 
 logger = logging.getLogger(__name__)
 
@@ -103,12 +105,23 @@ class GithubService:
                 status_code=400,
                 detail=f"Failed to validate access token response from GitHub: {e}",
             ) from e
+        access_token_session = GitHubAccessTokenSession.model_validate(
+            access_token_session.model_dump()
+        )
+        # XXX: This is a hack to get the access token into the redirect URL
+        # Remove this once we migrate the CLA form over to this domain
+        if redirect_url != f"{config.app_url}/github/profile":
+            redirect_url = update_query_params(
+                redirect_url,
+                access_token=self.access_token_cookie_session.cipher.encrypt(
+                    json.dumps(access_token_session.model_dump())
+                ),
+            )
         response = RedirectResponse(url=redirect_url)
+
         self.access_token_cookie_session.set_cookie(
             response,
-            value=GitHubAccessTokenSession.model_validate(
-                access_token_session.model_dump()
-            ),
+            value=access_token_session,
             httponly=True,
             secure=not config.debug_mode,
             samesite="lax",

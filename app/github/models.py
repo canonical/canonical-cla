@@ -35,7 +35,7 @@ class GitHubAccessTokenResponse(BaseModel):
 
 class GitHubAccessTokenSession(GitHubAccessTokenResponse):
     """Access token session state stored after successful GitHub OAuth authentication."""
-
+    pass
 
 class GitHubEmailResponse(BaseModel):
     email: Annotated[str, Field(description="The email address")]

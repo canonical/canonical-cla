@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from pydantic import ValidationError
@@ -26,6 +27,7 @@ from app.launchpad.models import (
     LaunchpadRequestTokenResponse,
     RequestTokenSession,
 )
+from app.utils.request import update_query_params
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +129,9 @@ class LaunchpadService:
             )
         try:
             # Launchpad API returns application/x-www-form-urlencoded so we need to parse the response body
-            parsed_response_body = dict(parse_qsl(response_body, keep_blank_values=True))
+            parsed_response_body = dict(
+                parse_qsl(response_body, keep_blank_values=True)
+            )
             access_token_response = LaunchpadAccessTokenResponse.model_validate(
                 parsed_response_body
             )
@@ -137,11 +141,20 @@ class LaunchpadService:
                 detail=f"Failed to validate access token response from Launchpad: {e}",
             ) from e
 
-        response = RedirectResponse(url=redirect_url)
         access_token_session = AccessTokenSession(
             oauth_token=access_token_response.oauth_token,
             oauth_token_secret=access_token_response.oauth_token_secret,
         )
+        # XXX: This is a hack to get the access token into the redirect URL
+        # Remove this once we migrate the CLA form over to this domain
+        if redirect_url != f"{config.app_url}/launchpad/profile":
+            redirect_url = update_query_params(
+                redirect_url,
+                access_token=self.access_token_cookie_session.cipher.encrypt(
+                    json.dumps(access_token_session.model_dump())
+                ),
+            )
+        response = RedirectResponse(url=redirect_url)
         self.access_token_cookie_session.set_cookie(
             response,
             value=access_token_session,

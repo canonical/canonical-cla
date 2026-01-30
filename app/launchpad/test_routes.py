@@ -15,6 +15,36 @@ from app.utils.base64 import Base64
 
 
 @pytest.mark.asyncio
+async def test_login_raises_for_untrusted_redirect_url():
+    """Login rejects base64-encoded redirect_url whose host is not in TRUSTED_WEBSITES."""
+    launchpad_service = MagicMock()
+    redirect_url = Base64.encode("https://evil.com/callback")
+    with pytest.raises(HTTPException) as exc_info:
+        await launchpad_login(
+            redirect_url=redirect_url,
+            launchpad_service=launchpad_service,
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not launchpad_service.login.called
+
+
+@pytest.mark.asyncio
+async def test_logout_raises_for_untrusted_redirect_url():
+    """Logout rejects base64-encoded redirect_url whose host is not in TRUSTED_WEBSITES."""
+    launchpad_service = MagicMock()
+    redirect_url = Base64.encode("https://evil.com/logout")
+    with pytest.raises(HTTPException) as exc_info:
+        await launchpad_logout(
+            redirect_url=redirect_url,
+            launchpad_service=launchpad_service,
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not launchpad_service.logout.called
+
+
+@pytest.mark.asyncio
 async def test_login():
     launchpad_service = MagicMock()
     launchpad_service.login = AsyncMock(
@@ -22,7 +52,7 @@ async def test_login():
     )
 
     response = await launchpad_login(
-        redirect_url=Base64.encode("https://example.com"),
+        redirect_url=Base64.encode("https://login.ubuntu.com/callback"),
         launchpad_service=launchpad_service,
     )
     assert response.status_code == 307
@@ -112,13 +142,15 @@ async def test_logout():
 @pytest.mark.asyncio
 async def test_logout_with_redirect():
     launchpad_service = MagicMock()
-    redirect_url = Base64.encode("http://test.com/logout")
+    redirect_url = Base64.encode("https://login.ubuntu.com/logout")
     launchpad_service.logout = MagicMock(
-        return_value=RedirectResponse(url="http://test.com/logout")
+        return_value=RedirectResponse(url="https://login.ubuntu.com/logout")
     )
     response = await launchpad_logout(
         redirect_url=redirect_url,
         launchpad_service=launchpad_service,
     )
     assert response.status_code == 307
-    launchpad_service.logout.assert_called_once_with(Base64.decode_str(redirect_url))
+    launchpad_service.logout.assert_called_once_with(
+        Base64.decode_str(redirect_url)
+    )

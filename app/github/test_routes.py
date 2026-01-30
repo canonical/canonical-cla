@@ -18,13 +18,43 @@ from app.utils.base64 import Base64
 
 
 @pytest.mark.asyncio
+async def test_login_raises_for_untrusted_redirect_url():
+    """Login rejects base64-encoded redirect_url whose host is not in TRUSTED_WEBSITES."""
+    github_service = MagicMock()
+    redirect_url = Base64.encode("https://evil.com/callback")
+    with pytest.raises(HTTPException) as exc_info:
+        await github_login(
+            redirect_url=redirect_url,
+            github_service=github_service,
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not github_service.login.called
+
+
+@pytest.mark.asyncio
+async def test_logout_raises_for_untrusted_redirect_url():
+    """Logout rejects base64-encoded redirect_url whose host is not in TRUSTED_WEBSITES."""
+    github_service = MagicMock()
+    redirect_url = Base64.encode("https://evil.com/logout")
+    with pytest.raises(HTTPException) as exc_info:
+        await github_logout(
+            redirect_url=redirect_url,
+            github_service=github_service,
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not github_service.logout.called
+
+
+@pytest.mark.asyncio
 async def test_login():
     github_service = MagicMock()
     github_service.login = AsyncMock(
         return_value=RedirectResponse(url="https://login-redirct.com")
     )
 
-    redirect_url = Base64.encode("https://example.com")
+    redirect_url = Base64.encode("https://login.ubuntu.com/callback")
     response = await github_login(
         redirect_url=redirect_url,
         github_service=github_service,
@@ -117,9 +147,9 @@ async def test_logout():
 @pytest.mark.asyncio
 async def test_logout_with_redirect():
     github_service = MagicMock()
-    redirect_url = Base64.encode("http://test.com/logout")
+    redirect_url = Base64.encode("https://login.ubuntu.com/logout")
     github_service.logout = MagicMock(
-        return_value=RedirectResponse(url="http://test.com/logout")
+        return_value=RedirectResponse(url="https://login.ubuntu.com/logout")
     )
     response = await github_logout(
         redirect_url=redirect_url,

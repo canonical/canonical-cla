@@ -59,7 +59,7 @@ async def test_callback_success():
     )
     response = await github_service.callback("test_code", "http://test.com/redirect")
     assert response.status_code == 307
-    assert response.headers["location"] == "http://test.com/redirect"
+    assert response.headers["location"].startswith("http://test.com/redirect")
     assert access_token_cookie_session.set_cookie.called
     # Verify that delete_cookie was called on the response (checking via response object)
     # The delete_cookie is called internally, so we verify the response was created correctly

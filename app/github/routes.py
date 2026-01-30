@@ -1,12 +1,9 @@
-from urllib.parse import urlparse
 from app.github.cookies import github_pending_auth_cookie_session
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from starlette.requests import Request
-from starlette.responses import Response
-from typing_extensions import TypedDict
 
 from app.config import config
 from app.github.models import (
@@ -17,6 +14,7 @@ from app.github.models import (
 from app.github.service import GithubService, github_service, github_user
 from app.github.webhook_service import GithubWebhookService, github_webhook_service
 from app.utils.base64 import Base64
+from app.utils.open_redirects import validate_open_redirect
 from app.utils.request import error_status_codes, update_query_params
 
 github_router = APIRouter(prefix="/github", tags=["GitHub"])
@@ -36,11 +34,13 @@ async def github_login(
     """
     Redirects to GitHub OAuth login page.
     """
+    decoded_redirect_url = Base64.decode_str(redirect_url) if redirect_url else None
+    if decoded_redirect_url:
+        validate_open_redirect(decoded_redirect_url)
     return await github_service.login(
         f"{config.app_url}/github/callback",
-        redirect_url=Base64.decode_str(redirect_url)
-        if redirect_url
-        else f"{config.app_url}/github/profile",
+        redirect_url=decoded_redirect_url
+        or f"{config.app_url}/github/profile",
     )
 
 
@@ -128,9 +128,10 @@ async def github_logout(
     """
     Clears the GitHub session cookie.
     """
-    return github_service.logout(
-        Base64.decode_str(redirect_url) if redirect_url else None
-    )
+    decoded_redirect_url = Base64.decode_str(redirect_url) if redirect_url else None
+    if decoded_redirect_url:
+        validate_open_redirect(decoded_redirect_url)
+    return github_service.logout(decoded_redirect_url)
 
 
 @github_router.post("/webhook", responses=error_status_codes([400, 403]))

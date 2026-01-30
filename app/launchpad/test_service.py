@@ -98,7 +98,7 @@ async def test_callback_success(request_token_session):
     assert http_client.post.called
     assert isinstance(response, RedirectResponse)
     assert response.status_code == 307
-    assert response.headers["location"] == "http://test.com/redirect"
+    assert response.headers["location"].startswith("http://test.com/redirect")
     assert access_token_cookie_session.set_cookie.called is True
 
 
