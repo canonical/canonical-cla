@@ -53,9 +53,14 @@ def usernames():
 
 @pytest.mark.asyncio
 async def test_check_cla(cla_service, emails, usernames):
-    cla_service.individuals_signed_cla = AsyncMock(return_value={"email1@example.com"})
-    cla_service.organizations_signed_cla = AsyncMock(
-        return_value={clean_email(emails[2])}
+    cla_service.check_cla_for_emails = AsyncMock(
+        return_value={
+            emails[0]: True,
+            emails[1]: False,
+            emails[2]: True,
+            emails[3]: False,
+            emails[4]: False,
+        }
     )
     cla_service.check_cla_for_github_usernames = AsyncMock(
         return_value={"dev1": True, "dev2": False, "dev3": True}
@@ -66,13 +71,7 @@ async def test_check_cla(cla_service, emails, usernames):
 
     response = await cla_service.check_cla(emails, usernames, usernames)
     assert response == CLACheckResponse(
-        emails={
-            emails[0]: True,
-            emails[1]: False,
-            emails[2]: True,
-            emails[3]: False,
-            emails[4]: False,
-        },
+        emails=cla_service.check_cla_for_emails.return_value,
         github_usernames={
             usernames[0]: True,
             usernames[1]: False,
@@ -84,8 +83,7 @@ async def test_check_cla(cla_service, emails, usernames):
             usernames[2]: False,
         },
     )
-    assert cla_service.individuals_signed_cla.called
-    assert cla_service.organizations_signed_cla.called
+    assert cla_service.check_cla_for_emails.called
     assert cla_service.check_cla_for_github_usernames.called
     assert cla_service.check_cla_for_launchpad_usernames.called
 
@@ -164,7 +162,6 @@ async def test_individual_cla_sign_case_insensitive_github_email(cla_service):
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
         country="US",
         github_email="User@Example.Com",  # Mixed case
@@ -174,19 +171,18 @@ async def test_individual_cla_sign_case_insensitive_github_email(cla_service):
     # Mock GitHub profile with lowercase email
     github_profile = GitHubProfile(
         username="testuser",
-        _id="123456",
+        _id=123456,
         emails=["user@example.com"],  # Lowercase in profile
     )
 
     # Setup mocks
-    cla_service.github_service.profile = AsyncMock(return_value=github_profile)
     cla_service.individual_repository.get_individuals = AsyncMock(return_value=[])
     cla_service.individual_repository.create_individual = AsyncMock(
         return_value=Individual(**individual_form.model_dump())
     )
 
     # Should not raise an exception due to case mismatch
-    result = await cla_service.individual_cla_sign(individual_form, "gh_session", None)
+    result = await cla_service.individual_cla_sign(individual_form, github_profile, None)
 
     assert result is not None
     cla_service.individual_repository.create_individual.assert_called_once()
@@ -198,7 +194,6 @@ async def test_individual_cla_sign_case_insensitive_launchpad_email(cla_service)
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
         country="US",
         github_email=None,
@@ -213,7 +208,6 @@ async def test_individual_cla_sign_case_insensitive_launchpad_email(cla_service)
     )
 
     # Setup mocks
-    cla_service.launchpad_service.profile = AsyncMock(return_value=launchpad_profile)
     cla_service.individual_repository.get_individuals = AsyncMock(return_value=[])
     cla_service.individual_repository.create_individual = AsyncMock(
         return_value=Individual(**individual_form.model_dump())
@@ -221,7 +215,7 @@ async def test_individual_cla_sign_case_insensitive_launchpad_email(cla_service)
 
     # Should not raise an exception due to case mismatch
     result = await cla_service.individual_cla_sign(
-        individual_form, None, {"session": "data"}
+        individual_form, None, launchpad_profile
     )
 
     assert result is not None
@@ -235,15 +229,17 @@ async def test_individual_cla_sign_github_email_blocked_raises_http_exception(
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
         country="US",
         github_email="user@intel.com",
         launchpad_email=None,
     )
 
+    github_profile = GitHubProfile(
+        username="testuser", _id=1, emails=["user@intel.com"]
+    )
     with pytest.raises(HTTPException) as exc_info:
-        await cla_service.individual_cla_sign(individual_form, None, None)
+        await cla_service.individual_cla_sign(individual_form, github_profile, None)
 
     assert exc_info.value.status_code == 400
 
@@ -255,15 +251,17 @@ async def test_individual_cla_sign_launchpad_email_blocked_raises_http_exception
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
         country="US",
         github_email=None,
         launchpad_email="user@intel.com",
     )
 
+    launchpad_profile = LaunchpadProfile(
+        username="testuser", _id="lp1", emails=["user@intel.com"]
+    )
     with pytest.raises(HTTPException) as exc_info:
-        await cla_service.individual_cla_sign(individual_form, None, None)
+        await cla_service.individual_cla_sign(individual_form, None, launchpad_profile)
 
     assert exc_info.value.status_code == 400
 
@@ -281,19 +279,10 @@ async def test_organization_cla_sign_blocked_domain_raises_http_exception(cla_se
         country="US",
     )
 
-    cla_service.github_service.profile = AsyncMock(
-        return_value=GitHubProfile(
-            username="owner", _id="1", emails=["owner@intel.com"]
-        )  # ensure domain ownership
-    )
-    cla_service.launchpad_service.profile = AsyncMock(
-        return_value=LaunchpadProfile(username="owner", _id="2", emails=[])
-    )
-
+    github_profile = GitHubProfile(username="owner", _id=1, emails=["owner@intel.com"])
+    launchpad_profile = LaunchpadProfile(username="owner", _id="2", emails=[])
     with pytest.raises(HTTPException) as exc_info:
-        await cla_service.organization_cla_sign(
-            org_form, "gh_session", {"session": "data"}
-        )
+        await cla_service.organization_cla_sign(org_form, github_profile, launchpad_profile)
 
     assert exc_info.value.status_code == 400
 
@@ -306,7 +295,6 @@ async def test_individual_cla_sign_multiple_profile_emails_case_insensitive(
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
         country="US",
         github_email="PRIMARY@Example.Com",  # Mixed case, should match second email
@@ -316,19 +304,18 @@ async def test_individual_cla_sign_multiple_profile_emails_case_insensitive(
     # Mock GitHub profile with multiple emails in different cases
     github_profile = GitHubProfile(
         username="testuser",
-        _id="123456",
+        _id=123456,
         emails=["secondary@test.com", "primary@example.com", "tertiary@test.org"],
     )
 
     # Setup mocks
-    cla_service.github_service.profile = AsyncMock(return_value=github_profile)
     cla_service.individual_repository.get_individuals = AsyncMock(return_value=[])
     cla_service.individual_repository.create_individual = AsyncMock(
         return_value=Individual(**individual_form.model_dump())
     )
 
     # Should match the second email in the profile despite case differences
-    result = await cla_service.individual_cla_sign(individual_form, "gh_session", None)
+    result = await cla_service.individual_cla_sign(individual_form, github_profile, None)
 
     assert result is not None
     cla_service.individual_repository.create_individual.assert_called_once()
@@ -340,7 +327,6 @@ async def test_individual_cla_sign_github_email_mismatch_error_message(cla_servi
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
         country="US",
         github_email="user@different.com",
@@ -350,14 +336,12 @@ async def test_individual_cla_sign_github_email_mismatch_error_message(cla_servi
     # Mock GitHub profile with different emails
     github_profile = GitHubProfile(
         username="testuser",
-        _id="123456",
+        _id=123456,
         emails=["user@example.com", "test@example.com"],
     )
 
-    cla_service.github_service.profile = AsyncMock(return_value=github_profile)
-
     with pytest.raises(HTTPException) as exc_info:
-        await cla_service.individual_cla_sign(individual_form, "gh_session", None)
+        await cla_service.individual_cla_sign(individual_form, github_profile, None)
 
     assert exc_info.value.status_code == 400
     assert (
@@ -372,7 +356,6 @@ async def test_individual_cla_sign_launchpad_email_mismatch_error_message(cla_se
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
         country="US",
         github_email=None,
@@ -386,11 +369,9 @@ async def test_individual_cla_sign_launchpad_email_mismatch_error_message(cla_se
         emails=["user@example.com", "test@example.com"],
     )
 
-    cla_service.launchpad_service.profile = AsyncMock(return_value=launchpad_profile)
-
     with pytest.raises(HTTPException) as exc_info:
         await cla_service.individual_cla_sign(
-            individual_form, None, {"session": "data"}
+            individual_form, None, launchpad_profile
         )
 
     assert exc_info.value.status_code == 400
@@ -406,7 +387,6 @@ async def test_individual_cla_sign_both_emails_case_insensitive(cla_service):
     individual_form = IndividualCreateForm(
         first_name="Test",
         last_name="User",
-        phone_number="+1234567890",
         address="123 Test St",
         country="US",
         github_email="GitHub@Example.Com",
@@ -415,15 +395,13 @@ async def test_individual_cla_sign_both_emails_case_insensitive(cla_service):
 
     # Mock profiles with lowercase emails
     github_profile = GitHubProfile(
-        username="testuser", _id="123456", emails=["github@example.com"]
+        username="testuser", _id=123456, emails=["github@example.com"]
     )
     launchpad_profile = LaunchpadProfile(
         username="testuser", _id="654321", emails=["launchpad@example.com"]
     )
 
     # Setup mocks
-    cla_service.github_service.profile = AsyncMock(return_value=github_profile)
-    cla_service.launchpad_service.profile = AsyncMock(return_value=launchpad_profile)
     cla_service.individual_repository.get_individuals = AsyncMock(return_value=[])
     cla_service.individual_repository.create_individual = AsyncMock(
         return_value=Individual(**individual_form.model_dump())
@@ -431,7 +409,7 @@ async def test_individual_cla_sign_both_emails_case_insensitive(cla_service):
 
     # Should not raise an exception
     result = await cla_service.individual_cla_sign(
-        individual_form, "gh_session", {"session": "data"}
+        individual_form, github_profile, launchpad_profile
     )
 
     assert result is not None

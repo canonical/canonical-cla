@@ -47,7 +47,7 @@ async def oidc_callback(
     code: Annotated[str | None, Query()] = None,
     state: Annotated[str | None, Query()] = None,
     error_description: Annotated[str | None, Query(include_in_schema=False)] = None,
-    oidc_pending_auth_session: OIDCPendingAuthSession = Depends(
+    oidc_pending_auth_session: OIDCPendingAuthSession | None = Depends(
         oidc_pending_auth_cookie_session
     ),
     oidc_service: OIDCService = Depends(oidc_service),
