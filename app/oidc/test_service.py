@@ -263,7 +263,9 @@ async def test_logout_without_redirect(oidc_service, mock_access_token_cookie_se
 
 
 @pytest.mark.asyncio
-async def test_logout_valid_redirect_uri(oidc_service, mock_access_token_cookie_session):
+async def test_logout_valid_redirect_uri(
+    oidc_service, mock_access_token_cookie_session
+):
     """Test logout with valid redirect URI returns RedirectResponse."""
     response = await oidc_service.logout(redirect_uri="/dashboard")
 

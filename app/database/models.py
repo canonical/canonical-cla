@@ -7,7 +7,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, class_mapper, mapped_column
 
 # Base class
 class Base(DeclarativeBase):
-
     def as_dict(self):
         obj_dict = {
             column.key: getattr(self, column.key)

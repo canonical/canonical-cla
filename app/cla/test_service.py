@@ -182,7 +182,9 @@ async def test_individual_cla_sign_case_insensitive_github_email(cla_service):
     )
 
     # Should not raise an exception due to case mismatch
-    result = await cla_service.individual_cla_sign(individual_form, github_profile, None)
+    result = await cla_service.individual_cla_sign(
+        individual_form, github_profile, None
+    )
 
     assert result is not None
     cla_service.individual_repository.create_individual.assert_called_once()
@@ -282,7 +284,9 @@ async def test_organization_cla_sign_blocked_domain_raises_http_exception(cla_se
     github_profile = GitHubProfile(username="owner", _id=1, emails=["owner@intel.com"])
     launchpad_profile = LaunchpadProfile(username="owner", _id="2", emails=[])
     with pytest.raises(HTTPException) as exc_info:
-        await cla_service.organization_cla_sign(org_form, github_profile, launchpad_profile)
+        await cla_service.organization_cla_sign(
+            org_form, github_profile, launchpad_profile
+        )
 
     assert exc_info.value.status_code == 400
 
@@ -315,7 +319,9 @@ async def test_individual_cla_sign_multiple_profile_emails_case_insensitive(
     )
 
     # Should match the second email in the profile despite case differences
-    result = await cla_service.individual_cla_sign(individual_form, github_profile, None)
+    result = await cla_service.individual_cla_sign(
+        individual_form, github_profile, None
+    )
 
     assert result is not None
     cla_service.individual_repository.create_individual.assert_called_once()
@@ -370,9 +376,7 @@ async def test_individual_cla_sign_launchpad_email_mismatch_error_message(cla_se
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await cla_service.individual_cla_sign(
-            individual_form, None, launchpad_profile
-        )
+        await cla_service.individual_cla_sign(individual_form, None, launchpad_profile)
 
     assert exc_info.value.status_code == 400
     assert (

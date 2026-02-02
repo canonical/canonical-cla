@@ -124,6 +124,6 @@ class SQLOrganizationRepository(OrganizationRepository):
 
 
 def organization_repository(
-    session: Annotated[AsyncSession, Depends(async_session)]
+    session: Annotated[AsyncSession, Depends(async_session)],
 ) -> OrganizationRepository:
     return SQLOrganizationRepository(session)

@@ -66,7 +66,9 @@ async def test_login_failure():
     pending_auth_cookie_session = MagicMock()
     access_token_cookie_session = MagicMock()
     http_client = MagicMock()
-    http_client.post = AsyncMock(return_value=httpx.Response(status_code=500, text="err"))
+    http_client.post = AsyncMock(
+        return_value=httpx.Response(status_code=500, text="err")
+    )
     launchpad_service = LaunchpadService(
         pending_auth_cookie_session, access_token_cookie_session, http_client
     )
@@ -108,7 +110,9 @@ async def test_callback_failure(request_token_session):
     pending_auth_cookie_session.name = "launchpad_pending_auth_session"
     access_token_cookie_session = MagicMock()
     http_client = MagicMock()
-    http_client.post = AsyncMock(return_value=httpx.Response(status_code=500, text="err"))
+    http_client.post = AsyncMock(
+        return_value=httpx.Response(status_code=500, text="err")
+    )
     launchpad_service = LaunchpadService(
         pending_auth_cookie_session, access_token_cookie_session, http_client
     )

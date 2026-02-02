@@ -2,21 +2,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+from pydantic_extra_types.country import CountryAlpha2
 
+from app.cla.models import (
+    CLACheckResponse,
+    IndividualCreateForm,
+    OrganizationCreateForm,
+)
 from app.cla.routes import (
     check_cla,
     manage_organization,
     sign_cla_individual,
     sign_cla_organization,
 )
-from app.cla.models import (
-    CLACheckResponse,
-    IndividualCreateForm,
-    OrganizationCreateForm,
-)
 from app.github.models import GitHubProfile
 from app.launchpad.models import LaunchpadProfile
-from pydantic_extra_types.country import CountryAlpha2
 
 
 @pytest.mark.asyncio

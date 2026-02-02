@@ -1,7 +1,7 @@
 from asyncio import sleep
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, List
+from typing import Annotated
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 
 from fastapi import (
@@ -54,21 +54,21 @@ cla_router = APIRouter(prefix="/cla", tags=["CLA"])
     },
 )
 async def check_cla(
-    emails: List[str] | None = Query(
+    emails: list[str] | None = Query(
         title="Emails",
         description="A list of emails to check for CLA signatories",
         max_length=100,
         examples=["dev1@ubuntu.com,dev2@example.com"],
         default=[],
     ),
-    github_usernames: List[str] | None = Query(
+    github_usernames: list[str] | None = Query(
         title="GitHub Usernames",
         description="A list of GitHub usernames to check for CLA signatories",
         max_length=100,
         examples=["dev1,dev2"],
         default=[],
     ),
-    launchpad_usernames: List[str] | None = Query(
+    launchpad_usernames: list[str] | None = Query(
         title="Launchpad Usernames",
         description="A list of Launchpad usernames to check for CLA signatories",
         max_length=100,

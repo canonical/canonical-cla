@@ -151,6 +151,4 @@ async def test_logout_with_redirect():
         launchpad_service=launchpad_service,
     )
     assert response.status_code == 307
-    launchpad_service.logout.assert_called_once_with(
-        Base64.decode_str(redirect_url)
-    )
+    launchpad_service.logout.assert_called_once_with(Base64.decode_str(redirect_url))

@@ -1,4 +1,4 @@
-from typing import Annotated, List
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,7 +35,9 @@ class GitHubAccessTokenResponse(BaseModel):
 
 class GitHubAccessTokenSession(GitHubAccessTokenResponse):
     """Access token session state stored after successful GitHub OAuth authentication."""
+
     pass
+
 
 class GitHubEmailResponse(BaseModel):
     email: Annotated[str, Field(description="The email address")]
@@ -82,7 +84,7 @@ class GitHubInstallation(BaseModel):
 
 class GitHubCheckRun(BaseModel):
     head_sha: str
-    pull_requests: List[GitHubPullRequest] = []
+    pull_requests: list[GitHubPullRequest] = []
 
 
 class GitHubWebhookPayload(BaseModel):

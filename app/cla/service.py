@@ -1,4 +1,3 @@
-from app.github.models import GitHubProfile
 import logging
 
 from fastapi import Depends, HTTPException
@@ -14,6 +13,7 @@ from app.database.models import Individual, Organization
 from app.emails.blocked.blocked_emails import is_email_blocked
 from app.emails.blocked.excluded_emails import excluded_email
 from app.emails.email_utils import clean_email, email_domain
+from app.github.models import GitHubProfile
 from app.github.service import GithubService, github_service
 from app.launchpad.models import LaunchpadProfile
 from app.launchpad.service import LaunchpadService, launchpad_service

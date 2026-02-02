@@ -2,7 +2,6 @@ import ipaddress
 import logging
 from datetime import datetime
 from hashlib import md5
-from typing import Tuple
 
 import httpx
 from fastapi import Request
@@ -127,7 +126,7 @@ class RateLimiter:
         Check if the client's IP address is in the whitelist.
         """
         request_path = self.request.scope["path"]
-        if not request_path in whitelistable_paths:
+        if request_path not in whitelistable_paths:
             return False
         try:
             ip_address = ipaddress.ip_address(self._ip_address())
@@ -151,7 +150,7 @@ class RateLimiter:
     async def is_allowed(
         self,
         key: str | None = None,
-    ) -> Tuple[bool, int]:
+    ) -> tuple[bool, int]:
         """
         Check if the request is allowed based on the rate limit.
         This also increments the request count in Redis on each call.
@@ -182,7 +181,7 @@ class RateLimiter:
             logger.error(f"Error checking rate limit: {e}")
             return (True, 0)
 
-    async def is_allowed_manual(self, key: str | None = None) -> Tuple[bool, int]:
+    async def is_allowed_manual(self, key: str | None = None) -> tuple[bool, int]:
         """
         Check if the request is allowed based on the rate limit.
         This also increments the request count in Redis on each call.

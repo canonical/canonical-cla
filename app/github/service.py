@@ -1,29 +1,29 @@
-from pydantic import ValidationError, TypeAdapter
+import json
+import logging
 import secrets
 from urllib.parse import urlencode
-import json
+
 import httpx
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import TypeAdapter, ValidationError
 
 from app.config import config
 from app.emails.blocked.excluded_emails import excluded_email
+from app.github.cookies import (
+    GithubAccessTokenCookieSession,
+    GithubPendingAuthCookieSession,
+    github_access_token_cookie_session,
+    github_pending_auth_cookie_session,
+)
 from app.github.models import (
     GitHubAccessTokenResponse,
-    GitHubEmailResponse,
-    GitHubProfile,
-    GithubPendingAuthSession,
     GitHubAccessTokenSession,
+    GitHubEmailResponse,
+    GithubPendingAuthSession,
+    GitHubProfile,
 )
 from app.http_client import http_client
-from app.github.cookies import (
-    GithubPendingAuthCookieSession,
-    GithubAccessTokenCookieSession,
-    github_pending_auth_cookie_session,
-    github_access_token_cookie_session,
-)
-import logging
-
 from app.utils.request import update_query_params
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,6 @@
-from app.utils.api_cookie import APIKeyCookieModel
-from app.oidc.models import OIDCAccessTokenSession, OIDCPendingAuthSession
 from app.config import config
+from app.oidc.models import OIDCAccessTokenSession, OIDCPendingAuthSession
+from app.utils.api_cookie import APIKeyCookieModel
 
 
 class OIDCAccessTokenCookieSession(APIKeyCookieModel[OIDCAccessTokenSession]):

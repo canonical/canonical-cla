@@ -9,18 +9,18 @@ from pydantic import ValidationError
 
 from app.config import config
 from app.http_client import http_client
+from app.oidc.cookies import (
+    OIDCAccessTokenCookieSession,
+    OIDCPendingAuthCookieSession,
+    oidc_access_token_cookie_session,
+    oidc_pending_auth_cookie_session,
+)
 from app.oidc.models import (
     OIDCAccessTokenSession,
     OIDCMetadata,
     OIDCPendingAuthSession,
     OIDCTokenResponse,
     OIDCUserInfo,
-)
-from app.oidc.cookies import (
-    oidc_access_token_cookie_session,
-    oidc_pending_auth_cookie_session,
-    OIDCAccessTokenCookieSession,
-    OIDCPendingAuthCookieSession,
 )
 
 logger = logging.getLogger(__name__)
@@ -118,7 +118,8 @@ class OIDCService:
 
         if response.status_code != 200:
             raise HTTPException(
-                status_code=400, detail=f"Failed to exchange code for token: {response.text}"
+                status_code=400,
+                detail=f"Failed to exchange code for token: {response.text}",
             )
 
         token_response = response.json()

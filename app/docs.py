@@ -33,7 +33,7 @@ def get_redoc_html() -> HTMLResponse:
     <!-- needed for adaptive design -->
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-<link href="https://fonts.googleapis.com/css2?family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap" rel="stylesheet">    
+<link href="https://fonts.googleapis.com/css2?family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap" rel="stylesheet">
     <link rel="shortcut icon" href="https://assets.ubuntu.com/v1/be7e4cc6-COF-favicon-32x32.png">
     <!--
     ReDoc doesn't change outer page styles
@@ -50,7 +50,7 @@ def get_redoc_html() -> HTMLResponse:
         font-family: 'Ubuntu Mono', monospace !important;
         font-size: 1.1em !important;
        }}
-       
+
       .api-content div:has(> h1), .api-content div:has(> h2), .api-content div:has(> h3) {{
         padding-top: 20px !important;
         padding-bottom: 10px !important;

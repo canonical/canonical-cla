@@ -22,9 +22,7 @@ async def test_login_success(token_urlsafe):
     github_service = GithubService(
         pending_auth_cookie_session, access_token_cookie_session, http_client
     )
-    response = await github_service.login(
-        "http://test.com/callback", "http://test.com"
-    )
+    response = await github_service.login("http://test.com/callback", "http://test.com")
     assert pending_auth_cookie_session.set_cookie.called
     assert response.status_code == 307
     assert response.headers["location"].startswith("https://github.com/login")

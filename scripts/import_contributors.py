@@ -26,7 +26,7 @@ async def import_contributors(
     """
     Import contributors from a JSON file.
     """
-    with open(file_path, "r") as file:
+    with open(file_path) as file:
         contributors = json.load(file)
 
     # set request's ip as it is required by the audit log
@@ -45,7 +45,6 @@ async def import_contributors(
         contributor.pop("email")
         contributor.pop("date")
         try:
-
             individual = Individual(**contributor)
             await individual_repository.create_individual(individual)
             imported_count += 1
