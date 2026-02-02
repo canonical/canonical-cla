@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "charliermarsh.ruff",
+    "astral-sh.ty",
+    "magicstack.magicpython",
+    "ms-python.python",
+    "ms-python.debugpy"
+  ]
+}
