@@ -5,6 +5,11 @@ Make sure environment variables are set before running this script.
 """
 
 import argparse
+import sys
+from pathlib import Path
+
+# Add project root to path so "app" can be imported when run as python scripts/audit_logs.py
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import asyncio
 import datetime
 from typing import Annotated

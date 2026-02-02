@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -86,7 +87,7 @@ async def test_callback_bad_request():
 async def test_profile_success():
     pending_auth_cookie_session = MagicMock()
     access_token_cookie_session = MagicMock()
-    mock_responses = {
+    mock_responses: dict[str, dict[str, Any]] = {
         "https://api.github.com/user/emails": {
             "status_code": 200,
             "json": [

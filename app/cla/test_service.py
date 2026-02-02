@@ -1,8 +1,10 @@
 from datetime import datetime
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
+from pydantic_extra_types.country import CountryAlpha2
 from pytest_asyncio import fixture
 
 from app.cla.models import (
@@ -163,7 +165,7 @@ async def test_individual_cla_sign_case_insensitive_github_email(cla_service):
         first_name="Test",
         last_name="User",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email="User@Example.Com",  # Mixed case
         launchpad_email=None,
     )
@@ -197,7 +199,7 @@ async def test_individual_cla_sign_case_insensitive_launchpad_email(cla_service)
         first_name="Test",
         last_name="User",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email=None,
         launchpad_email="User@Example.Com",  # Mixed case
     )
@@ -232,7 +234,7 @@ async def test_individual_cla_sign_github_email_blocked_raises_http_exception(
         first_name="Test",
         last_name="User",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email="user@intel.com",
         launchpad_email=None,
     )
@@ -254,7 +256,7 @@ async def test_individual_cla_sign_launchpad_email_blocked_raises_http_exception
         first_name="Test",
         last_name="User",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email=None,
         launchpad_email="user@intel.com",
     )
@@ -278,7 +280,7 @@ async def test_organization_cla_sign_blocked_domain_raises_http_exception(cla_se
         contact_email="owner@intel.com",
         phone_number="+1234567890",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
     )
 
     github_profile = GitHubProfile(username="owner", _id=1, emails=["owner@intel.com"])
@@ -300,7 +302,7 @@ async def test_individual_cla_sign_multiple_profile_emails_case_insensitive(
         first_name="Test",
         last_name="User",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email="PRIMARY@Example.Com",  # Mixed case, should match second email
         launchpad_email=None,
     )
@@ -334,7 +336,7 @@ async def test_individual_cla_sign_github_email_mismatch_error_message(cla_servi
         first_name="Test",
         last_name="User",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email="user@different.com",
         launchpad_email=None,
     )
@@ -363,7 +365,7 @@ async def test_individual_cla_sign_launchpad_email_mismatch_error_message(cla_se
         first_name="Test",
         last_name="User",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email=None,
         launchpad_email="user@different.com",
     )
@@ -392,7 +394,7 @@ async def test_individual_cla_sign_both_emails_case_insensitive(cla_service):
         first_name="Test",
         last_name="User",
         address="123 Test St",
-        country="US",
+        country=cast(CountryAlpha2, "US"),
         github_email="GitHub@Example.Com",
         launchpad_email="LaunchPad@Example.Com",
     )

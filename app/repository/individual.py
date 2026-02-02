@@ -18,7 +18,7 @@ class IndividualRepository(Protocol):
     ) -> list[Individual]: ...
 
     async def create_individual(self, individual: Individual) -> Individual: ...
-    async def delete_individual(self, individual_id: int) -> None: ...
+    async def delete_individual(self, individual_id: int) -> Individual: ...
     async def get_individuals_by_github_usernames(
         self, usernames: list[str]
     ) -> list[Individual]: ...
@@ -58,7 +58,7 @@ class SQLIndividualRepository(IndividualRepository):
         return list(result.scalars().all())
 
     async def create_individual(self, individual: Individual) -> Individual:
-        individual.signed_at = (
+        individual.signed_at = ( # type: ignore[assignment]
             individual.signed_at.replace(tzinfo=None) if individual.signed_at else None
         )
         self.session.add(individual)
@@ -75,7 +75,7 @@ class SQLIndividualRepository(IndividualRepository):
         await self.session.refresh(individual)
         return individual
 
-    async def delete_individual(self, individual_id: int) -> None:
+    async def delete_individual(self, individual_id: int) -> Individual:
         individual = await self.session.get(Individual, individual_id)
         if individual is None:
             raise ValueError(f"Individual with id {individual_id} not found")

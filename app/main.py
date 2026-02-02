@@ -2,7 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 import sentry_sdk
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI, Request
 from prometheus_fastapi_instrumentator import Instrumentator as PrometheusInstrumentator
 from sentry_sdk.integrations.asyncpg import AsyncPGIntegration
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -14,12 +14,10 @@ from app.cla.routes import cla_router
 from app.config import config
 from app.docs import get_redoc_html
 from app.github.routes import github_router
-from app.http_client import HTTPClient, http_client
 from app.launchpad.routes import launchpad_router
 from app.logging import configure_logger
 from app.middlewares import register_middlewares
 from app.oidc.routes import oidc_router
-from app.repository.individual import IndividualRepository, individual_repository
 from app.security.config import private_paths
 
 logger = logging.getLogger(__name__)
@@ -81,22 +79,6 @@ def read_root(request: Request):
         "message": "Welcome to Canonical Contribution Licence Agreement (CLA) Service",
         "docs": request.url_for("redoc_html")._url,
     }
-
-
-@app.get("/debug-ip", include_in_schema=False)
-def debug_ip(request: Request):
-    return {"client_ip": request.client.host}
-
-
-@app.get("/debug-error", include_in_schema=False)
-async def debug_error(
-    individual_repository: IndividualRepository = Depends(individual_repository),
-    http_client: HTTPClient = Depends(http_client),
-):
-    # XXX remove this once tested on prod
-    await http_client.get("https://example.com")
-    await individual_repository.get_individuals(emails=["test@example.com"])
-    1 / 0
 
 
 @app.get("/docs", include_in_schema=False)

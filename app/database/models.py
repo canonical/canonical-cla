@@ -83,7 +83,9 @@ class Organization(Base):
 
     def __str__(self):
         active = (
-            f"active {(self.signed_at.isoformat())}" if self.is_active() else "revoked"
+            f"active {(self.signed_at.isoformat())}"
+            if self.signed_at and self.is_active()
+            else "revoked"
         )
         return f"organization {self.id}: {self.name} domain: {self.email_domain} status: {active}"
 
@@ -113,9 +115,12 @@ class AuditLog(Base):
     details: Mapped[dict[str, str] | None] = mapped_column(JSON)
 
     def __str__(self):
-        details = (
-            f"{self.details.get('name')} (domain: {self.details.get('email_domain')}, contact: {self.details.get('contact_name')}<{self.details.get('contact_email')}>)"
-            if self.entity_type == "ORGANIZATION"
-            else f"{self.details.get('first_name')} {self.details.get('last_name')} (github: {self.details.get('github_username')}<{self.details.get('github_email')}>, launchpad: {self.details.get('launchpad_username')}<{self.details.get('launchpad_email')}>)"
-        )
-        return f"{self.timestamp.isoformat()} audit log({self.id}): action({self.action}), IP({self.ip_address}), {self.entity_type}({self.entity_id}): {details}"
+        formatted_details = "N/A"
+        if self.details:
+            if self.entity_type == "INDIVIDUAL":
+                individual = Individual(**self.details)
+                formatted_details = f"{individual.first_name} {individual.last_name} (github: {individual.github_username}<{individual.github_email}>, launchpad: {individual.launchpad_username}<{individual.launchpad_email}>)"
+            elif self.entity_type == "ORGANIZATION":
+                organization = Organization(**self.details)
+                formatted_details = f"{organization.name} (domain: {organization.email_domain}, contact: {organization.contact_name}<{organization.contact_email}>)"
+        return f"{self.timestamp.isoformat()} audit log({self.id}): action({self.action}), IP({self.ip_address}), {self.entity_type}({self.entity_id}): {formatted_details}"
