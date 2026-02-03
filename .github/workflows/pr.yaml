@@ -29,7 +29,7 @@ jobs:
         run: poetry install --no-interaction
 
       - name: Check Formatting
-        run: exit 0 # XXX | poetry run check
+        run: poetry run check
 
       - name: Run Tests
         run: poetry run test

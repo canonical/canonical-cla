@@ -2,6 +2,7 @@
   "recommendations": [
     "charliermarsh.ruff",
     "astral-sh.ty",
-    "wholroyd.jinja"
+    "wholroyd.jinja",
+    "ms-python.python"
   ]
 }
