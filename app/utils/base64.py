@@ -16,8 +16,8 @@ class Base64:
         try:
             output = _base64.b64decode(data.encode())
             return output.decode() if text else output
-        except binascii.Error:
-            raise HTTPException(status_code=400, detail="Invalid base64 encoding")
+        except binascii.Error as e:
+            raise HTTPException(status_code=400, detail="Invalid base64 encoding") from e
 
     @staticmethod
     def decode_str(data: str) -> str:

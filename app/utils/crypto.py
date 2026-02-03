@@ -9,7 +9,7 @@ from app.config import config
 from app.utils.base64 import Base64
 
 
-class AESCipher(object):
+class AESCipher:
     def __init__(self, key: str):
         self.bs = AES.block_size
         self.key = sha256(key.encode()).digest()

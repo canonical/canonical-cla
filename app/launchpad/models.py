@@ -1,4 +1,5 @@
 from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 
@@ -28,19 +29,72 @@ class LaunchpadPersonResponse(BaseModel):
 
 
 class LaunchpadEmailResponse(BaseModel):
-    self_link: Annotated[str, Field(description="The self link", examples=["https://api.launchpad.net/1.0/~canonical/+email/contact@canonical.com"])]
-    web_link: Annotated[str, Field(description="The web link", examples=["https://launchpad.net/~canonical/+email/contact@canonical.com"])]
-    resource_type_link: Annotated[str, Field(description="The resource type link", examples=["https://api.launchpad.net/1.0/~canonical/+email/contact@canonical.com"])]
-    email: Annotated[str, Field(description="The email", examples=["contact@canonical.com"])]
-    person_link: Annotated[str, Field(description="The person link", examples=["https://api.launchpad.net/1.0/~canonical"])]
+    self_link: Annotated[
+        str,
+        Field(
+            description="The self link",
+            examples=[
+                "https://api.launchpad.net/1.0/~canonical/+email/contact@canonical.com"
+            ],
+        ),
+    ]
+    web_link: Annotated[
+        str,
+        Field(
+            description="The web link",
+            examples=["https://launchpad.net/~canonical/+email/contact@canonical.com"],
+        ),
+    ]
+    resource_type_link: Annotated[
+        str,
+        Field(
+            description="The resource type link",
+            examples=[
+                "https://api.launchpad.net/1.0/~canonical/+email/contact@canonical.com"
+            ],
+        ),
+    ]
+    email: Annotated[
+        str, Field(description="The email", examples=["contact@canonical.com"])
+    ]
+    person_link: Annotated[
+        str,
+        Field(
+            description="The person link",
+            examples=["https://api.launchpad.net/1.0/~canonical"],
+        ),
+    ]
     http_etag: Annotated[str, Field(description="The http etag", examples=["etag"])]
 
 
 class LaunchpadEmailListResponse(BaseModel):
-    entries: Annotated[list[LaunchpadEmailResponse], Field(description="The entries", examples=[LaunchpadEmailResponse(self_link="https://api.launchpad.net/1.0/~canonical/+email/contact@canonical.com", web_link="https://launchpad.net/~canonical/+email/contact@canonical.com", resource_type_link="https://api.launchpad.net/1.0/~canonical/+email/contact@canonical.com", email="contact@canonical.com", person_link="https://api.launchpad.net/1.0/~canonical", http_etag="etag")])]
+    entries: Annotated[
+        list[LaunchpadEmailResponse],
+        Field(
+            description="The entries",
+            examples=[
+                LaunchpadEmailResponse(
+                    self_link="https://api.launchpad.net/1.0/~canonical/+email/contact@canonical.com",
+                    web_link="https://launchpad.net/~canonical/+email/contact@canonical.com",
+                    resource_type_link="https://api.launchpad.net/1.0/~canonical/+email/contact@canonical.com",
+                    email="contact@canonical.com",
+                    person_link="https://api.launchpad.net/1.0/~canonical",
+                    http_etag="etag",
+                )
+            ],
+        ),
+    ]
     start: Annotated[int, Field(description="The start", examples=[0])]
     total_size: Annotated[int, Field(description="The total size", examples=[1])]
-    resource_type_link: Annotated[str, Field(description="The resource type link", examples=["https://api.launchpad.net/1.0/~canonical/+email/contact@canonical.com"])]
+    resource_type_link: Annotated[
+        str,
+        Field(
+            description="The resource type link",
+            examples=[
+                "https://api.launchpad.net/1.0/~canonical/+email/contact@canonical.com"
+            ],
+        ),
+    ]
 
 
 class LaunchpadRequestTokenResponse(BaseModel):

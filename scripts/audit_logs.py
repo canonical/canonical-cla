@@ -5,6 +5,11 @@ Make sure environment variables are set before running this script.
 """
 
 import argparse
+import sys
+from pathlib import Path
+
+# Add project root to path so "app" can be imported when run as python scripts/audit_logs.py
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import asyncio
 import datetime
 from typing import Annotated
@@ -14,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.connection import async_session
-from app.database.models import AuditLog, Individual
+from app.database.models import AuditLog
 from scripts.common import create_logger, run_command
 
 logger = create_logger("import_contributors")

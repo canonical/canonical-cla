@@ -24,7 +24,7 @@ def email_domain(email: str):
     return clean_email_domain(email.split("@")[-1])
 
 
-def valid_email_domain(domain: str) -> (bool, str):
+def valid_email_domain(domain: str) -> tuple[bool, str]:
     """
     Checks if the email domain is valid and not a known email provider.
     """

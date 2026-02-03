@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -22,9 +23,7 @@ async def test_login_success(token_urlsafe):
     github_service = GithubService(
         pending_auth_cookie_session, access_token_cookie_session, http_client
     )
-    response = await github_service.login(
-        "http://test.com/callback", "http://test.com"
-    )
+    response = await github_service.login("http://test.com/callback", "http://test.com")
     assert pending_auth_cookie_session.set_cookie.called
     assert response.status_code == 307
     assert response.headers["location"].startswith("https://github.com/login")
@@ -88,7 +87,7 @@ async def test_callback_bad_request():
 async def test_profile_success():
     pending_auth_cookie_session = MagicMock()
     access_token_cookie_session = MagicMock()
-    mock_responses = {
+    mock_responses: dict[str, dict[str, Any]] = {
         "https://api.github.com/user/emails": {
             "status_code": 200,
             "json": [

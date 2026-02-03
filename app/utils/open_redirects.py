@@ -1,5 +1,6 @@
-from fastapi import HTTPException
 from urllib.parse import urlparse
+
+from fastapi import HTTPException
 
 from app.utils.trusted_websites import TRUSTED_WEBSITES
 

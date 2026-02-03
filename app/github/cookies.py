@@ -1,5 +1,5 @@
 from app.config import config
-from app.github.models import GithubPendingAuthSession, GitHubAccessTokenSession
+from app.github.models import GitHubAccessTokenSession, GithubPendingAuthSession
 from app.utils.api_cookie import APIKeyCookieModel
 
 

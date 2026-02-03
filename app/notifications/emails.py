@@ -173,7 +173,7 @@ def send_organization_deleted(
     """
     Send an email to the organization notifying them of their deletion.
     """
-    subject = f"Canonical CLA: Organization Request Rejected"
+    subject = "Canonical CLA: Organization Request Rejected"
     send_email(
         formataddr((contact_name, contact_email)),
         subject,

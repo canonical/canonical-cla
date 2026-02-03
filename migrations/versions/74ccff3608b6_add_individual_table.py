@@ -2,7 +2,7 @@
 Add individual table
 
 Revision ID: 74ccff3608b6
-Revises: 
+Revises:
 Create Date: 2024-08-15 23:00:50.452540
 """
 

@@ -46,14 +46,21 @@ class TestIsUrlFromTrustedWebsite:
 
     def test_domain_extraction_with_scheme_and_path(self):
         trusted = {"example.com"}
-        assert is_url_from_trusted_website("https://example.com/path?q=1", trusted) is True
+        assert (
+            is_url_from_trusted_website("https://example.com/path?q=1", trusted) is True
+        )
         assert is_url_from_trusted_website("http://example.com/", trusted) is True
 
     def test_domain_extraction_with_port(self):
         """urlparse is used so port is stripped from netloc (hostname)."""
         trusted = {"localhost", "example.com"}
-        assert is_url_from_trusted_website("http://localhost:8000/callback", trusted) is True
-        assert is_url_from_trusted_website("https://example.com:443/path", trusted) is True
+        assert (
+            is_url_from_trusted_website("http://localhost:8000/callback", trusted)
+            is True
+        )
+        assert (
+            is_url_from_trusted_website("https://example.com:443/path", trusted) is True
+        )
 
     def test_domain_extraction_rejects_wrong_host(self):
         trusted = {"example.com"}
@@ -61,9 +68,14 @@ class TestIsUrlFromTrustedWebsite:
 
     def test_wildcard_pattern_matching(self):
         trusted = {"*.ubuntu.com", "ubuntu.com"}
-        assert is_url_from_trusted_website("https://wiki.ubuntu.com/page", trusted) is True
+        assert (
+            is_url_from_trusted_website("https://wiki.ubuntu.com/page", trusted) is True
+        )
         assert is_url_from_trusted_website("https://ubuntu.com/page", trusted) is True
-        assert is_url_from_trusted_website("https://ubuntu.com.evil.com/", trusted) is False
+        assert (
+            is_url_from_trusted_website("https://ubuntu.com.evil.com/", trusted)
+            is False
+        )
 
     def test_empty_trusted_set(self):
         assert is_url_from_trusted_website("https://localhost/", set()) is False

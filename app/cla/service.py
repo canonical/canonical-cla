@@ -1,4 +1,3 @@
-from app.github.models import GitHubProfile
 import logging
 
 from fastapi import Depends, HTTPException
@@ -14,6 +13,7 @@ from app.database.models import Individual, Organization
 from app.emails.blocked.blocked_emails import is_email_blocked
 from app.emails.blocked.excluded_emails import excluded_email
 from app.emails.email_utils import clean_email, email_domain
+from app.github.models import GitHubProfile
 from app.github.service import GithubService, github_service
 from app.launchpad.models import LaunchpadProfile
 from app.launchpad.service import LaunchpadService, launchpad_service
@@ -231,7 +231,7 @@ class CLAService:
             raise HTTPException(
                 status_code=409,
                 detail=f"An individual with the provided {provided_email} already signed the CLA",
-            )
+            ) from e
 
     async def organization_cla_sign(
         self,
@@ -262,11 +262,11 @@ class CLAService:
         organization = Organization(**organization_form.model_dump())
         try:
             return await self.organization_repository.create_organization(organization)
-        except IntegrityError:
+        except IntegrityError as e:
             raise HTTPException(
                 status_code=409,
                 detail="An organization with the provided email domain already signed the CLA",
-            )
+            ) from e
 
 
 async def cla_service(

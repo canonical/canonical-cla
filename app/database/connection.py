@@ -1,5 +1,6 @@
 import logging
-from typing import Annotated, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Annotated
 
 from fastapi import Depends
 from sqlalchemy.exc import SQLAlchemyError
@@ -26,7 +27,7 @@ def session_maker():
 
 
 async def async_session(
-    make_session: Annotated[async_sessionmaker[AsyncSession], Depends(session_maker)]
+    make_session: Annotated[async_sessionmaker[AsyncSession], Depends(session_maker)],
 ) -> AsyncIterator[AsyncSession]:
     async with make_session() as session:
         try:

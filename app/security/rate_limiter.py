@@ -2,7 +2,6 @@ import ipaddress
 import logging
 from datetime import datetime
 from hashlib import md5
-from typing import Tuple
 
 import httpx
 from fastapi import Request
@@ -40,7 +39,7 @@ end
 
 
 class RateLimiter:
-    _script_sha: str
+    _script_sha: str | None = None
     _github_ips_key = "rate_limiter:github_ips"
     _github_ips_last_update_key = "rate_limiter:github_ips:last_update"
 
@@ -118,7 +117,7 @@ class RateLimiter:
                 logger.error("No GitHub IPs found, ignoring")
                 return
             await self.redis.delete(self._github_ips_key)
-            await self.redis.sadd(self._github_ips_key, *list(github_ips))
+            await self.redis.sadd(self._github_ips_key, *list(github_ips))  # ty: ignore[invalid-await] - wrong redis type annotation, entire async module is typed as sync
             await self.redis.set(self._github_ips_last_update_key, current_time)
             logger.info(f"GitHub IPs ({len(github_ips)}) updated")
 
@@ -127,7 +126,7 @@ class RateLimiter:
         Check if the client's IP address is in the whitelist.
         """
         request_path = self.request.scope["path"]
-        if not request_path in whitelistable_paths:
+        if request_path not in whitelistable_paths:
             return False
         try:
             ip_address = ipaddress.ip_address(self._ip_address())
@@ -138,7 +137,7 @@ class RateLimiter:
                         return True
                 except ValueError:
                     continue
-            for runner in await self.redis.smembers(self._github_ips_key):
+            for runner in await self.redis.smembers(self._github_ips_key):  # ty: ignore[invalid-await]
                 try:
                     if ip_address in ipaddress.ip_network(runner):
                         return True
@@ -151,7 +150,7 @@ class RateLimiter:
     async def is_allowed(
         self,
         key: str | None = None,
-    ) -> Tuple[bool, int]:
+    ) -> tuple[bool, int]:
         """
         Check if the request is allowed based on the rate limit.
         This also increments the request count in Redis on each call.
@@ -170,7 +169,7 @@ class RateLimiter:
         key = key or self._request_identifier()
         try:
             script_sha = await self._redis_script_sha()
-            time_left = await self.redis.evalsha(
+            time_left = await self.redis.evalsha(  # ty: ignore[invalid-await]
                 script_sha,
                 1,
                 key,
@@ -182,7 +181,7 @@ class RateLimiter:
             logger.error(f"Error checking rate limit: {e}")
             return (True, 0)
 
-    async def is_allowed_manual(self, key: str | None = None) -> Tuple[bool, int]:
+    async def is_allowed_manual(self, key: str | None = None) -> tuple[bool, int]:
         """
         Check if the request is allowed based on the rate limit.
         This also increments the request count in Redis on each call.

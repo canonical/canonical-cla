@@ -1,22 +1,23 @@
 import json
 import logging
-import time
-from pydantic import ValidationError
-from app.launchpad.cookies import (
-    LaunchpadPendingAuthCookieSession,
-    LaunchpadAccessTokenCookieSession,
-    launchpad_pending_auth_cookie_session,
-    launchpad_access_token_cookie_session,
-)
 import secrets
+import time
 from urllib.parse import parse_qsl, urlencode
+
 import httpx
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import ValidationError
 
 from app.config import config
 from app.emails.blocked.excluded_emails import excluded_email
 from app.http_client import http_client
+from app.launchpad.cookies import (
+    LaunchpadAccessTokenCookieSession,
+    LaunchpadPendingAuthCookieSession,
+    launchpad_access_token_cookie_session,
+    launchpad_pending_auth_cookie_session,
+)
 from app.launchpad.models import (
     AccessTokenSession,
     LaunchpadAccessTokenResponse,

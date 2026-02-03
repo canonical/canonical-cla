@@ -1,4 +1,3 @@
-from app.github.cookies import github_pending_auth_cookie_session
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -6,10 +5,11 @@ from fastapi.responses import RedirectResponse
 from starlette.requests import Request
 
 from app.config import config
+from app.github.cookies import github_pending_auth_cookie_session
 from app.github.models import (
+    GithubPendingAuthSession,
     GitHubProfile,
     GitHubWebhookPayload,
-    GithubPendingAuthSession,
 )
 from app.github.service import GithubService, github_service, github_user
 from app.github.webhook_service import GithubWebhookService, github_webhook_service
@@ -39,8 +39,7 @@ async def github_login(
         validate_open_redirect(decoded_redirect_url)
     return await github_service.login(
         f"{config.app_url}/github/callback",
-        redirect_url=decoded_redirect_url
-        or f"{config.app_url}/github/profile",
+        redirect_url=decoded_redirect_url or f"{config.app_url}/github/profile",
     )
 
 
@@ -162,6 +161,6 @@ async def webhook(
         from pydantic_core import _pydantic_core
 
         if isinstance(e, _pydantic_core.ValidationError):
-            raise HTTPException(status_code=400, detail="Invalid webhook payload")
+            raise HTTPException(status_code=400, detail="Invalid webhook payload") from e
         raise
     return await github_webhook_service.process_webhook(payload)

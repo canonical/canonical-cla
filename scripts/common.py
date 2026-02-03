@@ -1,8 +1,9 @@
 import inspect
 import logging
 import sys
+from collections.abc import Callable
 from contextlib import AsyncExitStack
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import Request
 from fastapi.datastructures import State
