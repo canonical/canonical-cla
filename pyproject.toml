@@ -39,8 +39,14 @@ python-multipart = "^0.0.9"
 prometheus-fastapi-instrumentator = "^7.0.0"
 python-json-logger = "^3.2.1"
 opentelemetry-instrumentation-logging = "^0.51b0"
-gidgethub = {extras = ["httpx"], version = "^5.4.0"}
-sentry-sdk = {extras = ["asyncpg", "fastapi", "httpx", "redis", "sqlalchemy"], version = "^2.48.0"}
+gidgethub = { extras = ["httpx"], version = "^5.4.0" }
+sentry-sdk = { extras = [
+    "asyncpg",
+    "fastapi",
+    "httpx",
+    "redis",
+    "sqlalchemy",
+], version = "^2.48.0" }
 ipython = "^8.38.0"
 nest-asyncio = "^1.6.0"
 
@@ -67,18 +73,14 @@ select = [
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
 ]
-ignore = ["E203", "E501", "B008"]
+ignore = [
+    "E501", # line too long
+    "B008", # errors on each Depends(..) which is part of the FastAPI dependency injection system
+]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-
-# [tool.ty.rules]
-# unresolved-attribute = "ignore"
-# invalid-type-form="ignore"
-# missing-typed-dict-key="ignore"
-# invalid-typed-dict-statement="ignore"
-
 
 [build-system]
 requires = ["poetry-core"]

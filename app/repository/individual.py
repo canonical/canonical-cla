@@ -58,7 +58,7 @@ class SQLIndividualRepository(IndividualRepository):
         return list(result.scalars().all())
 
     async def create_individual(self, individual: Individual) -> Individual:
-        individual.signed_at = ( # type: ignore[assignment]
+        individual.signed_at = (  # type: ignore[assignment] - safe instance attribute assignment
             individual.signed_at.replace(tzinfo=None) if individual.signed_at else None
         )
         self.session.add(individual)
