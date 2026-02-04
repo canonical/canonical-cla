@@ -36,6 +36,7 @@ if config.sentry_dsn:
         dsn=config.sentry_dsn,
         environment=config.environment,
         debug=config.debug_mode,
+        enable_logs=not config.debug_mode,  # not locally
         integrations=[
             FastApiIntegration(),
             SqlalchemyIntegration(),
