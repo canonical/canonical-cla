@@ -5,6 +5,7 @@ import pytest
 from fastapi import Request, Response
 from pydantic import BaseModel
 
+import app.config as app_config
 from app.utils.api_cookie import APIKeyCookieModel, EncryptedAPIKeyCookie
 from app.utils.crypto import AESCipher
 
@@ -158,3 +159,40 @@ def test_model_cookie_set_cookie_model_instance(model_cookie, secret_key):
     cipher = AESCipher(secret_key)
     decrypted = cipher.decrypt(encrypted_value)
     assert json.loads(decrypted or "") == model.model_dump()
+
+
+def test_model_cookie_set_cookie_default_params_debug_true(model_cookie, monkeypatch):
+    # When debug_mode is True, secure should default to False
+    monkeypatch.setattr(app_config.config, "debug_mode", True)
+
+    response = MagicMock(spec=Response)
+
+    model_cookie.set_cookie(response)
+
+    response.set_cookie.assert_called_once()
+    call_kwargs = response.set_cookie.call_args[1]
+
+    assert call_kwargs["key"] == "model_cookie"
+    assert call_kwargs["secure"] is False
+    assert call_kwargs["httponly"] is True
+    assert call_kwargs["samesite"] == "lax"
+    assert call_kwargs["path"] == "/"
+    assert call_kwargs["domain"] is None
+
+
+def test_model_cookie_set_cookie_default_params_debug_false(model_cookie, monkeypatch):
+    monkeypatch.setattr(app_config.config, "debug_mode", False)
+
+    response = MagicMock(spec=Response)
+
+    model_cookie.set_cookie(response)
+
+    response.set_cookie.assert_called_once()
+    call_kwargs = response.set_cookie.call_args[1]
+
+    assert call_kwargs["key"] == "model_cookie"
+    assert call_kwargs["secure"] is True
+    assert call_kwargs["httponly"] is True
+    assert call_kwargs["samesite"] == "lax"
+    assert call_kwargs["path"] == "/"
+    assert call_kwargs["domain"] is None

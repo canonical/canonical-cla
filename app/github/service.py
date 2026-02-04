@@ -65,9 +65,6 @@ class GithubService:
             response,
             value=pending_auth_session,
             max_age=600,
-            httponly=True,
-            secure=not config.debug_mode,
-            samesite="lax",
         )
         return response
 
@@ -89,8 +86,11 @@ class GithubService:
         if response.status_code != 200:
             raise HTTPException(
                 status_code=response.status_code,
-                detail="Failed to get access token from GitHub",
+                detail="Unauthorized(GitHub): Not authenticated"
+                if response.status_code == 401
+                else f"Failed to get access token from GitHub: {response.text}",
             )
+
         if "error" in response.json():
             raise HTTPException(
                 status_code=400,
@@ -122,9 +122,6 @@ class GithubService:
         self.access_token_cookie_session.set_cookie(
             response,
             value=access_token_session,
-            httponly=True,
-            secure=not config.debug_mode,
-            samesite="lax",
         )
         response.delete_cookie(key=self.pending_auth_cookie_session.name)
         return response
