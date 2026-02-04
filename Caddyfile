@@ -1,0 +1,15 @@
+http://cla.localhost {
+    
+    # Route /ui/* to CLA UI (running on host port 5173)
+    # We explicitly trust the upstream for HMR/Websockets
+    handle_path /ui/* {
+        reverse_proxy host.docker.internal:5173 {
+            trusted_proxies private_ranges
+        }
+    }
+
+    # Route everything else to CLA API
+    handle {
+        reverse_proxy host.docker.internal:8000
+    }
+}
