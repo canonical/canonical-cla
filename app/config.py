@@ -138,6 +138,10 @@ class Config(BaseSettings):
     debug_mode: bool = False
     environment: str = "development"
     maintenance_mode: bool = False
+    """
+    HTTP X-Internal-Secret API secret for internal endpoints.
+    """
+    internal_api_secret: SecretStr
 
     """
     HTTP client settings:

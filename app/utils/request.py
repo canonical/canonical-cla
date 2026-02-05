@@ -2,9 +2,11 @@ import ipaddress
 import logging
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from fastapi import Request
+from fastapi import Header, HTTPException, Request
 from starlette.datastructures import Headers
 from typing_extensions import TypedDict
+
+from app.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +17,23 @@ class ErrorResponse(TypedDict):
 
 def error_status_codes(status_code: list[int]):
     return {status: {"model": ErrorResponse} for status in status_code}
+
+
+def internal_only(
+    x_internal_secret: str = Header(..., alias="X-Internal-Secret"),
+):
+    """
+    Dependency that verifies the internal secret header.
+    Usage:
+    ```
+    @app.get("/secret-endpoint", dependencies=[Depends(internal_only)])
+    async def internal_ping():
+        return {"ok": True}
+    ```
+    """
+    if x_internal_secret != config.internal_api_secret.get_secret_value():
+        raise HTTPException(status_code=422, detail="Invalid internal secret")
+    return True
 
 
 def update_query_params(url: str, **params) -> str:
