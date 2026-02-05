@@ -110,7 +110,7 @@ class GithubService:
         )
         # XXX: This is a hack to get the access token into the redirect URL
         # Remove this once we migrate the CLA form over to this domain
-        if redirect_url != f"{config.app_url}/github/profile":
+        if redirect_url.startswith(config.app_url):
             redirect_url = update_query_params(
                 redirect_url,
                 access_token=self.access_token_cookie_session.cipher.encrypt(
