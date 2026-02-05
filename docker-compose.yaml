@@ -1,5 +1,15 @@
 version: "3"
 services:
+  proxy:
+    image: caddy:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   db:
     image: postgres:latest
     container_name: canonical-cla-db
@@ -46,3 +56,5 @@ services:
       - tempo
 volumes:
   postgres-data:
+  caddy_data:
+  caddy_config:

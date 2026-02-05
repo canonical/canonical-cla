@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import sentry_sdk
 from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from prometheus_fastapi_instrumentator import Instrumentator as PrometheusInstrumentator
 from sentry_sdk.integrations.asyncpg import AsyncPGIntegration
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -75,14 +76,19 @@ app.include_router(oidc_router)
 
 
 @app.get("/", include_in_schema=False)
-def read_root(request: Request):
+def read_root():
+    return RedirectResponse(url="/ui/", status_code=307)
+
+
+@app.get("/api", include_in_schema=False)
+def read_api(request: Request):
     return {
-        "message": "Welcome to Canonical Contribution Licence Agreement (CLA) Service",
+        "message": "Welcome to Canonical Contribution Licence Agreement (CLA) API",
         "docs": request.url_for("redoc_html")._url,
     }
 
 
-@app.get("/docs", include_in_schema=False)
+@app.get("/api/docs", include_in_schema=False)
 async def redoc_html():
     state = app.state._state
     if state.get("redoc_html") is None:

@@ -67,7 +67,7 @@ def get_redoc_html() -> HTMLResponse:
         ReDoc requires Javascript to function. Please enable it to browse the documentation.
     </noscript>
     <redoc
-        spec-url="./openapi.json"
+        spec-url="/openapi.json"
         required-props-first=true
         theme='{json.dumps(redoc_theme)}'
     >
