@@ -1,17 +1,16 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from starlette.testclient import TestClient
 
 from app.utils.request import (
     ErrorResponse,
     error_status_codes,
-    internal_endpoint,
+    internal_only,
     ip_address,
     is_local_request,
     update_query_params,
-    verify_internal_token,
 )
 
 
@@ -21,45 +20,48 @@ def test_error_status_codes():
     assert result == {400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}}
 
 
-def test_internal_endpoint_returns_expected_structure():
-    """internal_endpoint() returns kwargs to pass to route decorator."""
-    result = internal_endpoint()
-    assert len(result["dependencies"]) == 1
-    assert result["dependencies"][0].dependency == verify_internal_token
-
-
 @patch("app.utils.request.config")
-def test_verify_internal_token_via_endpoint_missing_header(mock_config):
-    """Internal endpoint returns 422 when X-Internal-Secret header is missing."""
+def test_internal_only_via_endpoint_missing_header(mock_config):
     mock_config.internal_api_secret.get_secret_value.return_value = "expected-secret"
     app = FastAPI()
-    app.get("/internal/ping", **internal_endpoint())(lambda: {"ok": True})
+
+    @app.get("/internal/ping", dependencies=[Depends(internal_only)])
+    def internal_ping():
+        return {"ok": True}
+
     client = TestClient(app)
     response = client.get("/internal/ping")
     assert response.status_code == 422
 
 
 @patch("app.utils.request.config")
-def test_verify_internal_token_via_endpoint_wrong_secret(mock_config):
-    """Internal endpoint returns 404 when X-Internal-Secret is wrong."""
+def test_internal_only_via_endpoint_wrong_secret(mock_config):
     mock_config.internal_api_secret.get_secret_value.return_value = "expected-secret"
     app = FastAPI()
-    app.get("/internal/ping", **internal_endpoint())(lambda: {"ok": True})
+
+    @app.get("/internal/ping", dependencies=[Depends(internal_only)])
+    def internal_ping():
+        return {"ok": True}
+
     client = TestClient(app)
     response = client.get(
         "/internal/ping",
         headers={"X-Internal-Secret": "wrong-secret"},
     )
-    assert response.status_code == 404
-    assert response.json() == {"detail": "Not Found"}
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid internal secret"}
 
 
 @patch("app.utils.request.config")
-def test_verify_internal_token_via_endpoint_correct_secret(mock_config):
-    """Internal endpoint returns 200 when X-Internal-Secret is correct."""
+def test_internal_only_via_endpoint_correct_secret(mock_config):
+    """Internal-only endpoint returns 200 when X-Internal-Secret is correct."""
     mock_config.internal_api_secret.get_secret_value.return_value = "expected-secret"
     app = FastAPI()
-    app.get("/internal/ping", **internal_endpoint())(lambda: {"ok": True})
+
+    @app.get("/internal/ping", dependencies=[Depends(internal_only)])
+    def internal_ping():
+        return {"ok": True}
+
     client = TestClient(app)
     response = client.get(
         "/internal/ping",

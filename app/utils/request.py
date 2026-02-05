@@ -1,9 +1,8 @@
 import ipaddress
 import logging
-from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Header, HTTPException, Request
 from starlette.datastructures import Headers
 from typing_extensions import TypedDict
 
@@ -20,24 +19,21 @@ def error_status_codes(status_code: list[int]):
     return {status: {"model": ErrorResponse} for status in status_code}
 
 
-async def verify_internal_token(
+def internal_only(
     x_internal_secret: str = Header(..., alias="X-Internal-Secret"),
 ):
     """
-    Dependency that halts the request if the secret header is missing or wrong.
+    Dependency that verifies the internal secret header.
+    Usage:
+    ```
+    @app.get("/secret-endpoint", dependencies=[Depends(internal_only)])
+    async def internal_ping():
+        return {"ok": True}
+    ```
     """
     if x_internal_secret != config.internal_api_secret.get_secret_value():
-        raise HTTPException(status_code=404, detail="Not Found")
-
-
-def internal_endpoint() -> dict[str, Any]:
-    """
-    Utility to flag an endpoint as internal.
-    It returns a dictionary of arguments to unpack into the route decorator.
-    """
-    return {
-        "dependencies": [Depends(verify_internal_token)],
-    }
+        raise HTTPException(status_code=422, detail="Invalid internal secret")
+    return True
 
 
 def update_query_params(url: str, **params) -> str:
