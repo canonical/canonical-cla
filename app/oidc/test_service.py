@@ -5,10 +5,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from app.oidc.models import (
-    OIDCPendingAuthSession,
-    OIDCUserInfo,
-)
+from app.oidc.models import OIDCPendingAuthSession, OIDCUserInfo
 from app.oidc.service import OIDCService
 
 
@@ -148,7 +145,11 @@ async def test_callback_success(
         status_code=200, json=lambda: mock_metadata
     )
 
-    token_response = {"access_token": "valid_token", "token_type": "Bearer"}
+    token_response = {
+        "access_token": "valid_token",
+        "token_type": "bearer",
+        "expires_in": 3600,
+    }
     mock_http_client.post.return_value = MagicMock(
         status_code=200, json=lambda: token_response
     )

@@ -8,6 +8,7 @@ from fastapi.security import APIKeyCookie
 from pydantic import BaseModel, ValidationError
 from starlette.exceptions import HTTPException
 
+from app.config import config
 from app.utils.crypto import AESCipher
 
 
@@ -141,12 +142,14 @@ class APIKeyCookieModel(EncryptedAPIKeyCookie, Generic[TModel], ABC):
         expires: datetime | str | int | None = None,
         path: str = "/",
         domain: str | None = None,
-        secure: bool = False,
-        httponly: bool = False,
+        secure: bool | None = None,
+        httponly: bool | None = True,
         samesite: Literal["lax", "strict", "none"] | None = "lax",
     ):
         if isinstance(value, BaseModel):
             value = value.model_dump()
+        if secure is None:
+            secure = not config.debug_mode
         super().set_cookie(
             response=response,
             value=value,

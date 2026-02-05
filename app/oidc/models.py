@@ -92,6 +92,20 @@ class OIDCTokenResponse(BaseModel):
             examples=["Bearer"],
         ),
     ]
+    expires_in: Annotated[
+        int,
+        Field(
+            description="Token expiration time in seconds",
+            examples=[3599],
+        ),
+    ]
+    token_type: Annotated[
+        str,
+        Field(
+            description="Token type",
+            examples=["bearer"],
+        ),
+    ]
 
 
 class OIDCUserInfo(BaseModel):

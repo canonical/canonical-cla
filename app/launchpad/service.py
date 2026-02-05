@@ -99,9 +99,6 @@ class LaunchpadService:
             response,
             value=request_token_session,
             max_age=600,
-            httponly=True,
-            secure=not config.debug_mode,
-            samesite="lax",
         )
         return response
 
@@ -159,9 +156,6 @@ class LaunchpadService:
         self.access_token_cookie_session.set_cookie(
             response,
             value=access_token_session,
-            httponly=True,
-            secure=not config.debug_mode,
-            samesite="lax",
         )
         response.delete_cookie(key=self.pending_auth_cookie_session.name)
         return response

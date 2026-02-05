@@ -90,9 +90,6 @@ class OIDCService:
             response,
             value=pending_auth_session,
             max_age=600,
-            httponly=True,
-            secure=not config.debug_mode,
-            samesite="lax",
         )
         return response
 
@@ -142,9 +139,7 @@ class OIDCService:
         self.access_token_cookie_session.set_cookie(
             response,
             value=access_token_session,
-            httponly=True,
-            secure=not config.debug_mode,
-            samesite="lax",
+            max_age=token_response_payload.expires_in,
         )
         response.delete_cookie(key=self.pending_auth_cookie_session.name)
         return response
@@ -160,7 +155,10 @@ class OIDCService:
 
         if response.status_code != 200:
             raise HTTPException(
-                status_code=response.status_code, detail="Failed to fetch user profile"
+                status_code=response.status_code,
+                detail="Unauthorized(OIDC): Not authenticated"
+                if response.status_code == 401
+                else f"Failed to fetch user profile: {response.text}",
             )
 
         try:
