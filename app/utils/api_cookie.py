@@ -52,7 +52,7 @@ class EncryptedAPIKeyCookie(APIKeyCookie):
         domain: str | None = None,
         secure: bool = False,
         httponly: bool = False,
-        samesite: Literal["strict", "strict", "none"] | None = "strict",
+        samesite: Literal["lax", "strict", "none"] | None = "lax",
     ):
         if isinstance(value, dict):
             value = json.dumps(value)
