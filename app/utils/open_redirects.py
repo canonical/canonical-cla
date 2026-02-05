@@ -36,8 +36,9 @@ def is_url_from_trusted_website(url, trusted_websites: set[str]):
         return False
 
     for pattern in trusted_websites:
-        if pattern.startswith("*"):
-            if domain.endswith(pattern[1:]):
+        if pattern.startswith("*."):
+            root_domain = pattern[2:]
+            if domain == root_domain or domain.endswith("." + root_domain):
                 return True
         elif domain == pattern:
             return True
