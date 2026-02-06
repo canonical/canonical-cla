@@ -4,12 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.oidc.models import OIDCPendingAuthSession, OIDCUserInfo
-from app.oidc.routes import (
-    oidc_callback,
-    oidc_login,
-    oidc_logout,
-    oidc_profile,
-)
+from app.oidc.routes import oidc_callback, oidc_login, oidc_logout, oidc_profile
 
 
 @pytest.fixture
@@ -70,7 +65,7 @@ async def test_oidc_callback_missing_params(mock_oidc_service):
             oidc_pending_auth_session=session,
             oidc_service=mock_oidc_service,
         )
-    assert exc.value.status_code == 401
+    assert exc.value.status_code == 400
 
 
 @pytest.mark.asyncio

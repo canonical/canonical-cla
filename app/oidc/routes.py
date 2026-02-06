@@ -53,7 +53,7 @@ async def oidc_callback(
     oidc_service: OIDCService = Depends(oidc_service),
 ):
     """Handles the Canonical OIDC callback."""
-    if oidc_pending_auth_session is None or not code or not state:
+    if oidc_pending_auth_session is None:
         raise HTTPException(
             status_code=401,
             detail="Unauthorized: OIDC session missing, please login first",
@@ -65,7 +65,8 @@ async def oidc_callback(
 
     if error_description:
         raise HTTPException(status_code=400, detail=f"OIDC Error: {error_description}")
-
+    if not code:
+        raise HTTPException(status_code=400, detail="OIDC Error: Code is required")
     return await oidc_service.callback(
         code,
         f"{config.app_url}/oidc/callback",
