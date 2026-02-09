@@ -49,8 +49,8 @@ async def github_login(
     return await github_service.login(
         f"{config.app_url}/github/callback",
         redirect_url=redirect_uri
-        if redirect_uri
-        else decoded_redirect_url or f"{config.app_url}/github/profile",
+        or decoded_redirect_url
+        or f"{config.app_url}/github/profile",
     )
 
 
@@ -150,7 +150,7 @@ async def github_logout(
     decoded_redirect_url = Base64.decode_str(redirect_url) if redirect_url else None
     if decoded_redirect_url:
         validate_open_redirect(decoded_redirect_url)
-    return github_service.logout(redirect_uri if redirect_uri else decoded_redirect_url)
+    return github_service.logout(redirect_uri or decoded_redirect_url)
 
 
 @github_router.post("/webhook", responses=error_status_codes([400, 403]))

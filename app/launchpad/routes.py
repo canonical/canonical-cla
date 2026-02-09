@@ -46,8 +46,8 @@ async def launchpad_login(
     return await launchpad_service.login(
         callback_url=f"{config.app_url}/launchpad/callback",
         redirect_url=redirect_uri
-        if redirect_uri
-        else decoded_redirect_url or f"{config.app_url}/launchpad/profile",
+        or decoded_redirect_url
+        or f"{config.app_url}/launchpad/profile",
     )
 
 
@@ -114,6 +114,4 @@ async def launchpad_logout(
     decoded_redirect_url = Base64.decode_str(redirect_url) if redirect_url else None
     if decoded_redirect_url:
         validate_open_redirect(decoded_redirect_url)
-    return launchpad_service.logout(
-        redirect_uri if redirect_uri else decoded_redirect_url
-    )
+    return launchpad_service.logout(redirect_uri or decoded_redirect_url)
