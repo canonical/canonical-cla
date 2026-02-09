@@ -2,8 +2,6 @@ import json
 
 from starlette.responses import HTMLResponse
 
-from app.config import config
-
 
 def get_redoc_html() -> HTMLResponse:
     # docs: https://redocly.com/docs/api-reference-docs/configuration/theming
@@ -29,7 +27,7 @@ def get_redoc_html() -> HTMLResponse:
     <!DOCTYPE html>
     <html>
     <head>
-    <title>{config.app_name}</title>
+    <title>Canonical CLA API</title>
     <!-- needed for adaptive design -->
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1">

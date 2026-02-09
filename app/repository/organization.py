@@ -52,7 +52,6 @@ class SQLOrganizationRepository(OrganizationRepository):
         await self.session.flush()
         log = AuditLog(
             entity_type="ORGANIZATION",
-            entity_id=organization.id,
             action="SIGN",
             details=organization.as_dict(),
             ip_address=request_ip(),
@@ -89,7 +88,6 @@ class SQLOrganizationRepository(OrganizationRepository):
         await self.session.flush()
         log = AuditLog(
             entity_type="ORGANIZATION",
-            entity_id=organization.id,
             action="UPDATE",
             details=organization.as_dict(),
             ip_address=request_ip(),
@@ -112,7 +110,6 @@ class SQLOrganizationRepository(OrganizationRepository):
         await self.session.flush()
         log = AuditLog(
             entity_type="ORGANIZATION",
-            entity_id=organization.id,
             action="DELETE",
             details=organization.as_dict(),
             ip_address=request_ip(),

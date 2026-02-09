@@ -3,13 +3,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.config import config
-from app.oidc.models import OIDCPendingAuthSession, OIDCUserInfo
+from app.oidc.models import OIDCPendingAuthSession, OIDCProfile, OIDCUserInfo
 from app.oidc.service import (
     OIDCService,
     oidc_pending_auth_cookie_session,
     oidc_service,
     oidc_user,
 )
+from app.repository.user_role import UserRoleRepository, user_role_repository
 from app.utils.request import error_status_codes
 
 oidc_router = APIRouter(prefix="/oidc", tags=["Canonical OIDC"])
@@ -81,9 +82,14 @@ async def oidc_callback(
 )
 async def oidc_profile(
     oidc_user: OIDCUserInfo = Depends(oidc_user),
-) -> OIDCUserInfo:
+    user_role_repository: UserRoleRepository = Depends(user_role_repository),
+) -> OIDCProfile:
     """Retrieves the OIDC profile of the authenticated user."""
-    return oidc_user
+    user_role = await user_role_repository.get_user_role(oidc_user.email)
+    return OIDCProfile(
+        user=oidc_user,
+        role=user_role.role if user_role else None,
+    )
 
 
 @oidc_router.get(

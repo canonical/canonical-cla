@@ -1,7 +1,8 @@
 import datetime
+import enum
 from typing import Literal
 
-from sqlalchemy import JSON, DateTime, Integer, String, func
+from sqlalchemy import JSON, DateTime, Enum, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, class_mapper, mapped_column
 
 
@@ -90,6 +91,28 @@ class Organization(Base):
         return f"organization {self.id}: {self.name} domain: {self.email_domain} status: {active}"
 
 
+class Role(str, enum.Enum):
+    """Role of an OIDC user."""
+
+    ADMIN = "admin"
+    COMMUNITY_MANAGER = "community_manager"
+    LEGAL_COUNSEL = "legal_counsel"
+
+
+class UserRole(Base):
+    __tablename__ = "user_role"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    role: Mapped[Role] = mapped_column(
+        Enum(Role, native_enum=False, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
+
+    def __str__(self):
+        return f"User {self.email} has role {self.role}"
+
+
 AuditLogActionType = Literal[
     "SIGN",
     "REVOKE",
@@ -100,6 +123,7 @@ AuditLogActionType = Literal[
 AuditEntityType = Literal[
     "INDIVIDUAL",
     "ORGANIZATION",
+    "USER_ROLE",
 ]
 
 
@@ -109,7 +133,6 @@ class AuditLog(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     action: Mapped[AuditLogActionType]
     entity_type: Mapped[AuditEntityType]
-    entity_id: Mapped[int]
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, default=func.now())
     ip_address: Mapped[str] = mapped_column(String(50))
     details: Mapped[dict[str, str] | None] = mapped_column(JSON)
@@ -123,4 +146,7 @@ class AuditLog(Base):
             elif self.entity_type == "ORGANIZATION":
                 organization = Organization(**self.details)
                 formatted_details = f"{organization.name} (domain: {organization.email_domain}, contact: {organization.contact_name}<{organization.contact_email}>)"
-        return f"{self.timestamp.isoformat()} audit log({self.id}): action({self.action}), IP({self.ip_address}), {self.entity_type}({self.entity_id}): {formatted_details}"
+            elif self.entity_type == "USER_ROLE":
+                user_role = UserRole(**self.details)
+                formatted_details = f"{user_role.email} has role {user_role.role}"
+        return f"{self.timestamp.isoformat()} audit log({self.id}): action({self.action}), IP({self.ip_address}), {self.entity_type}: {formatted_details}"

@@ -65,7 +65,6 @@ class SQLIndividualRepository(IndividualRepository):
         await self.session.flush()
         log = AuditLog(
             entity_type="INDIVIDUAL",
-            entity_id=individual.id,
             action="SIGN",
             details=individual.as_dict(),
             ip_address=request_ip(),
@@ -85,7 +84,6 @@ class SQLIndividualRepository(IndividualRepository):
         await self.session.delete(individual)
         log = AuditLog(
             entity_type="INDIVIDUAL",
-            entity_id=individual.id,
             action="DELETE",
             details=individual.as_dict(),
             ip_address=request_ip(),
