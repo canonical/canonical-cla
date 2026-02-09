@@ -5,15 +5,8 @@ from typing_extensions import TypedDict
 
 from app.config import config
 from app.launchpad.cookies import launchpad_pending_auth_cookie_session
-from app.launchpad.models import (
-    LaunchpadProfile,
-    RequestTokenSession,
-)
-from app.launchpad.service import (
-    LaunchpadService,
-    launchpad_service,
-    launchpad_user,
-)
+from app.launchpad.models import LaunchpadProfile, RequestTokenSession
+from app.launchpad.service import LaunchpadService, launchpad_service, launchpad_user
 from app.utils.base64 import Base64
 from app.utils.open_redirects import validate_open_redirect
 from app.utils.request import error_status_codes
@@ -27,10 +20,19 @@ launchpad_router = APIRouter(prefix="/launchpad", tags=["Launchpad"])
     response_model=TypedDict("Redirection", {"location": Literal["/callback"]}),
 )
 async def launchpad_login(
+    # deprecated parameter
     redirect_url: Annotated[
         str | None,
         Query(
             description="The URL to redirect to after successful login (base64 encoded).",
+        ),
+    ] = None,
+    # new parameter
+    redirect_uri: Annotated[
+        str | None,
+        Query(
+            description="The redirect URI to redirect to after login.",
+            examples=["/dashboard"],
         ),
     ] = None,
     launchpad_service: LaunchpadService = Depends(launchpad_service),
@@ -43,7 +45,9 @@ async def launchpad_login(
         validate_open_redirect(decoded_redirect_url)
     return await launchpad_service.login(
         callback_url=f"{config.app_url}/launchpad/callback",
-        redirect_url=decoded_redirect_url or f"{config.app_url}/launchpad/profile",
+        redirect_url=redirect_uri
+        or decoded_redirect_url
+        or f"{config.app_url}/launchpad/profile",
     )
 
 
@@ -89,10 +93,19 @@ async def launchpad_profile(
 
 @launchpad_router.get("/logout")
 async def launchpad_logout(
+    # deprecated parameter
     redirect_url: Annotated[
         str | None,
         Query(
             description="The URL to redirect to after successful logout (base64 encoded).",
+        ),
+    ] = None,
+    # new parameter
+    redirect_uri: Annotated[
+        str | None,
+        Query(
+            description="The redirect URI to redirect to after logout.",
+            examples=["/dashboard"],
         ),
     ] = None,
     launchpad_service: LaunchpadService = Depends(launchpad_service),
@@ -101,4 +114,4 @@ async def launchpad_logout(
     decoded_redirect_url = Base64.decode_str(redirect_url) if redirect_url else None
     if decoded_redirect_url:
         validate_open_redirect(decoded_redirect_url)
-    return launchpad_service.logout(decoded_redirect_url)
+    return launchpad_service.logout(redirect_uri or decoded_redirect_url)

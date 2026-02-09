@@ -22,11 +22,20 @@ github_router = APIRouter(prefix="/github", tags=["GitHub"])
 
 @github_router.get("/login", status_code=307)
 async def github_login(
+    # deprecated parameter
     redirect_url: Annotated[
         str | None,
         Query(
             description="The URL to redirect to after successful login (base64 encoded).",
             examples=["https://example.com/form?a=1&b=2"],
+        ),
+    ] = None,
+    # new parameter
+    redirect_uri: Annotated[
+        str | None,
+        Query(
+            description="The redirect URI to redirect to after login.",
+            examples=["/dashboard"],
         ),
     ] = None,
     github_service: GithubService = Depends(github_service),
@@ -39,7 +48,9 @@ async def github_login(
         validate_open_redirect(decoded_redirect_url)
     return await github_service.login(
         f"{config.app_url}/github/callback",
-        redirect_url=decoded_redirect_url or f"{config.app_url}/github/profile",
+        redirect_url=redirect_uri
+        or decoded_redirect_url
+        or f"{config.app_url}/github/profile",
     )
 
 
@@ -115,11 +126,20 @@ async def github_profile(
 
 @github_router.get("/logout")
 async def github_logout(
+    # deprecated parameter
     redirect_url: Annotated[
         str | None,
         Query(
             description="The URL to redirect to after successful logout (base64 encoded).",
             examples=["https://example.com/form?a=1&b=2"],
+        ),
+    ] = None,
+    # new parameter
+    redirect_uri: Annotated[
+        str | None,
+        Query(
+            description="The redirect URI to redirect to after logout.",
+            examples=["/dashboard"],
         ),
     ] = None,
     github_service: GithubService = Depends(github_service),
@@ -130,7 +150,7 @@ async def github_logout(
     decoded_redirect_url = Base64.decode_str(redirect_url) if redirect_url else None
     if decoded_redirect_url:
         validate_open_redirect(decoded_redirect_url)
-    return github_service.logout(decoded_redirect_url)
+    return github_service.logout(redirect_uri or decoded_redirect_url)
 
 
 @github_router.post("/webhook", responses=error_status_codes([400, 403]))
@@ -161,6 +181,8 @@ async def webhook(
         from pydantic_core import _pydantic_core
 
         if isinstance(e, _pydantic_core.ValidationError):
-            raise HTTPException(status_code=400, detail="Invalid webhook payload") from e
+            raise HTTPException(
+                status_code=400, detail="Invalid webhook payload"
+            ) from e
         raise
     return await github_webhook_service.process_webhook(payload)
