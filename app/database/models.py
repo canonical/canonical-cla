@@ -113,17 +113,33 @@ class UserRole(Base):
         return f"User {self.email} has role {self.role}"
 
 
-AuditLogActionType = Literal[
-    "SIGN",
-    "REVOKE",
-    "UPDATE",
-    "DELETE",
-]
+class ProjectPlatform(str, enum.Enum):
+    GITHUB = "github"
+    LAUNCHPAD = "launchpad"
+
+
+class ExcludedProject(Base):
+    __tablename__ = "excluded_project"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    platform: Mapped[ProjectPlatform] = mapped_column(
+        Enum(
+            ProjectPlatform,
+            native_enum=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=False,
+    )
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime,
+    )
+
 
 AuditEntityType = Literal[
     "INDIVIDUAL",
     "ORGANIZATION",
     "USER_ROLE",
+    "EXCLUDED_PROJECT",
 ]
 
 
@@ -131,7 +147,7 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    action: Mapped[AuditLogActionType]
+    action: Mapped[str]
     entity_type: Mapped[AuditEntityType]
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, default=func.now())
     ip_address: Mapped[str] = mapped_column(String(50))
@@ -149,4 +165,7 @@ class AuditLog(Base):
             elif self.entity_type == "USER_ROLE":
                 user_role = UserRole(**self.details)
                 formatted_details = f"{user_role.email} has role {user_role.role}"
+            elif self.entity_type == "EXCLUDED_PROJECT":
+                excluded_project = ExcludedProject(**self.details)
+                formatted_details = f"{excluded_project.full_name} (platform: {excluded_project.platform})"
         return f"{self.timestamp.isoformat()} audit log({self.id}): action({self.action}), IP({self.ip_address}), {self.entity_type}: {formatted_details}"

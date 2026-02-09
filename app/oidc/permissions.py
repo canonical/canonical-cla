@@ -18,7 +18,7 @@ class RequiresRole:
     ```
     @cla_router.get("/organization/delete", include_in_schema=False)
     async def delete_organization(
-        authorized_user: Annotated[OIDCUserInfo, Depends(requires_admin)],
+        authorized_user: OIDCUserInfo = Depends(requires_admin),
     ):  ...
     ```
     """
