@@ -13,6 +13,7 @@ class UserRoleRepository(Protocol):
     async def get_user_role(self, email: str) -> UserRole | None: ...
     async def create_user_role(self, email: str, role: Role) -> UserRole: ...
     async def delete_user_role(self, email: str) -> UserRole: ...
+    async def get_all_user_roles(self) -> list[UserRole]: ...
 
 
 class SQLUserRoleRepository(UserRoleRepository):
@@ -45,8 +46,7 @@ class SQLUserRoleRepository(UserRoleRepository):
         user_role = await self.get_user_role(email)
         if not user_role:
             raise ValueError(f"User role with email {email} not found")
-        self.session.delete(user_role)
-        await self.session.commit()
+        await self.session.delete(user_role)
         audit_log = AuditLog(
             entity_type="USER_ROLE",
             action="DELETE",
@@ -55,8 +55,12 @@ class SQLUserRoleRepository(UserRoleRepository):
         )
         self.session.add(audit_log)
         await self.session.commit()
-        await self.session.refresh(user_role)
         return user_role
+
+    async def get_all_user_roles(self) -> list[UserRole]:
+        query = select(UserRole)
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
 
 
 def user_role_repository(
