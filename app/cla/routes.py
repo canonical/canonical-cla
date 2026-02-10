@@ -446,7 +446,7 @@ async def list_excluded_projects(
     platform: ProjectPlatform | None = Query(
         title="Platform",
         description="The platform to filter by",
-        default="github",
+        default=None,
     ),
     excluded_project_repository: ExcludedProjectRepository = Depends(
         excluded_project_repository
