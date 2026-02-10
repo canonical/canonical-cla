@@ -277,8 +277,8 @@ async def test_list_excluded_projects():
     assert len(response.projects) == 1
     assert response.projects[0].full_name == "canonical/ubuntu.com"
     assert response.projects[0].platform == ProjectPlatform.GITHUB
-    assert "github" in response.supported_platforms
-    assert "launchpad" in response.supported_platforms
+    assert ProjectPlatform.GITHUB in response.supported_platforms
+    assert ProjectPlatform.LAUNCHPAD in response.supported_platforms
 
 
 @pytest.mark.asyncio
