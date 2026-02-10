@@ -15,18 +15,20 @@ logger = logging.getLogger(__name__)
 
 async def create_user_role(
     email: str,
+    role: Role,
     user_role_repository: Annotated[UserRoleRepository, Depends(user_role_repository)],
 ):
-    user_role = await user_role_repository.create_user_role(email, Role.ADMIN)
+    user_role = await user_role_repository.create_user_role(email, role)
     print("User role created:")
     print(user_role)
 
 
 async def remove_user_role(
     email: str,
+    role: Role,
     user_role_repository: Annotated[UserRoleRepository, Depends(user_role_repository)],
 ):
-    user_role = await user_role_repository.delete_user_role(email)
+    user_role = await user_role_repository.delete_user_role(email, role)
     print("User role removed:")
     print(user_role)
 
@@ -57,9 +59,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.command == "create":
-        asyncio.run(run_command(create_user_role, email=args.email, role=args.role))
+        asyncio.run(
+            run_command(create_user_role, email=args.email, role=Role(args.role))
+        )
     elif args.command == "remove":
-        asyncio.run(run_command(remove_user_role, email=args.email, role=args.role))
+        asyncio.run(
+            run_command(remove_user_role, email=args.email, role=Role(args.role))
+        )
     elif args.command == "list":
         asyncio.run(run_command(list_user_roles))
     else:
