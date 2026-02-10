@@ -476,7 +476,7 @@ async def list_excluded_projects(
 
 
 @cla_router.delete("/excluded-project", dependencies=[Depends(internal_only)])
-async def remote_excluded_project(
+async def remove_excluded_project(
     project: ExcludedProjectPayload,
     excluded_project_repository: ExcludedProjectRepository = Depends(
         excluded_project_repository
