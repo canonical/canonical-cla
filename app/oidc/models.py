@@ -2,6 +2,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
+from app.database.models import Role
+
 
 class OIDCMetadata(BaseModel):
     """OIDC provider metadata from discovery endpoint."""
@@ -120,12 +122,12 @@ class OIDCUserInfo(BaseModel):
         ),
     ]
     email: Annotated[
-        str | None,
+        str,
         Field(
             description="User's email address",
             examples=["user@canonical.com"],
         ),
-    ] = None
+    ]
     email_verified: Annotated[
         bool,
         Field(description="Whether the email is verified", examples=[True]),
@@ -153,3 +155,12 @@ class OIDCUserInfo(BaseModel):
             examples=["https://example.com/profile.jpg"],
         ),
     ] = None
+
+
+class OIDCProfile(BaseModel):
+    """Profile from Canonical OIDC."""
+
+    user: Annotated[
+        OIDCUserInfo, Field(description="User information from OIDC userinfo endpoint.")
+    ]
+    role: Annotated[Role | None, Field(description="Role of the user.")]

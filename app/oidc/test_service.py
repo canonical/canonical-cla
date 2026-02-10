@@ -215,7 +215,12 @@ async def test_profile_success(oidc_service, mock_http_client, mock_metadata):
         MagicMock(status_code=200, json=lambda: mock_metadata),
         MagicMock(
             status_code=200,
-            json=lambda: {"sub": "123", "name": "Test User", "email_verified": True},
+            json=lambda: {
+                "sub": "123",
+                "email": "test@example.com",
+                "name": "Test User",
+                "email_verified": True,
+            },
         ),
     ]
 
@@ -223,6 +228,7 @@ async def test_profile_success(oidc_service, mock_http_client, mock_metadata):
 
     assert isinstance(profile, OIDCUserInfo)
     assert profile.sub == "123"
+    assert profile.email == "test@example.com"
 
 
 @pytest.mark.asyncio

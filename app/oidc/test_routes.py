@@ -1,9 +1,10 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import HTTPException
 
-from app.oidc.models import OIDCPendingAuthSession, OIDCUserInfo
+from app.database.models import Role, UserRole
+from app.oidc.models import OIDCPendingAuthSession, OIDCProfile, OIDCUserInfo
 from app.oidc.routes import oidc_callback, oidc_login, oidc_logout, oidc_profile
 
 
@@ -98,10 +99,41 @@ async def test_oidc_callback_error_description(mock_oidc_service):
 
 
 @pytest.mark.asyncio
-async def test_oidc_profile(mock_oidc_service):
-    user = OIDCUserInfo(sub="123", email_verified=True)
-    result = await oidc_profile(oidc_user=user)
-    assert result == user
+async def test_oidc_profile_with_role():
+    user = OIDCUserInfo(
+        sub="123", email="user@example.com", email_verified=True
+    )
+    mock_user_role = Mock(spec=UserRole)
+    mock_user_role.role = Role.ADMIN
+    mock_user_role_repository = AsyncMock()
+    mock_user_role_repository.get_user_role.return_value = mock_user_role
+
+    result = await oidc_profile(
+        oidc_user=user, user_role_repository=mock_user_role_repository
+    )
+
+    assert isinstance(result, OIDCProfile)
+    assert result.user == user
+    assert result.role == Role.ADMIN
+    mock_user_role_repository.get_user_role.assert_called_once_with("user@example.com")
+
+
+@pytest.mark.asyncio
+async def test_oidc_profile_without_role():
+    user = OIDCUserInfo(
+        sub="123", email="user@example.com", email_verified=True
+    )
+    mock_user_role_repository = AsyncMock()
+    mock_user_role_repository.get_user_role.return_value = None
+
+    result = await oidc_profile(
+        oidc_user=user, user_role_repository=mock_user_role_repository
+    )
+
+    assert isinstance(result, OIDCProfile)
+    assert result.user == user
+    assert result.role is None
+    mock_user_role_repository.get_user_role.assert_called_once_with("user@example.com")
 
 
 @pytest.mark.asyncio
