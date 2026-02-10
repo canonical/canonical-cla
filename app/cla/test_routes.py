@@ -17,7 +17,7 @@ from app.cla.routes import (
     list_excluded_projects,
     manage_organization,
     projects_excluded,
-    remote_excluded_project,
+    remove_excluded_project,
     sign_cla_individual,
     sign_cla_organization,
 )
@@ -171,9 +171,7 @@ async def test_exclude_project():
         full_name="canonical/ubuntu.com",
     )
     created.id = 1
-    excluded_project_repository.add_excluded_project = AsyncMock(
-        return_value=created
-    )
+    excluded_project_repository.add_excluded_project = AsyncMock(return_value=created)
     payload = ExcludedProjectCreatePayload(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
@@ -196,9 +194,7 @@ async def test_exclude_project():
 @pytest.mark.asyncio
 async def test_projects_excluded_empty():
     excluded_project_repository = MagicMock()
-    excluded_project_repository.get_projects_excluded = AsyncMock(
-        return_value=[]
-    )
+    excluded_project_repository.get_projects_excluded = AsyncMock(return_value=[])
 
     response = await projects_excluded(
         projects=[],
@@ -206,9 +202,7 @@ async def test_projects_excluded_empty():
     )
 
     assert response == []
-    excluded_project_repository.get_projects_excluded.assert_called_once_with(
-        []
-    )
+    excluded_project_repository.get_projects_excluded.assert_called_once_with([])
 
 
 @pytest.mark.asyncio
@@ -289,7 +283,7 @@ async def test_remote_excluded_project():
         full_name="canonical/ubuntu.com",
     )
     removed.id = 1
-    excluded_project_repository.remove_excluded_project = AsyncMock(
+    excluded_project_repository.delete_excluded_project = AsyncMock(
         return_value=removed
     )
     payload = ExcludedProjectPayload(
@@ -298,14 +292,14 @@ async def test_remote_excluded_project():
     )
     authorized_user = OIDCUserInfo(sub="sub1", email="admin@canonical.com")
 
-    response = await remote_excluded_project(
+    response = await remove_excluded_project(
         project=payload,
         excluded_project_repository=excluded_project_repository,
         _authorized_user=authorized_user,
     )
 
-    excluded_project_repository.remove_excluded_project.assert_called_once()
-    call_args = excluded_project_repository.remove_excluded_project.call_args[0][0]
+    excluded_project_repository.delete_excluded_project.assert_called_once()
+    call_args = excluded_project_repository.delete_excluded_project.call_args[0][0]
     assert call_args.platform == ProjectPlatform.GITHUB
     assert call_args.full_name == "canonical/ubuntu.com"
     assert response == removed

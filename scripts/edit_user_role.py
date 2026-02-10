@@ -59,13 +59,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.command == "create":
-        asyncio.run(
-            run_command(create_user_role, email=args.email, role=Role(args.role))
-        )
+        asyncio.run(run_command(create_user_role, email=args.email, role=args.role))
     elif args.command == "remove":
-        asyncio.run(
-            run_command(remove_user_role, email=args.email, role=Role(args.role))
-        )
+        asyncio.run(run_command(remove_user_role, email=args.email, role=args.role))
     elif args.command == "list":
         asyncio.run(run_command(list_user_roles))
     else:

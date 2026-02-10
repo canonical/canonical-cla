@@ -1,5 +1,6 @@
 from asyncio import sleep
 from datetime import datetime
+from http import HTTPStatus
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
@@ -15,6 +16,7 @@ from fastapi import (
 )
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import IntegrityError
 from starlette.responses import JSONResponse
 
 from app.cla.models import (
@@ -337,12 +339,18 @@ async def exclude_project(
     """
     Exclude a project from the CLA check.
     """
-    return await excluded_project_repository.add_excluded_project(
-        ExcludedProject(
-            platform=project.platform,
-            full_name=project.full_name,
+    try:
+        return await excluded_project_repository.add_excluded_project(
+            ExcludedProject(
+                platform=project.platform,
+                full_name=project.full_name,
+            )
         )
-    )
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.CONFLICT,
+            detail=f"Project {project} already excluded",
+        ) from e
 
 
 @cla_router.get("/excluded-projects")
@@ -388,14 +396,14 @@ async def projects_excluded(
 
         try:
             platform_enum = ProjectPlatform(platform_str)
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=400,
                 detail=(
                     f"Invalid project platform '{platform_str}' "
                     f"in identifier '{project}'."
                 ),
-            )
+            ) from e
 
         formatted_projects.append(
             ExcludedProject(
@@ -486,7 +494,7 @@ async def remove_excluded_project(
     """
     Remove an excluded project from the CLA check.
     """
-    return await excluded_project_repository.remove_excluded_project(
+    return await excluded_project_repository.delete_excluded_project(
         ExcludedProject(
             platform=project.platform,
             full_name=project.full_name,

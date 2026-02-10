@@ -104,6 +104,9 @@ class ExcludedProjectPayload(BaseModel):
         ),
     ]
 
+    def __str__(self):
+        return f"{self.platform.value}@{self.full_name}"
+
 
 class ExcludedProjectListingPayload(BaseModel):
     projects: list[ExcludedProjectPayload]

@@ -25,7 +25,7 @@ class ExcludedProjectRepository(Protocol):
     async def add_excluded_project(
         self, project: ExcludedProject
     ) -> ExcludedProject: ...
-    async def remove_excluded_project(
+    async def delete_excluded_project(
         self, project: ExcludedProject
     ) -> ExcludedProject: ...
 
@@ -67,19 +67,6 @@ class SQLExcludedProjectRepository(ExcludedProjectRepository):
         """
         Adds a new excluded project to the database.
         """
-        existing_project = await self.session.execute(
-            select(ExcludedProject).where(
-                ExcludedProject.platform == project.platform,
-                ExcludedProject.full_name == project.full_name,
-            )
-        )
-        existing_project = existing_project.scalar_one_or_none()
-        if existing_project:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Project {project.full_name} already exists",
-            )
-
         project.created_at = datetime.now().replace(tzinfo=None)
         self.session.add(project)
         audit_log = AuditLog(
@@ -92,7 +79,7 @@ class SQLExcludedProjectRepository(ExcludedProjectRepository):
         await self.session.commit()
         return project
 
-    async def remove_excluded_project(
+    async def delete_excluded_project(
         self, project: ExcludedProject
     ) -> ExcludedProject:
         """
@@ -113,7 +100,7 @@ class SQLExcludedProjectRepository(ExcludedProjectRepository):
         await self.session.delete(existing)
         audit_log = AuditLog(
             entity_type="EXCLUDED_PROJECT",
-            action="REMOVE",
+            action="DELETE",
             details=existing.as_dict(),
             ip_address=request_ip(),
         )
@@ -130,7 +117,7 @@ class SQLExcludedProjectRepository(ExcludedProjectRepository):
         if not projects:
             return []
 
-        # 1. Build a single query to find any matching records in the DB
+        # Build a single query to find any matching records in the DB
         # We look for rows where (platform == P AND full_name == N)
         conditions = [
             and_(
@@ -144,14 +131,13 @@ class SQLExcludedProjectRepository(ExcludedProjectRepository):
             or_(*conditions)
         )
 
-        # 2. Execute query
         db_result = await self.session.execute(query)
 
-        # 3. Create a set of found keys (platform, full_name) for O(1) lookup
+        # Create a set of found keys (platform, full_name) for O(1) lookup
         # resulting rows will be tuples like ('github', 'canonical/repo')
         found_keys = set(db_result.all())
 
-        # 4. Map the original projects to the boolean result
+        # Map the original projects to the boolean result
         return [
             (project, (project.platform, project.full_name) in found_keys)
             for project in projects
