@@ -99,7 +99,7 @@ class ExcludedProjectPayload(BaseModel):
     full_name: Annotated[
         str,
         Field(
-            description="The full name of the project, this include the organization name and the project name.",
+            description="The full name of the project, this includes the organization name and the project name.",
             examples=["canonical/ubuntu.com"],
         ),
     ]
