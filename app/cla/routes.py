@@ -363,11 +363,44 @@ async def projects_excluded(
     """
     formatted_projects: list[ExcludedProject] = []
     for project in projects:
-        platform, full_name = project.split("@", maxsplit=1)
+        # Validate the project identifier format: "<platform>@<full_name>"
+        if "@" not in project:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid project identifier '{project}'. "
+                    "Expected format '<platform>@<full_name>'."
+                ),
+            )
+
+        platform_raw, full_name_raw = project.split("@", maxsplit=1)
+        platform_str = platform_raw.strip()
+        full_name_str = full_name_raw.strip()
+
+        if not platform_str or not full_name_str:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid project identifier '{project}'. "
+                    "Platform and full name must be non-empty."
+                ),
+            )
+
+        try:
+            platform_enum = ProjectPlatform(platform_str)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid project platform '{platform_str}' "
+                    f"in identifier '{project}'."
+                ),
+            )
+
         formatted_projects.append(
             ExcludedProject(
-                platform=ProjectPlatform(platform.strip()),
-                full_name=full_name.strip(),
+                platform=platform_enum,
+                full_name=full_name_str,
             )
         )
     excluded_projects = await excluded_project_repository.get_projects_excluded(
