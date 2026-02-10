@@ -23,5 +23,5 @@ def upgrade():
 def downgrade():
     op.add_column(
         "audit_log",
-        sa.Column("entity_id", sa.INTEGER(), autoincrement=False, nullable=False),
+        sa.Column("entity_id", sa.INTEGER(), autoincrement=False, nullable=True),
     )
