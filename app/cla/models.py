@@ -110,7 +110,6 @@ class ExcludedProjectPayload(BaseModel):
 
 class ExcludedProjectListingPayload(BaseModel):
     projects: list[ExcludedProjectPayload]
-    supported_platforms: list[ProjectPlatform]
     total: int
 
 

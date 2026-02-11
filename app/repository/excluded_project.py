@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Protocol
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -93,10 +93,7 @@ class SQLExcludedProjectRepository(ExcludedProjectRepository):
         )
         existing = result.scalar_one_or_none()
         if not existing:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Excluded project {project.full_name} not found",
-            )
+            raise ValueError(f"Excluded project {project.full_name} not found")
         await self.session.delete(existing)
         audit_log = AuditLog(
             entity_type="EXCLUDED_PROJECT",

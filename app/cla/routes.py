@@ -339,6 +339,12 @@ async def exclude_project(
     """
     Exclude a project from the CLA check.
     """
+    project.full_name = project.full_name.strip()
+    if not project.full_name:
+        raise HTTPException(
+            status_code=400,
+            detail="Project full name is required",
+        )
     try:
         return await excluded_project_repository.add_excluded_project(
             ExcludedProject(
@@ -478,7 +484,6 @@ async def list_excluded_projects(
             )
             for excluded_project in excluded_projects
         ],
-        supported_platforms=[platform.value for platform in ProjectPlatform],
         total=total,
     )
 
@@ -494,9 +499,15 @@ async def remove_excluded_project(
     """
     Remove an excluded project from the CLA check.
     """
-    return await excluded_project_repository.delete_excluded_project(
-        ExcludedProject(
-            platform=project.platform,
-            full_name=project.full_name,
+    try:
+        return await excluded_project_repository.delete_excluded_project(
+            ExcludedProject(
+                platform=project.platform,
+                full_name=project.full_name,
+            )
         )
-    )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.NO_CONTENT,
+            detail=f"Excluded project {project.full_name} not found",
+        ) from e

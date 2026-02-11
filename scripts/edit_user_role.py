@@ -25,10 +25,9 @@ async def create_user_role(
 
 async def remove_user_role(
     email: str,
-    role: Role,
     user_role_repository: Annotated[UserRoleRepository, Depends(user_role_repository)],
 ):
-    user_role = await user_role_repository.delete_user_role(email, role)
+    user_role = await user_role_repository.delete_user_role(email)
     print("User role removed:")
     print(user_role)
 
@@ -61,7 +60,7 @@ if __name__ == "__main__":
     if args.command == "create":
         asyncio.run(run_command(create_user_role, email=args.email, role=args.role))
     elif args.command == "remove":
-        asyncio.run(run_command(remove_user_role, email=args.email, role=args.role))
+        asyncio.run(run_command(remove_user_role, email=args.email))
     elif args.command == "list":
         asyncio.run(run_command(list_user_roles))
     else:
