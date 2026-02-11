@@ -86,10 +86,7 @@ async def oidc_profile(
 ) -> OIDCProfile:
     """Retrieves the OIDC profile of the authenticated user."""
     user_role = await user_role_repository.get_user_role(oidc_user.email)
-    return OIDCProfile(
-        user=oidc_user,
-        role=user_role.role if user_role else None,
-    )
+    return OIDCProfile(user=oidc_user, role=user_role.role if user_role else None)
 
 
 @oidc_router.get(

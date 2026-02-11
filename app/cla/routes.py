@@ -1,5 +1,6 @@
 from asyncio import sleep
 from datetime import datetime
+from http import HTTPStatus
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
@@ -15,10 +16,15 @@ from fastapi import (
 )
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import IntegrityError
 from starlette.responses import JSONResponse
 
 from app.cla.models import (
     CLACheckResponse,
+    ExcludedProjectCreatePayload,
+    ExcludedProjectListingPayload,
+    ExcludedProjectPayload,
+    ExcludedProjectsResponse,
     IndividualCreateForm,
     IndividualCreationSuccess,
     OrganizationCreateForm,
@@ -26,12 +32,11 @@ from app.cla.models import (
 )
 from app.cla.service import CLAService, cla_service
 from app.config import config
+from app.database.models import ExcludedProject, ProjectPlatform
 from app.github.models import GitHubProfile
 from app.github.service import optional_github_user
 from app.launchpad.models import LaunchpadProfile
-from app.launchpad.service import (
-    optional_launchpad_user,
-)
+from app.launchpad.service import optional_launchpad_user
 from app.notifications.emails import (
     send_individual_confirmation_email,
     send_legal_notification,
@@ -39,8 +44,15 @@ from app.notifications.emails import (
     send_organization_deleted,
     send_organization_status_update,
 )
+from app.oidc.models import OIDCUserInfo
+from app.oidc.permissions import requires_community
+from app.repository.excluded_project import (
+    ExcludedProjectRepository,
+    excluded_project_repository,
+)
 from app.repository.organization import OrganizationRepository, organization_repository
 from app.utils.crypto import AESCipher, cipher
+from app.utils.request import internal_only
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
@@ -314,3 +326,188 @@ async def delete_organization(
             "organization_name": organization.name,
         },
     )
+
+
+@cla_router.post("/exclude-project", dependencies=[Depends(internal_only)])
+async def exclude_project(
+    project: ExcludedProjectCreatePayload,
+    excluded_project_repository: ExcludedProjectRepository = Depends(
+        excluded_project_repository
+    ),
+    _authorized_user: OIDCUserInfo = Depends(requires_community),
+):
+    """
+    Exclude a project from the CLA check.
+    """
+    project.full_name = project.full_name.strip()
+    if not project.full_name:
+        raise HTTPException(
+            status_code=400,
+            detail="Project full name is required",
+        )
+    try:
+        return await excluded_project_repository.add_excluded_project(
+            ExcludedProject(
+                platform=project.platform,
+                full_name=project.full_name,
+            )
+        )
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.CONFLICT,
+            detail=f"Project {project} already excluded",
+        ) from e
+
+
+@cla_router.get("/excluded-projects")
+async def projects_excluded(
+    projects: list[str] = Query(
+        title="Projects",
+        description="A list of projects to check for CLA signatories",
+        max_length=100,
+        examples=["github@canonical/ubuntu.com,launchpad@canonical/snapd"],
+        default=[],
+    ),
+    excluded_project_repository: ExcludedProjectRepository = Depends(
+        excluded_project_repository
+    ),
+) -> list[ExcludedProjectsResponse]:
+    """
+    Check if a project is excluded from the CLA check.
+    """
+    formatted_projects: list[ExcludedProject] = []
+    for project in projects:
+        # Validate the project identifier format: "<platform>@<full_name>"
+        if "@" not in project:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid project identifier '{project}'. "
+                    "Expected format '<platform>@<full_name>'."
+                ),
+            )
+
+        platform_raw, full_name_raw = project.split("@", maxsplit=1)
+        platform_str = platform_raw.strip()
+        full_name_str = full_name_raw.strip()
+
+        if not platform_str or not full_name_str:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid project identifier '{project}'. "
+                    "Platform and full name must be non-empty."
+                ),
+            )
+
+        try:
+            platform_enum = ProjectPlatform(platform_str)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid project platform '{platform_str}' "
+                    f"in identifier '{project}'."
+                ),
+            ) from e
+
+        formatted_projects.append(
+            ExcludedProject(
+                platform=platform_enum,
+                full_name=full_name_str,
+            )
+        )
+    excluded_projects = await excluded_project_repository.get_projects_excluded(
+        formatted_projects
+    )
+    return [
+        ExcludedProjectsResponse(
+            project=ExcludedProjectPayload(
+                full_name=excluded_project.full_name,
+                platform=ProjectPlatform(excluded_project.platform),
+            ),
+            excluded=excluded,
+        )
+        for excluded_project, excluded in excluded_projects
+    ]
+
+
+@cla_router.get("/list-excluded-projects", dependencies=[Depends(internal_only)])
+async def list_excluded_projects(
+    limit: int = Query(
+        title="Limit",
+        description="The maximum number of projects to return",
+        default=100,
+        ge=1,
+        le=100,
+    ),
+    offset: int = Query(
+        title="Offset",
+        description="The number of projects to skip",
+        default=0,
+        ge=0,
+    ),
+    descending: bool | None = Query(
+        title="Descending",
+        description="Whether to sort the projects in descending order",
+        default=True,
+    ),
+    query: str | None = Query(
+        title="Query",
+        description="The query to search for projects",
+        default="",
+    ),
+    platform: ProjectPlatform | None = Query(
+        title="Platform",
+        description="The platform to filter by",
+        default=None,
+    ),
+    excluded_project_repository: ExcludedProjectRepository = Depends(
+        excluded_project_repository
+    ),
+    _authorized_user: OIDCUserInfo = Depends(requires_community),
+) -> ExcludedProjectListingPayload:
+    """
+    List all excluded projects.
+    """
+    (
+        excluded_projects,
+        total,
+    ) = await excluded_project_repository.filter_excluded_projects(
+        limit, offset, descending, query, platform
+    )
+    return ExcludedProjectListingPayload(
+        projects=[
+            ExcludedProjectPayload(
+                platform=ProjectPlatform(excluded_project.platform),
+                full_name=excluded_project.full_name,
+            )
+            for excluded_project in excluded_projects
+        ],
+        total=total,
+    )
+
+
+@cla_router.delete("/excluded-project", dependencies=[Depends(internal_only)])
+async def remove_excluded_project(
+    project: ExcludedProjectPayload,
+    excluded_project_repository: ExcludedProjectRepository = Depends(
+        excluded_project_repository
+    ),
+    _authorized_user: OIDCUserInfo = Depends(requires_community),
+):
+    """
+    Remove an excluded project from the CLA check.
+    """
+    try:
+        return await excluded_project_repository.delete_excluded_project(
+            ExcludedProject(
+                platform=project.platform,
+                full_name=project.full_name,
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.NO_CONTENT,
+            detail=f"Excluded project {project.full_name} not found",
+        ) from e

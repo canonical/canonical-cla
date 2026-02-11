@@ -1,6 +1,5 @@
 import datetime
 import enum
-from typing import Literal
 
 from sqlalchemy import JSON, DateTime, Enum, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, class_mapper, mapped_column
@@ -113,26 +112,51 @@ class UserRole(Base):
         return f"User {self.email} has role {self.role}"
 
 
-AuditLogActionType = Literal[
-    "SIGN",
-    "REVOKE",
-    "UPDATE",
-    "DELETE",
-]
+class ProjectPlatform(str, enum.Enum):
+    GITHUB = "github"
+    LAUNCHPAD = "launchpad"
 
-AuditEntityType = Literal[
-    "INDIVIDUAL",
-    "ORGANIZATION",
-    "USER_ROLE",
-]
+
+class ExcludedProject(Base):
+    __tablename__ = "excluded_project"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    platform: Mapped[ProjectPlatform] = mapped_column(
+        Enum(
+            ProjectPlatform,
+            native_enum=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=False,
+    )
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime,
+    )
+
+    def __str__(self):
+        return f"{self.platform}@{self.full_name}"
+
+
+class AuditEntityType(str, enum.Enum):
+    INDIVIDUAL = "INDIVIDUAL"
+    ORGANIZATION = "ORGANIZATION"
+    USER_ROLE = "USER_ROLE"
+    EXCLUDED_PROJECT = "EXCLUDED_PROJECT"
 
 
 class AuditLog(Base):
     __tablename__ = "audit_log"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    action: Mapped[AuditLogActionType]
-    entity_type: Mapped[AuditEntityType]
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    entity_type: Mapped[AuditEntityType] = mapped_column(
+        Enum(
+            AuditEntityType,
+            native_enum=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=False,
+    )
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, default=func.now())
     ip_address: Mapped[str] = mapped_column(String(50))
     details: Mapped[dict[str, str] | None] = mapped_column(JSON)
@@ -140,13 +164,16 @@ class AuditLog(Base):
     def __str__(self):
         formatted_details = "N/A"
         if self.details:
-            if self.entity_type == "INDIVIDUAL":
+            if self.entity_type == AuditEntityType.INDIVIDUAL:
                 individual = Individual(**self.details)
                 formatted_details = f"{individual.first_name} {individual.last_name} (github: {individual.github_username}<{individual.github_email}>, launchpad: {individual.launchpad_username}<{individual.launchpad_email}>)"
-            elif self.entity_type == "ORGANIZATION":
+            elif self.entity_type == AuditEntityType.ORGANIZATION:
                 organization = Organization(**self.details)
                 formatted_details = f"{organization.name} (domain: {organization.email_domain}, contact: {organization.contact_name}<{organization.contact_email}>)"
-            elif self.entity_type == "USER_ROLE":
+            elif self.entity_type == AuditEntityType.USER_ROLE:
                 user_role = UserRole(**self.details)
                 formatted_details = f"{user_role.email} has role {user_role.role}"
+            elif self.entity_type == AuditEntityType.EXCLUDED_PROJECT:
+                excluded_project = ExcludedProject(**self.details)
+                formatted_details = f"{excluded_project.full_name} (platform: {excluded_project.platform})"
         return f"{self.timestamp.isoformat()} audit log({self.id}): action({self.action}), IP({self.ip_address}), {self.entity_type}: {formatted_details}"

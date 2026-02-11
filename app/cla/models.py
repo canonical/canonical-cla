@@ -3,6 +3,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from pydantic_extra_types.country import CountryAlpha2
 
+from app.database.models import ProjectPlatform
 from app.emails.email_utils import (
     clean_email,
     clean_email_domain,
@@ -89,6 +90,36 @@ class OrganizationCreateForm(BaseModel):
         if not is_valid:
             raise ValueError(reason)
         return self
+
+
+class ExcludedProjectPayload(BaseModel):
+    platform: Annotated[
+        ProjectPlatform, Field(description="The platform of the project")
+    ]
+    full_name: Annotated[
+        str,
+        Field(
+            description="The full name of the project, this includes the organization name and the project name.",
+            examples=["canonical/ubuntu.com"],
+        ),
+    ]
+
+    def __str__(self):
+        return f"{self.platform.value}@{self.full_name}"
+
+
+class ExcludedProjectListingPayload(BaseModel):
+    projects: list[ExcludedProjectPayload]
+    total: int
+
+
+class ExcludedProjectCreatePayload(ExcludedProjectPayload):
+    pass
+
+
+class ExcludedProjectsResponse(BaseModel):
+    project: ExcludedProjectPayload
+    excluded: bool
 
 
 class OrganizationCreationSuccess(BaseModel):

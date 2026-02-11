@@ -42,7 +42,10 @@ class SQLUserRoleRepository(UserRoleRepository):
         await self.session.commit()
         return new_user_role
 
-    async def delete_user_role(self, email: str) -> UserRole:
+    async def delete_user_role(
+        self,
+        email: str,
+    ) -> UserRole:
         user_role = await self.get_user_role(email)
         if not user_role:
             raise ValueError(f"User role with email {email} not found")
