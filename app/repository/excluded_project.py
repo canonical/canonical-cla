@@ -49,6 +49,8 @@ class SQLExcludedProjectRepository(ExcludedProjectRepository):
             stmt = stmt.where(ExcludedProject.full_name.ilike(f"%{query.strip()}%"))
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
+        # TODO: investigate query optimization using: `over`
+        # https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.over
         total_result = await self.session.execute(count_stmt)
         total = total_result.scalar_one()
 

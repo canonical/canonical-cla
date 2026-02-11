@@ -145,7 +145,7 @@ class LaunchpadService:
         )
         # XXX: This is a hack to get the access token into the redirect URL
         # Remove this once we migrate the CLA form over to this domain
-        redirect_url_is_absolute = redirect_url.startswith("http")
+        redirect_url_is_absolute = redirect_url.startswith("https://")
         redirect_url_is_external = (
             redirect_url_is_absolute and not redirect_url.startswith(config.app_url)
         )
