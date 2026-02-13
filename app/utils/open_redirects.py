@@ -2,7 +2,19 @@ from urllib.parse import urlparse
 
 from fastapi import HTTPException
 
+from app.config import config
 from app.utils.trusted_websites import TRUSTED_WEBSITES
+
+
+def ensure_relative_redirect_uri(redirect_uri: str):
+    """
+    Ensures that a redirect URI is relative by removing the app URL from the beginning.
+
+    Raises an HTTPException if the redirect URI is not relative.
+    """
+    parsed = urlparse(redirect_uri)
+    if parsed.hostname is not None and parsed.hostname != config.app_url:
+        raise HTTPException(status_code=400, detail="Invalid redirect URL")
 
 
 def validate_open_redirect(url: str) -> bool:

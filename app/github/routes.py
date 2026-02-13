@@ -14,7 +14,10 @@ from app.github.models import (
 from app.github.service import GithubService, github_service, github_user
 from app.github.webhook_service import GithubWebhookService, github_webhook_service
 from app.utils.base64 import Base64
-from app.utils.open_redirects import validate_open_redirect
+from app.utils.open_redirects import (
+    ensure_relative_redirect_uri,
+    validate_open_redirect,
+)
 from app.utils.request import error_status_codes, update_query_params
 
 github_router = APIRouter(prefix="/github", tags=["GitHub"])
@@ -43,14 +46,15 @@ async def github_login(
     """
     Redirects to GitHub OAuth login page.
     """
+    if redirect_uri:
+        ensure_relative_redirect_uri(redirect_uri)
+
     decoded_redirect_url = Base64.decode_str(redirect_url) if redirect_url else None
     if decoded_redirect_url:
         validate_open_redirect(decoded_redirect_url)
     return await github_service.login(
         f"{config.app_url}/github/callback",
-        redirect_url=redirect_uri
-        or decoded_redirect_url
-        or f"{config.app_url}/github/profile",
+        redirect_url=redirect_uri or decoded_redirect_url or "/github/profile",
     )
 
 

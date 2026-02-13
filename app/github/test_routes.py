@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -157,3 +157,62 @@ async def test_logout_with_redirect():
     )
     assert response.status_code == 307
     assert github_service.logout.called
+
+
+@pytest.mark.asyncio
+async def test_github_login_accepts_relative_redirect_uri():
+    """Test that relative redirect URIs are accepted."""
+    github_service = MagicMock()
+    github_service.login = AsyncMock(
+        return_value=RedirectResponse(url="https://login-redirect.com")
+    )
+    await github_login(redirect_uri="/dashboard", github_service=github_service)
+    github_service.login.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("app.utils.open_redirects.config.app_url", "cla.localhost")
+async def test_github_login_accepts_absolute_uri_with_same_hostname():
+    """Test that absolute URIs with the same hostname as config.app_url are accepted."""
+    github_service = MagicMock()
+    github_service.login = AsyncMock(
+        return_value=RedirectResponse(url="https://login-redirect.com")
+    )
+    await github_login(
+        redirect_uri="http://cla.localhost/dashboard", github_service=github_service
+    )
+    github_service.login.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("app.utils.open_redirects.config.app_url", "cla.localhost")
+async def test_github_login_rejects_absolute_uri_with_different_hostname():
+    """Test that absolute URIs with different hostnames are rejected."""
+    github_service = MagicMock()
+    github_service.login = AsyncMock(
+        return_value=RedirectResponse(url="https://login-redirect.com")
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        await github_login(
+            redirect_uri="https://evil.com/callback", github_service=github_service
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not github_service.login.called
+
+
+@pytest.mark.asyncio
+@patch("app.utils.open_redirects.config.app_url", "cla.localhost")
+async def test_github_login_rejects_absolute_uri_with_different_hostname_http():
+    """Test that absolute URIs with different hostnames (http) are rejected."""
+    github_service = MagicMock()
+    github_service.login = AsyncMock(
+        return_value=RedirectResponse(url="https://login-redirect.com")
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        await github_login(
+            redirect_uri="http://malicious.com/steal", github_service=github_service
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not github_service.login.called

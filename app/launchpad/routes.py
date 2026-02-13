@@ -8,7 +8,10 @@ from app.launchpad.cookies import launchpad_pending_auth_cookie_session
 from app.launchpad.models import LaunchpadProfile, RequestTokenSession
 from app.launchpad.service import LaunchpadService, launchpad_service, launchpad_user
 from app.utils.base64 import Base64
-from app.utils.open_redirects import validate_open_redirect
+from app.utils.open_redirects import (
+    ensure_relative_redirect_uri,
+    validate_open_redirect,
+)
 from app.utils.request import error_status_codes
 
 launchpad_router = APIRouter(prefix="/launchpad", tags=["Launchpad"])
@@ -40,14 +43,16 @@ async def launchpad_login(
     """
     Redirects to Launchpad OAuth login page.
     """
+    if redirect_uri:
+        ensure_relative_redirect_uri(redirect_uri)
+
     decoded_redirect_url = Base64.decode_str(redirect_url) if redirect_url else None
     if decoded_redirect_url:
         validate_open_redirect(decoded_redirect_url)
+
     return await launchpad_service.login(
         callback_url=f"{config.app_url}/launchpad/callback",
-        redirect_url=redirect_uri
-        or decoded_redirect_url
-        or f"{config.app_url}/launchpad/profile",
+        redirect_url=redirect_uri or decoded_redirect_url or "/launchpad/profile",
     )
 
 
