@@ -45,7 +45,7 @@ async def launchpad_login(
         validate_open_redirect(decoded_redirect_url)
     return await launchpad_service.login(
         callback_url=f"{config.app_url}/launchpad/callback",
-        redirect_url=redirect_uri
+        redirect_url=f"{config.app_url}{redirect_uri}"
         or decoded_redirect_url
         or f"{config.app_url}/launchpad/profile",
     )

@@ -34,7 +34,9 @@ async def oidc_login(
     """Redirects to Canonical OIDC login page."""
     return await oidc_service.login(
         callback_url=f"{config.app_url}/oidc/callback",
-        redirect_uri=redirect_uri if redirect_uri else "/oidc/profile",
+        redirect_uri=f"{config.app_url}{redirect_uri}"
+        if redirect_uri
+        else "/oidc/profile",
     )
 
 

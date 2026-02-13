@@ -19,7 +19,7 @@ async def test_oidc_login(mock_oidc_service):
     mock_oidc_service.login.assert_called_once()
     # Verify arguments
     _, kwargs = mock_oidc_service.login.call_args
-    assert kwargs["redirect_uri"] == "/home"
+    assert kwargs["redirect_uri"] == "http://cla.localhost/home"
 
 
 @pytest.mark.asyncio
@@ -100,9 +100,7 @@ async def test_oidc_callback_error_description(mock_oidc_service):
 
 @pytest.mark.asyncio
 async def test_oidc_profile_with_role():
-    user = OIDCUserInfo(
-        sub="123", email="user@example.com", email_verified=True
-    )
+    user = OIDCUserInfo(sub="123", email="user@example.com", email_verified=True)
     mock_user_role = Mock(spec=UserRole)
     mock_user_role.role = Role.ADMIN
     mock_user_role_repository = AsyncMock()
@@ -120,9 +118,7 @@ async def test_oidc_profile_with_role():
 
 @pytest.mark.asyncio
 async def test_oidc_profile_without_role():
-    user = OIDCUserInfo(
-        sub="123", email="user@example.com", email_verified=True
-    )
+    user = OIDCUserInfo(sub="123", email="user@example.com", email_verified=True)
     mock_user_role_repository = AsyncMock()
     mock_user_role_repository.get_user_role.return_value = None
 

@@ -48,7 +48,7 @@ async def github_login(
         validate_open_redirect(decoded_redirect_url)
     return await github_service.login(
         f"{config.app_url}/github/callback",
-        redirect_url=redirect_uri
+        redirect_url=f"{config.app_url}{redirect_uri}"
         or decoded_redirect_url
         or f"{config.app_url}/github/profile",
     )
