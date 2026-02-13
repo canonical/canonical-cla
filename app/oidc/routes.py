@@ -11,6 +11,7 @@ from app.oidc.service import (
     oidc_user,
 )
 from app.repository.user_role import UserRoleRepository, user_role_repository
+from app.utils.open_redirects import ensure_relative_redirect_uri
 from app.utils.request import error_status_codes
 
 oidc_router = APIRouter(prefix="/oidc", tags=["Canonical OIDC"])
@@ -23,20 +24,20 @@ oidc_router = APIRouter(prefix="/oidc", tags=["Canonical OIDC"])
 )
 async def oidc_login(
     redirect_uri: Annotated[
-        str | None,
+        str,
         Query(
             description="The redirect URI to redirect to after login.",
             examples=["/dashboard"],
         ),
-    ] = None,
+    ] = "/oidc/profile",
     oidc_service: OIDCService = Depends(oidc_service),
 ):
     """Redirects to Canonical OIDC login page."""
+    ensure_relative_redirect_uri(redirect_uri)
+
     return await oidc_service.login(
         callback_url=f"{config.app_url}/oidc/callback",
-        redirect_uri=f"{config.app_url}{redirect_uri}"
-        if redirect_uri
-        else "/oidc/profile",
+        redirect_uri=redirect_uri,
     )
 
 

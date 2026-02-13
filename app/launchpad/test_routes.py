@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -152,3 +152,62 @@ async def test_logout_with_redirect():
     )
     assert response.status_code == 307
     launchpad_service.logout.assert_called_once_with(Base64.decode_str(redirect_url))
+
+
+@pytest.mark.asyncio
+async def test_launchpad_login_accepts_relative_redirect_uri():
+    """Test that relative redirect URIs are accepted."""
+    launchpad_service = MagicMock()
+    launchpad_service.login = AsyncMock(
+        return_value=RedirectResponse(url="https://login-redirect.com")
+    )
+    await launchpad_login(redirect_uri="/dashboard", launchpad_service=launchpad_service)
+    launchpad_service.login.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("app.utils.open_redirects.config.app_url", "cla.localhost")
+async def test_launchpad_login_accepts_absolute_uri_with_same_hostname():
+    """Test that absolute URIs with the same hostname as config.app_url are accepted."""
+    launchpad_service = MagicMock()
+    launchpad_service.login = AsyncMock(
+        return_value=RedirectResponse(url="https://login-redirect.com")
+    )
+    await launchpad_login(
+        redirect_uri="http://cla.localhost/dashboard", launchpad_service=launchpad_service
+    )
+    launchpad_service.login.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("app.utils.open_redirects.config.app_url", "cla.localhost")
+async def test_launchpad_login_rejects_absolute_uri_with_different_hostname():
+    """Test that absolute URIs with different hostnames are rejected."""
+    launchpad_service = MagicMock()
+    launchpad_service.login = AsyncMock(
+        return_value=RedirectResponse(url="https://login-redirect.com")
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        await launchpad_login(
+            redirect_uri="https://evil.com/callback", launchpad_service=launchpad_service
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not launchpad_service.login.called
+
+
+@pytest.mark.asyncio
+@patch("app.utils.open_redirects.config.app_url", "cla.localhost")
+async def test_launchpad_login_rejects_absolute_uri_with_different_hostname_http():
+    """Test that absolute URIs with different hostnames (http) are rejected."""
+    launchpad_service = MagicMock()
+    launchpad_service.login = AsyncMock(
+        return_value=RedirectResponse(url="https://login-redirect.com")
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        await launchpad_login(
+            redirect_uri="http://malicious.com/steal", launchpad_service=launchpad_service
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not launchpad_service.login.called

@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -19,12 +19,13 @@ async def test_oidc_login(mock_oidc_service):
     mock_oidc_service.login.assert_called_once()
     # Verify arguments
     _, kwargs = mock_oidc_service.login.call_args
-    assert kwargs["redirect_uri"] == "http://cla.localhost/home"
+    assert kwargs["redirect_uri"] == "/home"
 
 
 @pytest.mark.asyncio
 async def test_oidc_login_default_redirect(mock_oidc_service):
-    await oidc_login(redirect_uri=None, oidc_service=mock_oidc_service)
+    # Don't pass redirect_uri to use the default value
+    await oidc_login(oidc_service=mock_oidc_service)
     _, kwargs = mock_oidc_service.login.call_args
     assert kwargs["redirect_uri"] == "/oidc/profile"
 
@@ -136,3 +137,46 @@ async def test_oidc_profile_without_role():
 async def test_oidc_logout(mock_oidc_service):
     await oidc_logout(redirect_uri="/login", oidc_service=mock_oidc_service)
     mock_oidc_service.logout.assert_called_once_with("/login")
+
+
+@pytest.mark.asyncio
+async def test_oidc_login_accepts_relative_redirect_uri(mock_oidc_service):
+    """Test that relative redirect URIs are accepted."""
+    await oidc_login(redirect_uri="/dashboard", oidc_service=mock_oidc_service)
+    mock_oidc_service.login.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("app.utils.open_redirects.config.app_url", "cla.localhost")
+async def test_oidc_login_accepts_absolute_uri_with_same_hostname(mock_oidc_service):
+    """Test that absolute URIs with the same hostname as config.app_url are accepted."""
+    await oidc_login(
+        redirect_uri="http://cla.localhost/dashboard", oidc_service=mock_oidc_service
+    )
+    mock_oidc_service.login.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("app.utils.open_redirects.config.app_url", "cla.localhost")
+async def test_oidc_login_rejects_absolute_uri_with_different_hostname(mock_oidc_service):
+    """Test that absolute URIs with different hostnames are rejected."""
+    with pytest.raises(HTTPException) as exc_info:
+        await oidc_login(
+            redirect_uri="https://evil.com/callback", oidc_service=mock_oidc_service
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not mock_oidc_service.login.called
+
+
+@pytest.mark.asyncio
+@patch("app.utils.open_redirects.config.app_url", "cla.localhost")
+async def test_oidc_login_rejects_absolute_uri_with_different_hostname_http(mock_oidc_service):
+    """Test that absolute URIs with different hostnames (http) are rejected."""
+    with pytest.raises(HTTPException) as exc_info:
+        await oidc_login(
+            redirect_uri="http://malicious.com/steal", oidc_service=mock_oidc_service
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid redirect URL"
+    assert not mock_oidc_service.login.called
