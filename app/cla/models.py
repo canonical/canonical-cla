@@ -92,7 +92,7 @@ class OrganizationCreateForm(BaseModel):
         return self
 
 
-class ExcludedProjectPayload(BaseModel):
+class ExcludedProjectIdentifier(BaseModel):
     platform: Annotated[
         ProjectPlatform, Field(description="The platform of the project")
     ]
@@ -106,6 +106,14 @@ class ExcludedProjectPayload(BaseModel):
 
     def __str__(self):
         return f"{self.platform.value}@{self.full_name}"
+
+
+class ExcludedProjectPayload(ExcludedProjectIdentifier):
+    reason: Annotated[
+        str,
+        StringConstraints(max_length=500),
+        Field(description="The reason why the project is excluded from CLA checks"),
+    ]
 
 
 class ExcludedProjectListingPayload(BaseModel):

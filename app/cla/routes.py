@@ -22,6 +22,7 @@ from starlette.responses import JSONResponse
 from app.cla.models import (
     CLACheckResponse,
     ExcludedProjectCreatePayload,
+    ExcludedProjectIdentifier,
     ExcludedProjectListingPayload,
     ExcludedProjectPayload,
     ExcludedProjectsResponse,
@@ -340,16 +341,23 @@ async def exclude_project(
     Exclude a project from the CLA check.
     """
     project.full_name = project.full_name.strip()
+    project.reason = project.reason.strip()
     if not project.full_name:
         raise HTTPException(
             status_code=400,
             detail="Project full name is required",
+        )
+    if not project.reason:
+        raise HTTPException(
+            status_code=400,
+            detail="Project reason is required",
         )
     try:
         return await excluded_project_repository.add_excluded_project(
             ExcludedProject(
                 platform=project.platform,
                 full_name=project.full_name,
+                reason=project.reason,
             )
         )
     except IntegrityError as e:
@@ -425,6 +433,7 @@ async def projects_excluded(
             project=ExcludedProjectPayload(
                 full_name=excluded_project.full_name,
                 platform=ProjectPlatform(excluded_project.platform),
+                reason=excluded_project.reason,
             ),
             excluded=excluded,
         )
@@ -481,6 +490,7 @@ async def list_excluded_projects(
             ExcludedProjectPayload(
                 platform=ProjectPlatform(excluded_project.platform),
                 full_name=excluded_project.full_name,
+                reason=excluded_project.reason,
             )
             for excluded_project in excluded_projects
         ],
@@ -490,7 +500,7 @@ async def list_excluded_projects(
 
 @cla_router.delete("/excluded-project", dependencies=[Depends(internal_only)])
 async def remove_excluded_project(
-    project: ExcludedProjectPayload,
+    project: ExcludedProjectIdentifier,
     excluded_project_repository: ExcludedProjectRepository = Depends(
         excluded_project_repository
     ),

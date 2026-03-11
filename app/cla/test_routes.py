@@ -7,7 +7,7 @@ from pydantic_extra_types.country import CountryAlpha2
 from app.cla.models import (
     CLACheckResponse,
     ExcludedProjectCreatePayload,
-    ExcludedProjectPayload,
+    ExcludedProjectIdentifier,
     IndividualCreateForm,
     OrganizationCreateForm,
 )
@@ -169,12 +169,14 @@ async def test_exclude_project():
     created = ExcludedProject(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
+        reason="Legacy policy exception",
     )
     created.id = 1
     excluded_project_repository.add_excluded_project = AsyncMock(return_value=created)
     payload = ExcludedProjectCreatePayload(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
+        reason="Legacy policy exception",
     )
     authorized_user = OIDCUserInfo(sub="sub1", email="admin@canonical.com")
 
@@ -188,7 +190,31 @@ async def test_exclude_project():
     call_args = excluded_project_repository.add_excluded_project.call_args[0][0]
     assert call_args.platform == ProjectPlatform.GITHUB
     assert call_args.full_name == "canonical/ubuntu.com"
+    assert call_args.reason == "Legacy policy exception"
     assert response == created
+
+
+@pytest.mark.asyncio
+async def test_exclude_project_reason_required():
+    excluded_project_repository = MagicMock()
+    excluded_project_repository.add_excluded_project = AsyncMock()
+    payload = ExcludedProjectCreatePayload(
+        platform=ProjectPlatform.GITHUB,
+        full_name="canonical/ubuntu.com",
+        reason=" ",
+    )
+    authorized_user = OIDCUserInfo(sub="sub1", email="admin@canonical.com")
+
+    with pytest.raises(HTTPException) as error:
+        await exclude_project(
+            project=payload,
+            excluded_project_repository=excluded_project_repository,
+            _authorized_user=authorized_user,
+        )
+
+    assert error.value.status_code == 400
+    assert error.value.detail == "Project reason is required"
+    excluded_project_repository.add_excluded_project.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -211,10 +237,12 @@ async def test_projects_excluded_returns_excluded_status():
     ep1 = ExcludedProject(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
+        reason="Repository archived",
     )
     ep2 = ExcludedProject(
         platform=ProjectPlatform.LAUNCHPAD,
         full_name="canonical/snapd",
+        reason="Project moved",
     )
     excluded_project_repository.get_projects_excluded = AsyncMock(
         return_value=[(ep1, True), (ep2, False)]
@@ -228,9 +256,11 @@ async def test_projects_excluded_returns_excluded_status():
     assert len(response) == 2
     assert response[0].project.full_name == "canonical/ubuntu.com"
     assert response[0].project.platform == ProjectPlatform.GITHUB
+    assert response[0].project.reason == "Repository archived"
     assert response[0].excluded is True
     assert response[1].project.full_name == "canonical/snapd"
     assert response[1].project.platform == ProjectPlatform.LAUNCHPAD
+    assert response[1].project.reason == "Project moved"
     assert response[1].excluded is False
 
     call_args = excluded_project_repository.get_projects_excluded.call_args[0][0]
@@ -247,6 +277,7 @@ async def test_list_excluded_projects():
     ep1 = ExcludedProject(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
+        reason="Repository archived",
     )
     ep1.id = 1
     excluded_project_repository.filter_excluded_projects = AsyncMock(
@@ -271,6 +302,7 @@ async def test_list_excluded_projects():
     assert len(response.projects) == 1
     assert response.projects[0].full_name == "canonical/ubuntu.com"
     assert response.projects[0].platform == ProjectPlatform.GITHUB
+    assert response.projects[0].reason == "Repository archived"
 
 
 @pytest.mark.asyncio
@@ -279,12 +311,13 @@ async def test_remote_excluded_project():
     removed = ExcludedProject(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
+        reason="Repository archived",
     )
     removed.id = 1
     excluded_project_repository.delete_excluded_project = AsyncMock(
         return_value=removed
     )
-    payload = ExcludedProjectPayload(
+    payload = ExcludedProjectIdentifier(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
     )
