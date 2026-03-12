@@ -321,11 +321,11 @@ async def test_projects_excluded_returns_excluded_status():
     assert len(response) == 2
     assert response[0].project.full_name == "canonical/ubuntu.com"
     assert response[0].project.platform == ProjectPlatform.GITHUB
-    assert response[0].project.reason == "Repository archived"
+    assert "reason" not in response[0].project.model_dump()
     assert response[0].excluded is True
     assert response[1].project.full_name == "canonical/snapd"
     assert response[1].project.platform == ProjectPlatform.LAUNCHPAD
-    assert response[1].project.reason == "Project moved"
+    assert "reason" not in response[1].project.model_dump()
     assert response[1].excluded is False
 
     call_args = excluded_project_repository.get_projects_excluded.call_args[0][0]

@@ -127,7 +127,7 @@ class ExcludedProjectCreatePayload(ExcludedProjectPayload):
 
 
 class ExcludedProjectsResponse(BaseModel):
-    project: ExcludedProjectPayload
+    project: ExcludedProjectIdentifier
     excluded: bool
 
 

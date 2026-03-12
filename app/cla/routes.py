@@ -418,10 +418,9 @@ async def projects_excluded(
     )
     return [
         ExcludedProjectsResponse(
-            project=ExcludedProjectPayload(
+            project=ExcludedProjectIdentifier(
                 full_name=excluded_project.full_name,
                 platform=ProjectPlatform(excluded_project.platform),
-                reason=excluded_project.reason,
             ),
             excluded=excluded,
         )
