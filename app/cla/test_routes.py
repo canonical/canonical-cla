@@ -314,7 +314,7 @@ async def test_projects_excluded_returns_excluded_status():
     )
 
     response = await projects_excluded(
-        projects=["github@canonical/ubuntu.com", "launchpad@canonical/snapd"],
+        projects=["canonical/ubuntu.com@github", "canonical/snapd@launchpad"],
         excluded_project_repository=excluded_project_repository,
     )
 

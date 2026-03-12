@@ -361,7 +361,7 @@ async def projects_excluded(
         title="Projects",
         description="A list of projects to check for CLA signatories",
         max_length=100,
-        examples=["github@canonical/ubuntu.com,launchpad@canonical/snapd"],
+        examples=["canonical/ubuntu.com@github,canonical/snapd@launchpad"],
         default=[],
     ),
     excluded_project_repository: ExcludedProjectRepository = Depends(
@@ -373,17 +373,17 @@ async def projects_excluded(
     """
     formatted_projects: list[ExcludedProject] = []
     for project in projects:
-        # Validate the project identifier format: "<platform>@<full_name>"
+        # Validate the project identifier format: "<full_name>@<platform>"
         if "@" not in project:
             raise HTTPException(
                 status_code=400,
                 detail=(
                     f"Invalid project identifier '{project}'. "
-                    "Expected format '<platform>@<full_name>'."
+                    "Expected format '<full_name>@<platform>'."
                 ),
             )
 
-        platform_raw, full_name_raw = project.split("@", maxsplit=1)
+        full_name_raw, platform_raw = project.split("@", maxsplit=1)
         platform_str = platform_raw.strip()
         full_name_str = full_name_raw.strip()
 
