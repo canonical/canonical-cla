@@ -1,8 +1,9 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from pydantic_extra_types.country import CountryAlpha2
+from starlette.testclient import TestClient
 
 from app.cla.models import (
     CLACheckResponse,
@@ -13,6 +14,7 @@ from app.cla.models import (
 )
 from app.cla.routes import (
     check_cla,
+    cla_router,
     exclude_project,
     list_excluded_projects,
     manage_organization,
@@ -25,6 +27,11 @@ from app.database.models import ExcludedProject, ProjectPlatform
 from app.github.models import GitHubProfile
 from app.launchpad.models import LaunchpadProfile
 from app.oidc.models import OIDCUserInfo
+from app.oidc.permissions import requires_community
+from app.repository.excluded_project import (
+    excluded_project_repository as excluded_project_repository_dep,
+)
+from app.utils.request import internal_only
 
 
 @pytest.mark.asyncio
@@ -194,26 +201,84 @@ async def test_exclude_project():
     assert response == created
 
 
-@pytest.mark.asyncio
-async def test_exclude_project_reason_required():
+def test_exclude_project_reason_required():
+    app = FastAPI()
+    app.include_router(cla_router)
+
     excluded_project_repository = MagicMock()
     excluded_project_repository.add_excluded_project = AsyncMock()
-    payload = ExcludedProjectCreatePayload(
-        platform=ProjectPlatform.GITHUB,
-        full_name="canonical/ubuntu.com",
-        reason=" ",
+
+    app.dependency_overrides[internal_only] = lambda: None
+    app.dependency_overrides[requires_community] = lambda: None
+    app.dependency_overrides[excluded_project_repository_dep] = (
+        lambda: excluded_project_repository
     )
-    authorized_user = OIDCUserInfo(sub="sub1", email="admin@canonical.com")
 
-    with pytest.raises(HTTPException) as error:
-        await exclude_project(
-            project=payload,
-            excluded_project_repository=excluded_project_repository,
-            _authorized_user=authorized_user,
-        )
+    client = TestClient(app)
+    response = client.post(
+        "/cla/exclude-project",
+        json={
+            "platform": "github",
+            "full_name": "canonical/ubuntu.com",
+            "reason": " ",
+        },
+    )
 
-    assert error.value.status_code == 400
-    assert error.value.detail == "Project reason is required"
+    assert response.status_code == 422
+    excluded_project_repository.add_excluded_project.assert_not_called()
+
+
+def test_exclude_project_reason_too_long():
+    app = FastAPI()
+    app.include_router(cla_router)
+
+    excluded_project_repository = MagicMock()
+    excluded_project_repository.add_excluded_project = AsyncMock()
+
+    app.dependency_overrides[internal_only] = lambda: None
+    app.dependency_overrides[requires_community] = lambda: None
+    app.dependency_overrides[excluded_project_repository_dep] = (
+        lambda: excluded_project_repository
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/cla/exclude-project",
+        json={
+            "platform": "github",
+            "full_name": "canonical/ubuntu.com",
+            "reason": "a" * 501,
+        },
+    )
+
+    assert response.status_code == 422
+    excluded_project_repository.add_excluded_project.assert_not_called()
+
+
+def test_exclude_project_full_name_required():
+    app = FastAPI()
+    app.include_router(cla_router)
+
+    excluded_project_repository = MagicMock()
+    excluded_project_repository.add_excluded_project = AsyncMock()
+
+    app.dependency_overrides[internal_only] = lambda: None
+    app.dependency_overrides[requires_community] = lambda: None
+    app.dependency_overrides[excluded_project_repository_dep] = (
+        lambda: excluded_project_repository
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/cla/exclude-project",
+        json={
+            "platform": "github",
+            "full_name": " ",
+            "reason": "Valid reason",
+        },
+    )
+
+    assert response.status_code == 422
     excluded_project_repository.add_excluded_project.assert_not_called()
 
 

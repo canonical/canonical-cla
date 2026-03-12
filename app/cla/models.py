@@ -98,6 +98,7 @@ class ExcludedProjectIdentifier(BaseModel):
     ]
     full_name: Annotated[
         str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=200),
         Field(
             description="The full name of the project, this includes the organization name and the project name.",
             examples=["canonical/ubuntu.com"],
@@ -111,7 +112,7 @@ class ExcludedProjectIdentifier(BaseModel):
 class ExcludedProjectPayload(ExcludedProjectIdentifier):
     reason: Annotated[
         str,
-        StringConstraints(max_length=500),
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=500),
         Field(description="The reason why the project is excluded from CLA checks"),
     ]
 

@@ -340,18 +340,6 @@ async def exclude_project(
     """
     Exclude a project from the CLA check.
     """
-    project.full_name = project.full_name.strip()
-    project.reason = project.reason.strip()
-    if not project.full_name:
-        raise HTTPException(
-            status_code=400,
-            detail="Project full name is required",
-        )
-    if not project.reason:
-        raise HTTPException(
-            status_code=400,
-            detail="Project reason is required",
-        )
     try:
         return await excluded_project_repository.add_excluded_project(
             ExcludedProject(
