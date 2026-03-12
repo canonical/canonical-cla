@@ -130,26 +130,24 @@ class SQLExcludedProjectRepository(ExcludedProjectRepository):
 
         db_result = await self.session.execute(query)
 
+        # Create a set of found keys (platform, full_name) for O(1) lookup
+        # resulting rows will be tuples like ('github', 'canonical/repo')
         found_projects = {
             (project.platform, project.full_name): project
             for project in db_result.scalars().all()
         }
 
+        results: list[tuple[ExcludedProject, bool]] = []
         # Keep request order and include persisted reason when a match exists.
-        return [
-            (
-                matched_project
-                if (
-                    matched_project := found_projects.get(
-                        (project.platform, project.full_name)
-                    )
-                )
-                is not None
-                else project,
-                matched_project is not None,
-            )
-            for project in projects
-        ]
+        for project in projects:
+            matched_project = found_projects.get((project.platform, project.full_name))
+
+            if matched_project is None:
+                results.append((project, False))
+            else:
+                results.append((matched_project, True))
+
+        return results
 
 
 def excluded_project_repository(
