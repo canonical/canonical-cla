@@ -129,6 +129,7 @@ class ExcludedProject(Base):
         nullable=False,
     )
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime,
     )

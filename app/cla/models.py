@@ -92,12 +92,13 @@ class OrganizationCreateForm(BaseModel):
         return self
 
 
-class ExcludedProjectPayload(BaseModel):
+class ExcludedProjectIdentifier(BaseModel):
     platform: Annotated[
         ProjectPlatform, Field(description="The platform of the project")
     ]
     full_name: Annotated[
         str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=200),
         Field(
             description="The full name of the project, this includes the organization name and the project name.",
             examples=["canonical/ubuntu.com"],
@@ -106,6 +107,14 @@ class ExcludedProjectPayload(BaseModel):
 
     def __str__(self):
         return f"{self.platform.value}@{self.full_name}"
+
+
+class ExcludedProjectPayload(ExcludedProjectIdentifier):
+    reason: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=500),
+        Field(description="The reason why the project is excluded from CLA checks"),
+    ]
 
 
 class ExcludedProjectListingPayload(BaseModel):
@@ -118,7 +127,7 @@ class ExcludedProjectCreatePayload(ExcludedProjectPayload):
 
 
 class ExcludedProjectsResponse(BaseModel):
-    project: ExcludedProjectPayload
+    project: ExcludedProjectIdentifier
     excluded: bool
 
 

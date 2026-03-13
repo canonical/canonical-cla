@@ -22,6 +22,7 @@ from starlette.responses import JSONResponse
 from app.cla.models import (
     CLACheckResponse,
     ExcludedProjectCreatePayload,
+    ExcludedProjectIdentifier,
     ExcludedProjectListingPayload,
     ExcludedProjectPayload,
     ExcludedProjectsResponse,
@@ -339,17 +340,12 @@ async def exclude_project(
     """
     Exclude a project from the CLA check.
     """
-    project.full_name = project.full_name.strip()
-    if not project.full_name:
-        raise HTTPException(
-            status_code=400,
-            detail="Project full name is required",
-        )
     try:
         return await excluded_project_repository.add_excluded_project(
             ExcludedProject(
                 platform=project.platform,
                 full_name=project.full_name,
+                reason=project.reason,
             )
         )
     except IntegrityError as e:
@@ -365,7 +361,7 @@ async def projects_excluded(
         title="Projects",
         description="A list of projects to check for CLA signatories",
         max_length=100,
-        examples=["github@canonical/ubuntu.com,launchpad@canonical/snapd"],
+        examples=["canonical/ubuntu.com@github,canonical/snapd@launchpad"],
         default=[],
     ),
     excluded_project_repository: ExcludedProjectRepository = Depends(
@@ -377,17 +373,17 @@ async def projects_excluded(
     """
     formatted_projects: list[ExcludedProject] = []
     for project in projects:
-        # Validate the project identifier format: "<platform>@<full_name>"
+        # Validate the project identifier format: "<full_name>@<platform>"
         if "@" not in project:
             raise HTTPException(
                 status_code=400,
                 detail=(
                     f"Invalid project identifier '{project}'. "
-                    "Expected format '<platform>@<full_name>'."
+                    "Expected format '<full_name>@<platform>'."
                 ),
             )
 
-        platform_raw, full_name_raw = project.split("@", maxsplit=1)
+        full_name_raw, platform_raw = project.split("@", maxsplit=1)
         platform_str = platform_raw.strip()
         full_name_str = full_name_raw.strip()
 
@@ -422,7 +418,7 @@ async def projects_excluded(
     )
     return [
         ExcludedProjectsResponse(
-            project=ExcludedProjectPayload(
+            project=ExcludedProjectIdentifier(
                 full_name=excluded_project.full_name,
                 platform=ProjectPlatform(excluded_project.platform),
             ),
@@ -481,6 +477,7 @@ async def list_excluded_projects(
             ExcludedProjectPayload(
                 platform=ProjectPlatform(excluded_project.platform),
                 full_name=excluded_project.full_name,
+                reason=excluded_project.reason,
             )
             for excluded_project in excluded_projects
         ],
@@ -490,7 +487,7 @@ async def list_excluded_projects(
 
 @cla_router.delete("/excluded-project", dependencies=[Depends(internal_only)])
 async def remove_excluded_project(
-    project: ExcludedProjectPayload,
+    project: ExcludedProjectIdentifier,
     excluded_project_repository: ExcludedProjectRepository = Depends(
         excluded_project_repository
     ),

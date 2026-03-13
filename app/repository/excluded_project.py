@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, Protocol
 
 from fastapi import Depends
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.connection import async_session
@@ -116,29 +116,22 @@ class SQLExcludedProjectRepository(ExcludedProjectRepository):
         if not projects:
             return []
 
-        # Build a single query to find any matching records in the DB
-        # We look for rows where (platform == P AND full_name == N)
-        conditions = [
-            and_(
-                ExcludedProject.platform == project.platform,
-                ExcludedProject.full_name == project.full_name,
+        project_keys = [(project.platform, project.full_name) for project in projects]
+
+        db_result = await self.session.execute(
+            select(ExcludedProject.platform, ExcludedProject.full_name).where(
+                tuple_(ExcludedProject.platform, ExcludedProject.full_name).in_(
+                    project_keys
+                )
             )
-            for project in projects
-        ]
-
-        query = select(ExcludedProject.platform, ExcludedProject.full_name).where(
-            or_(*conditions)
         )
-
-        db_result = await self.session.execute(query)
-
         # Create a set of found keys (platform, full_name) for O(1) lookup
         # resulting rows will be tuples like ('github', 'canonical/repo')
-        found_keys = set(db_result.all())
+        found_project_keys = set(db_result.all())
 
-        # Map the original projects to the boolean result
+        # Keep request order and mark whether each requested project is excluded.
         return [
-            (project, (project.platform, project.full_name) in found_keys)
+            (project, (project.platform, project.full_name) in found_project_keys)
             for project in projects
         ]
 

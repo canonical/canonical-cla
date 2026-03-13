@@ -1,18 +1,20 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from pydantic_extra_types.country import CountryAlpha2
+from starlette.testclient import TestClient
 
 from app.cla.models import (
     CLACheckResponse,
     ExcludedProjectCreatePayload,
-    ExcludedProjectPayload,
+    ExcludedProjectIdentifier,
     IndividualCreateForm,
     OrganizationCreateForm,
 )
 from app.cla.routes import (
     check_cla,
+    cla_router,
     exclude_project,
     list_excluded_projects,
     manage_organization,
@@ -25,6 +27,11 @@ from app.database.models import ExcludedProject, ProjectPlatform
 from app.github.models import GitHubProfile
 from app.launchpad.models import LaunchpadProfile
 from app.oidc.models import OIDCUserInfo
+from app.oidc.permissions import requires_community
+from app.repository.excluded_project import (
+    excluded_project_repository as excluded_project_repository_dep,
+)
+from app.utils.request import internal_only
 
 
 @pytest.mark.asyncio
@@ -169,12 +176,14 @@ async def test_exclude_project():
     created = ExcludedProject(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
+        reason="Legacy policy exception",
     )
     created.id = 1
     excluded_project_repository.add_excluded_project = AsyncMock(return_value=created)
     payload = ExcludedProjectCreatePayload(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
+        reason="Legacy policy exception",
     )
     authorized_user = OIDCUserInfo(sub="sub1", email="admin@canonical.com")
 
@@ -188,7 +197,89 @@ async def test_exclude_project():
     call_args = excluded_project_repository.add_excluded_project.call_args[0][0]
     assert call_args.platform == ProjectPlatform.GITHUB
     assert call_args.full_name == "canonical/ubuntu.com"
+    assert call_args.reason == "Legacy policy exception"
     assert response == created
+
+
+def test_exclude_project_reason_required():
+    app = FastAPI()
+    app.include_router(cla_router)
+
+    excluded_project_repository = MagicMock()
+    excluded_project_repository.add_excluded_project = AsyncMock()
+
+    app.dependency_overrides[internal_only] = lambda: None
+    app.dependency_overrides[requires_community] = lambda: None
+    app.dependency_overrides[excluded_project_repository_dep] = (
+        lambda: excluded_project_repository
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/cla/exclude-project",
+        json={
+            "platform": "github",
+            "full_name": "canonical/ubuntu.com",
+            "reason": " ",
+        },
+    )
+
+    assert response.status_code == 422
+    excluded_project_repository.add_excluded_project.assert_not_called()
+
+
+def test_exclude_project_reason_too_long():
+    app = FastAPI()
+    app.include_router(cla_router)
+
+    excluded_project_repository = MagicMock()
+    excluded_project_repository.add_excluded_project = AsyncMock()
+
+    app.dependency_overrides[internal_only] = lambda: None
+    app.dependency_overrides[requires_community] = lambda: None
+    app.dependency_overrides[excluded_project_repository_dep] = (
+        lambda: excluded_project_repository
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/cla/exclude-project",
+        json={
+            "platform": "github",
+            "full_name": "canonical/ubuntu.com",
+            "reason": "a" * 501,
+        },
+    )
+
+    assert response.status_code == 422
+    excluded_project_repository.add_excluded_project.assert_not_called()
+
+
+def test_exclude_project_full_name_required():
+    app = FastAPI()
+    app.include_router(cla_router)
+
+    excluded_project_repository = MagicMock()
+    excluded_project_repository.add_excluded_project = AsyncMock()
+
+    app.dependency_overrides[internal_only] = lambda: None
+    app.dependency_overrides[requires_community] = lambda: None
+    app.dependency_overrides[excluded_project_repository_dep] = (
+        lambda: excluded_project_repository
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/cla/exclude-project",
+        json={
+            "platform": "github",
+            "full_name": " ",
+            "reason": "Valid reason",
+        },
+    )
+
+    assert response.status_code == 422
+    excluded_project_repository.add_excluded_project.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -211,26 +302,30 @@ async def test_projects_excluded_returns_excluded_status():
     ep1 = ExcludedProject(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
+        reason="Repository archived",
     )
     ep2 = ExcludedProject(
         platform=ProjectPlatform.LAUNCHPAD,
         full_name="canonical/snapd",
+        reason="Project moved",
     )
     excluded_project_repository.get_projects_excluded = AsyncMock(
         return_value=[(ep1, True), (ep2, False)]
     )
 
     response = await projects_excluded(
-        projects=["github@canonical/ubuntu.com", "launchpad@canonical/snapd"],
+        projects=["canonical/ubuntu.com@github", "canonical/snapd@launchpad"],
         excluded_project_repository=excluded_project_repository,
     )
 
     assert len(response) == 2
     assert response[0].project.full_name == "canonical/ubuntu.com"
     assert response[0].project.platform == ProjectPlatform.GITHUB
+    assert "reason" not in response[0].project.model_dump()
     assert response[0].excluded is True
     assert response[1].project.full_name == "canonical/snapd"
     assert response[1].project.platform == ProjectPlatform.LAUNCHPAD
+    assert "reason" not in response[1].project.model_dump()
     assert response[1].excluded is False
 
     call_args = excluded_project_repository.get_projects_excluded.call_args[0][0]
@@ -247,6 +342,7 @@ async def test_list_excluded_projects():
     ep1 = ExcludedProject(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
+        reason="Repository archived",
     )
     ep1.id = 1
     excluded_project_repository.filter_excluded_projects = AsyncMock(
@@ -271,6 +367,7 @@ async def test_list_excluded_projects():
     assert len(response.projects) == 1
     assert response.projects[0].full_name == "canonical/ubuntu.com"
     assert response.projects[0].platform == ProjectPlatform.GITHUB
+    assert response.projects[0].reason == "Repository archived"
 
 
 @pytest.mark.asyncio
@@ -279,12 +376,13 @@ async def test_remote_excluded_project():
     removed = ExcludedProject(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
+        reason="Repository archived",
     )
     removed.id = 1
     excluded_project_repository.delete_excluded_project = AsyncMock(
         return_value=removed
     )
-    payload = ExcludedProjectPayload(
+    payload = ExcludedProjectIdentifier(
         platform=ProjectPlatform.GITHUB,
         full_name="canonical/ubuntu.com",
     )
