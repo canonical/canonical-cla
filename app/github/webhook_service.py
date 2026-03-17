@@ -9,8 +9,13 @@ from gidgethub.httpx import GitHubAPI
 
 from app.cla.service import CLAService, cla_service
 from app.config import config
+from app.database.models import ExcludedProject, ProjectPlatform
 from app.github.models import GitHubWebhookPayload, WebhookResponse
 from app.http_client import http_client
+from app.repository.excluded_project import (
+    ExcludedProjectRepository,
+    excluded_project_repository,
+)
 
 LICENSE_MAP = {
     "canonical/lxd": ["Apache-2.0"],
@@ -36,9 +41,15 @@ def has_implicit_license(commit_message: str, repo_name: str) -> str:
 
 
 class GithubWebhookService:
-    def __init__(self, cla_service: CLAService, http_client: httpx.AsyncClient):
+    def __init__(
+        self,
+        cla_service: CLAService,
+        http_client: httpx.AsyncClient,
+        excluded_project_repository: ExcludedProjectRepository,
+    ):
         self.cla_service = cla_service
         self.http_client = http_client
+        self.excluded_project_repository = excluded_project_repository
 
     def verify_signature(self, payload_body: bytes, signature_header: str | None):
         """Verify that the payload was sent from GitHub by validating SHA256.
@@ -110,6 +121,20 @@ class GithubWebhookService:
 
         g = await self._get_github_api_for_installation(owner, installation_id)
 
+        # Check if the repository is excluded from CLA checks
+        if await self._is_repo_excluded(repo_full_name):
+            conclusion = "success"
+            output = {
+                "title": "CLA check not required",
+                "summary": (
+                    f"The repository {repo_full_name} is excluded from CLA checks."
+                ),
+            }
+            await self._update_or_create_check_run(
+                g, repo_full_name, sha, conclusion, output
+            )
+            return
+
         commit_authors = await self._get_commit_authors(g, repo_full_name, pr_number)
 
         authors_cla_status = await self._check_authors_cla(commit_authors)
@@ -137,6 +162,20 @@ class GithubWebhookService:
             requester=owner,
             oauth_token=access_token_response["token"],
         )
+
+    async def _is_repo_excluded(self, repo_full_name: str) -> bool:
+        """Check if a repository is excluded from CLA checks."""
+        project = ExcludedProject(
+            platform=ProjectPlatform.GITHUB,
+            full_name=repo_full_name,
+        )
+        results = await self.excluded_project_repository.get_projects_excluded(
+            [project]
+        )
+        if results:
+            _, excluded = results[0]
+            return excluded
+        return False
 
     async def _get_commit_authors(
         self, g: GitHubAPI, repo_full_name: str, pr_number: int
@@ -293,5 +332,8 @@ class GithubWebhookService:
 async def github_webhook_service(
     cla_service: CLAService = Depends(cla_service),
     http_client: httpx.AsyncClient = Depends(http_client),
+    excluded_project_repository: ExcludedProjectRepository = Depends(
+        excluded_project_repository
+    ),
 ) -> "GithubWebhookService":
-    return GithubWebhookService(cla_service, http_client)
+    return GithubWebhookService(cla_service, http_client, excluded_project_repository)
