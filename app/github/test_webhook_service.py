@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.config import config
+from app.database.models import ExcludedProject, ProjectPlatform
 from app.github.webhook_service import GithubWebhookService
 
 
@@ -20,8 +21,15 @@ def http_client_mock():
 
 
 @pytest.fixture
-def service(cla_service_mock, http_client_mock):
-    return GithubWebhookService(cla_service_mock, http_client_mock)
+def excluded_project_repository_mock():
+    return AsyncMock()
+
+
+@pytest.fixture
+def service(cla_service_mock, http_client_mock, excluded_project_repository_mock):
+    return GithubWebhookService(
+        cla_service_mock, http_client_mock, excluded_project_repository_mock
+    )
 
 
 class TestVerifySignature:
@@ -133,6 +141,38 @@ class TestProcessWebhook:
 
 
 class TestUpdateCheckRunHelpers:
+    @pytest.mark.asyncio
+    async def test_is_repo_excluded_true(
+        self,
+        service: GithubWebhookService,
+        excluded_project_repository_mock,
+    ):
+        project = ExcludedProject(
+            platform=ProjectPlatform.GITHUB, full_name="canonical/excluded-repo"
+        )
+        excluded_project_repository_mock.get_projects_excluded.return_value = [
+            (project, True)
+        ]
+
+        result = await service._is_repo_excluded("canonical/excluded-repo")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_is_repo_excluded_false(
+        self,
+        service: GithubWebhookService,
+        excluded_project_repository_mock,
+    ):
+        project = ExcludedProject(
+            platform=ProjectPlatform.GITHUB, full_name="canonical/lxd"
+        )
+        excluded_project_repository_mock.get_projects_excluded.return_value = [
+            (project, False)
+        ]
+
+        result = await service._is_repo_excluded("canonical/lxd")
+        assert result is False
+
     @pytest.mark.asyncio
     async def test_get_commit_authors(self, service: GithubWebhookService):
         g_mock = AsyncMock()
@@ -273,6 +313,9 @@ async def test_update_check_run(service: GithubWebhookService):
             service, "_get_github_api_for_installation", new_callable=AsyncMock
         ) as get_api_mock,
         patch.object(
+            service, "_is_repo_excluded", new_callable=AsyncMock, return_value=False
+        ),
+        patch.object(
             service, "_get_commit_authors", new_callable=AsyncMock
         ) as get_authors_mock,
         patch.object(
@@ -308,4 +351,36 @@ async def test_update_check_run(service: GithubWebhookService):
             "test_sha",
             "success",
             {"title": "Success", "summary": "All signed"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_check_run_excluded_repo(service: GithubWebhookService):
+    with (
+        patch.object(
+            service, "_get_github_api_for_installation", new_callable=AsyncMock
+        ) as get_api_mock,
+        patch.object(
+            service, "_is_repo_excluded", new_callable=AsyncMock, return_value=True
+        ),
+        patch.object(
+            service, "_get_commit_authors", new_callable=AsyncMock
+        ) as get_authors_mock,
+        patch.object(
+            service, "_update_or_create_check_run", new_callable=AsyncMock
+        ) as update_run_mock,
+    ):
+        await service.update_check_run("test_sha", "canonical/excluded-repo", 123, 456)
+
+        get_api_mock.assert_awaited_once_with("canonical", 456)
+        get_authors_mock.assert_not_awaited()
+        update_run_mock.assert_awaited_once_with(
+            get_api_mock.return_value,
+            "canonical/excluded-repo",
+            "test_sha",
+            "success",
+            {
+                "title": "CLA check not required",
+                "summary": "The repository canonical/excluded-repo is excluded from CLA checks.",
+            },
         )
