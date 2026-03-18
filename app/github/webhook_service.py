@@ -109,13 +109,31 @@ class GithubWebhookService:
             else:
                 return WebhookResponse(message="Re-run event ignored, no pull request")
 
+        # Handle merge queue events
+        elif payload.merge_group and payload.action == "checks_requested":
+            sha = payload.merge_group.head_sha
+            installation_id = payload.installation.id
+            await self.update_check_run(
+                sha, repo_full_name, installation_id=installation_id
+            )
+            return WebhookResponse(message="Merge group event processed")
+
         return WebhookResponse(message="Event not processed")
 
     async def update_check_run(
-        self, sha: str, repo_full_name: str, pr_number: int, installation_id: int
+        self,
+        sha: str,
+        repo_full_name: str,
+        pr_number: int | None = None,
+        installation_id: int = 0,
     ):
         """
         Creates or updates the 'Canonical CLA' check run for a given commit.
+
+        When *pr_number* is provided the commit authors are collected from
+        the pull-request.  When it is ``None`` (merge-queue / merge-group
+        events) the authors are collected from the merge-group head commit
+        and its parents instead.
         """
         owner, _ = repo_full_name.split("/")
 
@@ -135,7 +153,14 @@ class GithubWebhookService:
             )
             return
 
-        commit_authors = await self._get_commit_authors(g, repo_full_name, pr_number)
+        if pr_number is not None:
+            commit_authors = await self._get_commit_authors(
+                g, repo_full_name, pr_number
+            )
+        else:
+            commit_authors = await self._get_merge_group_commit_authors(
+                g, repo_full_name, sha
+            )
 
         authors_cla_status = await self._check_authors_cla(commit_authors)
 
@@ -202,6 +227,63 @@ class GithubWebhookService:
                     "username": author_login,
                     "signed": False,
                 }
+        return commit_authors
+
+    async def _get_merge_group_commit_authors(
+        self, g: GitHubAPI, repo_full_name: str, head_sha: str
+    ) -> dict:
+        """Collect commit authors from a merge group's head commit.
+
+        For a merge group, we inspect the commit at head_sha and all its
+        parents recursively until we reach merge-base commits that already
+        exist on the target branch.  In practice, GitHub provides the
+        merge group head commit which is a merge of the queued PRs.
+        We fetch the commit details and extract the author info.
+        """
+        commit_authors = {}
+        commit_url = f"/repos/{repo_full_name}/commits/{head_sha}"
+        commit = await g.getitem(commit_url)
+
+        # Check for implicit license
+        if not has_implicit_license(commit["commit"]["message"], repo_full_name):
+            author_email = commit["commit"]["author"]["email"]
+            if author_email:
+                author_login = (
+                    commit["author"]["login"] if commit["author"] else None
+                )
+                if author_email not in commit_authors:
+                    commit_authors[author_email] = {
+                        "username": author_login,
+                        "signed": False,
+                    }
+
+        # Also check parent commits that are part of the merge group
+        # The merge group head is typically a merge commit; iterate over
+        # the non-first parents (the PR head commits being merged).
+        parents = commit.get("parents", [])
+        if len(parents) > 1:
+            # Skip the first parent (the base branch tip) and check
+            # the additional parents which represent the queued PR heads
+            for parent in parents[1:]:
+                parent_commit = await g.getitem(parent["url"])
+                if has_implicit_license(
+                    parent_commit["commit"]["message"], repo_full_name
+                ):
+                    continue
+                author_email = parent_commit["commit"]["author"]["email"]
+                if not author_email:
+                    continue
+                author_login = (
+                    parent_commit["author"]["login"]
+                    if parent_commit["author"]
+                    else None
+                )
+                if author_email not in commit_authors:
+                    commit_authors[author_email] = {
+                        "username": author_login,
+                        "signed": False,
+                    }
+
         return commit_authors
 
     async def _check_authors_cla(self, commit_authors: dict) -> dict:

@@ -87,12 +87,19 @@ class GitHubCheckRun(BaseModel):
     pull_requests: list[GitHubPullRequest] = []
 
 
+class GitHubMergeGroup(BaseModel):
+    head_sha: str
+    head_ref: str
+    base_ref: str
+
+
 class GitHubWebhookPayload(BaseModel):
     action: str
     repository: GitHubRepository
     installation: GitHubInstallation
     pull_request: GitHubPullRequest | None = None
     check_run: GitHubCheckRun | None = None
+    merge_group: GitHubMergeGroup | None = None
 
 
 class WebhookResponse(BaseModel):
