@@ -240,51 +240,45 @@ class GithubWebhookService:
         merge group head commit which is a merge of the queued PRs.
         We fetch the commit details and extract the author info.
         """
-        commit_authors = {}
+        commit_authors: dict = {}
         commit_url = f"/repos/{repo_full_name}/commits/{head_sha}"
         commit = await g.getitem(commit_url)
 
-        # Check for implicit license
-        if not has_implicit_license(commit["commit"]["message"], repo_full_name):
-            author_email = commit["commit"]["author"]["email"]
-            if author_email:
-                author_login = (
-                    commit["author"]["login"] if commit["author"] else None
-                )
-                if author_email not in commit_authors:
-                    commit_authors[author_email] = {
-                        "username": author_login,
-                        "signed": False,
-                    }
+        self._collect_commit_author(commit, repo_full_name, commit_authors)
 
-        # Also check parent commits that are part of the merge group
-        # The merge group head is typically a merge commit; iterate over
-        # the non-first parents (the PR head commits being merged).
+        # Also check parent commits that are part of the merge group.
+        # The merge group head is typically a merge commit; skip the first
+        # parent (the base branch tip) and check the additional parents
+        # which represent the queued PR heads.
         parents = commit.get("parents", [])
-        if len(parents) > 1:
-            # Skip the first parent (the base branch tip) and check
-            # the additional parents which represent the queued PR heads
-            for parent in parents[1:]:
-                parent_commit = await g.getitem(parent["url"])
-                if has_implicit_license(
-                    parent_commit["commit"]["message"], repo_full_name
-                ):
-                    continue
-                author_email = parent_commit["commit"]["author"]["email"]
-                if not author_email:
-                    continue
-                author_login = (
-                    parent_commit["author"]["login"]
-                    if parent_commit["author"]
-                    else None
-                )
-                if author_email not in commit_authors:
-                    commit_authors[author_email] = {
-                        "username": author_login,
-                        "signed": False,
-                    }
+        for parent in parents[1:]:
+            parent_commit = await g.getitem(parent["url"])
+            self._collect_commit_author(parent_commit, repo_full_name, commit_authors)
 
         return commit_authors
+
+    @staticmethod
+    def _collect_commit_author(
+        commit: dict, repo_full_name: str, commit_authors: dict
+    ) -> None:
+        """Extract author info from a commit and add it to *commit_authors*.
+
+        Commits covered by an implicit license are silently skipped.
+        """
+        if has_implicit_license(commit["commit"]["message"], repo_full_name):
+            return
+
+        author_email = commit["commit"]["author"]["email"]
+        if not author_email:
+            return
+
+        author_login = commit["author"]["login"] if commit["author"] else None
+
+        if author_email not in commit_authors:
+            commit_authors[author_email] = {
+                "username": author_login,
+                "signed": False,
+            }
 
     async def _check_authors_cla(self, commit_authors: dict) -> dict:
         """
