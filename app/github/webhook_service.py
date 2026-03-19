@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import re
+from typing import TypedDict
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -22,6 +23,24 @@ LICENSE_MAP = {
     "canonical/lxd-ci": ["Apache-2.0"],
     "canonical/lxd-imagebuilder": ["Apache-2.0"],
 }
+
+
+class AuthorInfo(TypedDict):
+    """CLA status for a single commit author, keyed by email."""
+
+    username: str | None
+    signed: bool
+
+
+class CheckRunOutput(TypedDict):
+    """Output payload passed to the GitHub Check Runs API."""
+
+    title: str
+    summary: str
+
+
+# Mapping of author email → CLA info.
+CommitAuthors = dict[str, AuthorInfo]
 
 
 def has_implicit_license(commit_message: str, repo_name: str) -> str:
@@ -142,7 +161,7 @@ class GithubWebhookService:
         # Check if the repository is excluded from CLA checks
         if await self._is_repo_excluded(repo_full_name):
             conclusion = "success"
-            output = {
+            output: CheckRunOutput = {
                 "title": "CLA check not required",
                 "summary": (
                     f"The repository {repo_full_name} is excluded from CLA checks."
@@ -204,9 +223,9 @@ class GithubWebhookService:
 
     async def _get_commit_authors(
         self, g: GitHubAPI, repo_full_name: str, pr_number: int
-    ) -> dict:
+    ) -> CommitAuthors:
         """Collect commit authors from a pull request."""
-        commit_authors = {}
+        commit_authors: CommitAuthors = {}
         pr_commits_url = f"/repos/{repo_full_name}/pulls/{pr_number}/commits"
         commits = g.getiter(pr_commits_url)
 
@@ -231,7 +250,7 @@ class GithubWebhookService:
 
     async def _get_merge_group_commit_authors(
         self, g: GitHubAPI, repo_full_name: str, head_sha: str
-    ) -> dict:
+    ) -> CommitAuthors:
         """Collect commit authors from a merge group's head commit.
 
         For a merge group, we inspect the commit at head_sha and all its
@@ -240,7 +259,7 @@ class GithubWebhookService:
         merge group head commit which is a merge of the queued PRs.
         We fetch the commit details and extract the author info.
         """
-        commit_authors: dict = {}
+        commit_authors: CommitAuthors = {}
         commit_url = f"/repos/{repo_full_name}/commits/{head_sha}"
         commit = await g.getitem(commit_url)
 
@@ -259,7 +278,7 @@ class GithubWebhookService:
 
     @staticmethod
     def _collect_commit_author(
-        commit: dict, repo_full_name: str, commit_authors: dict
+        commit: dict, repo_full_name: str, commit_authors: CommitAuthors
     ) -> None:
         """Extract author info from a commit and add it to *commit_authors*.
 
@@ -280,7 +299,7 @@ class GithubWebhookService:
                 "signed": False,
             }
 
-    async def _check_authors_cla(self, commit_authors: dict) -> dict:
+    async def _check_authors_cla(self, commit_authors: CommitAuthors) -> CommitAuthors:
         """
         Check CLA status for commit authors and return the updated authors dict.
         """
@@ -319,7 +338,9 @@ class GithubWebhookService:
                     author["signed"] = True
         return commit_authors
 
-    def _create_check_run_output(self, authors_cla_status: dict) -> tuple[str, dict]:
+    def _create_check_run_output(
+        self, authors_cla_status: CommitAuthors
+    ) -> tuple[str, CheckRunOutput]:
         """
         Create the output for the check run based on authors' CLA status.
         """
@@ -367,7 +388,7 @@ class GithubWebhookService:
         repo_full_name: str,
         sha: str,
         conclusion: str,
-        output: dict,
+        output: CheckRunOutput,
     ):
         """Create or update the GitHub check run."""
         check_run_name = "Canonical CLA"
