@@ -39,6 +39,47 @@ class CheckRunOutput(TypedDict):
     summary: str
 
 
+class GitCommitAuthor(TypedDict):
+    """Author info nested inside a Git commit object."""
+
+    email: str
+
+
+class GitCommitInfo(TypedDict):
+    """The ``commit`` sub-object returned by the GitHub Commits API."""
+
+    author: GitCommitAuthor
+    message: str
+
+
+class GitHubUser(TypedDict):
+    """Top-level ``author`` returned by the GitHub Commits API (may be *None*)."""
+
+    login: str
+
+
+class GitHubParentCommit(TypedDict):
+    """A parent reference inside a GitHub commit object."""
+
+    url: str
+
+
+class _GitHubCommitRequired(TypedDict):
+    """Required fields from the GitHub Commits API response."""
+
+    commit: GitCommitInfo
+    author: GitHubUser | None
+
+
+class GitHubCommit(_GitHubCommitRequired, total=False):
+    """Subset of the GitHub Commits API response that we actually use.
+
+    ``parents`` is optional because not every caller accesses it.
+    """
+
+    parents: list[GitHubParentCommit]
+
+
 # Mapping of author email → CLA info.
 CommitAuthors = dict[str, AuthorInfo]
 
@@ -112,7 +153,9 @@ class GithubWebhookService:
             sha = payload.pull_request.head.sha
             pr_number = payload.pull_request.number
             installation_id = payload.installation.id
-            await self.update_check_run(sha, repo_full_name, pr_number, installation_id)
+            await self.update_check_run(
+                sha, repo_full_name, pr_number, installation_id=installation_id
+            )
             return WebhookResponse(message="Pull request event processed")
 
         # Handle the "Re-run" event from the GitHub UI
@@ -122,7 +165,7 @@ class GithubWebhookService:
                 pr_number = payload.check_run.pull_requests[0].number
                 installation_id = payload.installation.id
                 await self.update_check_run(
-                    sha, repo_full_name, pr_number, installation_id
+                    sha, repo_full_name, pr_number, installation_id=installation_id
                 )
                 return WebhookResponse(message="Re-run event processed")
             else:
@@ -144,7 +187,8 @@ class GithubWebhookService:
         sha: str,
         repo_full_name: str,
         pr_number: int | None = None,
-        installation_id: int = 0,
+        *,
+        installation_id: int,
     ):
         """
         Creates or updates the 'Canonical CLA' check run for a given commit.
@@ -278,7 +322,7 @@ class GithubWebhookService:
 
     @staticmethod
     def _collect_commit_author(
-        commit: dict, repo_full_name: str, commit_authors: CommitAuthors
+        commit: GitHubCommit, repo_full_name: str, commit_authors: CommitAuthors
     ) -> None:
         """Extract author info from a commit and add it to *commit_authors*.
 
