@@ -408,7 +408,7 @@ class GithubWebhookService:
             summary = "All contributors have signed the CLA. Thank you!"
             if signed_authors:
                 summary += "\n\n" + "\n".join(signed_authors)
-            output = {
+            output: CheckRunOutput = {
                 "title": "All contributors have signed the CLA.",
                 "summary": summary,
             }
@@ -423,7 +423,7 @@ class GithubWebhookService:
                 + "\n\nPlease head over to "
                 "https://ubuntu.com/legal/contributors to sign the CLA."
             )
-            output = {"title": "CLA Check Failed", "summary": summary}
+            output: CheckRunOutput = {"title": "CLA Check Failed", "summary": summary}
         return conclusion, output
 
     async def _update_or_create_check_run(

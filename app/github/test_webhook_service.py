@@ -7,7 +7,7 @@ from fastapi import HTTPException
 
 from app.config import config
 from app.database.models import ExcludedProject, ProjectPlatform
-from app.github.webhook_service import GithubWebhookService
+from app.github.webhook_service import CommitAuthors, GithubWebhookService
 
 
 @pytest.fixture
@@ -270,7 +270,7 @@ class TestUpdateCheckRunHelpers:
     async def test_check_authors_cla(
         self, service: GithubWebhookService, cla_service_mock
     ):
-        commit_authors = {
+        commit_authors: CommitAuthors = {
             "author1@example.com": {"username": "author1", "signed": False},
             "author2@example.com": {"username": "author2", "signed": False},
             "bot@example.com": {"username": "dependabot[bot]", "signed": False},
@@ -292,7 +292,7 @@ class TestUpdateCheckRunHelpers:
     async def test_check_authors_cla_signed_by_github(
         self, service: GithubWebhookService, cla_service_mock
     ):
-        commit_authors = {
+        commit_authors: CommitAuthors = {
             "author1@example.com": {"username": "author1", "signed": False},
         }
 
@@ -306,7 +306,7 @@ class TestUpdateCheckRunHelpers:
         assert result["author1@example.com"]["signed"] is True
 
     def test_create_check_run_output_all_signed(self, service: GithubWebhookService):
-        authors = {
+        authors: CommitAuthors = {
             "author1@example.com": {"username": "author1", "signed": True},
         }
         conclusion, output = service._create_check_run_output(authors)
@@ -316,7 +316,7 @@ class TestUpdateCheckRunHelpers:
         assert "- author1 ✓ (CLA signed)" in output["summary"]
 
     def test_create_check_run_output_some_unsigned(self, service: GithubWebhookService):
-        authors = {
+        authors: CommitAuthors = {
             "author1@example.com": {"username": "author1", "signed": True},
             "author2@example.com": {"username": "author2", "signed": False},
         }
