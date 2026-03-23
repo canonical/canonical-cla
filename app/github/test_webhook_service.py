@@ -7,7 +7,7 @@ from fastapi import HTTPException
 
 from app.config import config
 from app.database.models import ExcludedProject, ProjectPlatform
-from app.github.webhook_service import GithubWebhookService
+from app.github.webhook_service import CommitAuthors, GithubWebhookService
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ class TestProcessWebhook:
             result = await service.process_webhook(payload)
             assert result.message == "Pull request event processed"
             update_check_run_mock.assert_awaited_once_with(
-                "test_sha", "canonical/lxd", 123, 456
+                "test_sha", "canonical/lxd", 456, 123
             )
 
     @pytest.mark.asyncio
@@ -103,7 +103,7 @@ class TestProcessWebhook:
             result = await service.process_webhook(payload)
             assert result.message == "Re-run event processed"
             update_check_run_mock.assert_awaited_once_with(
-                "test_sha", "canonical/lxd", 123, 456
+                "test_sha", "canonical/lxd", 456, 123
             )
 
     @pytest.mark.asyncio
@@ -130,6 +130,7 @@ class TestProcessWebhook:
         payload = MagicMock()
         payload.pull_request = None
         payload.check_run = None
+        payload.merge_group = None
         payload.action = "some_other_action"
 
         with patch.object(
@@ -138,6 +139,27 @@ class TestProcessWebhook:
             result = await service.process_webhook(payload)
             assert result.message == "Event not processed"
             update_check_run_mock.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_process_webhook_merge_group_checks_requested(
+        self, service: GithubWebhookService
+    ):
+        payload = MagicMock()
+        payload.pull_request = None
+        payload.check_run = None
+        payload.merge_group.head_sha = "merge_group_sha"
+        payload.repository.full_name = "canonical/lxd"
+        payload.installation.id = 456
+        payload.action = "checks_requested"
+
+        with patch.object(
+            service, "update_check_run", new_callable=AsyncMock
+        ) as update_check_run_mock:
+            result = await service.process_webhook(payload)
+            assert result.message == "Merge group event processed"
+            update_check_run_mock.assert_awaited_once_with(
+                "merge_group_sha", "canonical/lxd", 456
+            )
 
 
 class TestUpdateCheckRunHelpers:
@@ -248,7 +270,7 @@ class TestUpdateCheckRunHelpers:
     async def test_check_authors_cla(
         self, service: GithubWebhookService, cla_service_mock
     ):
-        commit_authors = {
+        commit_authors: CommitAuthors = {
             "author1@example.com": {"username": "author1", "signed": False},
             "author2@example.com": {"username": "author2", "signed": False},
             "bot@example.com": {"username": "dependabot[bot]", "signed": False},
@@ -270,7 +292,7 @@ class TestUpdateCheckRunHelpers:
     async def test_check_authors_cla_signed_by_github(
         self, service: GithubWebhookService, cla_service_mock
     ):
-        commit_authors = {
+        commit_authors: CommitAuthors = {
             "author1@example.com": {"username": "author1", "signed": False},
         }
 
@@ -284,7 +306,7 @@ class TestUpdateCheckRunHelpers:
         assert result["author1@example.com"]["signed"] is True
 
     def test_create_check_run_output_all_signed(self, service: GithubWebhookService):
-        authors = {
+        authors: CommitAuthors = {
             "author1@example.com": {"username": "author1", "signed": True},
         }
         conclusion, output = service._create_check_run_output(authors)
@@ -294,7 +316,7 @@ class TestUpdateCheckRunHelpers:
         assert "- author1 ✓ (CLA signed)" in output["summary"]
 
     def test_create_check_run_output_some_unsigned(self, service: GithubWebhookService):
-        authors = {
+        authors: CommitAuthors = {
             "author1@example.com": {"username": "author1", "signed": True},
             "author2@example.com": {"username": "author2", "signed": False},
         }
@@ -337,7 +359,7 @@ async def test_update_check_run(service: GithubWebhookService):
             {"title": "Success", "summary": "All signed"},
         )
 
-        await service.update_check_run("test_sha", "canonical/lxd", 123, 456)
+        await service.update_check_run("test_sha", "canonical/lxd", 456, 123)
 
         get_api_mock.assert_awaited_once_with("canonical", 456)
         get_authors_mock.assert_awaited_once_with(
@@ -370,7 +392,7 @@ async def test_update_check_run_excluded_repo(service: GithubWebhookService):
             service, "_update_or_create_check_run", new_callable=AsyncMock
         ) as update_run_mock,
     ):
-        await service.update_check_run("test_sha", "canonical/excluded-repo", 123, 456)
+        await service.update_check_run("test_sha", "canonical/excluded-repo", 456, 123)
 
         get_api_mock.assert_awaited_once_with("canonical", 456)
         get_authors_mock.assert_not_awaited()
@@ -384,3 +406,186 @@ async def test_update_check_run_excluded_repo(service: GithubWebhookService):
                 "summary": "The repository canonical/excluded-repo is excluded from CLA checks.",
             },
         )
+
+
+@pytest.mark.asyncio
+async def test_update_check_run_for_merge_group(service: GithubWebhookService):
+    with (
+        patch.object(
+            service, "_get_github_api_for_installation", new_callable=AsyncMock
+        ) as get_api_mock,
+        patch.object(
+            service, "_is_repo_excluded", new_callable=AsyncMock, return_value=False
+        ),
+        patch.object(
+            service, "_get_merge_group_commit_authors", new_callable=AsyncMock
+        ) as get_authors_mock,
+        patch.object(
+            service, "_check_authors_cla", new_callable=AsyncMock
+        ) as check_cla_mock,
+        patch.object(service, "_create_check_run_output") as create_output_mock,
+        patch.object(
+            service, "_update_or_create_check_run", new_callable=AsyncMock
+        ) as update_run_mock,
+    ):
+        get_authors_mock.return_value = {
+            "author1@example.com": {"username": "author1", "signed": False}
+        }
+        check_cla_mock.return_value = {
+            "author1@example.com": {"username": "author1", "signed": True}
+        }
+        create_output_mock.return_value = (
+            "success",
+            {"title": "Success", "summary": "All signed"},
+        )
+
+        await service.update_check_run(
+            "merge_sha", "canonical/lxd", installation_id=456
+        )
+
+        get_api_mock.assert_awaited_once_with("canonical", 456)
+        get_authors_mock.assert_awaited_once_with(
+            get_api_mock.return_value, "canonical/lxd", "merge_sha"
+        )
+        check_cla_mock.assert_awaited_once_with(get_authors_mock.return_value)
+        create_output_mock.assert_called_once_with(check_cla_mock.return_value)
+        update_run_mock.assert_awaited_once_with(
+            get_api_mock.return_value,
+            "canonical/lxd",
+            "merge_sha",
+            "success",
+            {"title": "Success", "summary": "All signed"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_check_run_for_merge_group_excluded_repo(
+    service: GithubWebhookService,
+):
+    with (
+        patch.object(
+            service, "_get_github_api_for_installation", new_callable=AsyncMock
+        ) as get_api_mock,
+        patch.object(
+            service, "_is_repo_excluded", new_callable=AsyncMock, return_value=True
+        ),
+        patch.object(
+            service, "_get_merge_group_commit_authors", new_callable=AsyncMock
+        ) as get_authors_mock,
+        patch.object(
+            service, "_update_or_create_check_run", new_callable=AsyncMock
+        ) as update_run_mock,
+    ):
+        await service.update_check_run(
+            "merge_sha", "canonical/excluded-repo", installation_id=456
+        )
+
+        get_api_mock.assert_awaited_once_with("canonical", 456)
+        get_authors_mock.assert_not_awaited()
+        update_run_mock.assert_awaited_once_with(
+            get_api_mock.return_value,
+            "canonical/excluded-repo",
+            "merge_sha",
+            "success",
+            {
+                "title": "CLA check not required",
+                "summary": "The repository canonical/excluded-repo is excluded from CLA checks.",
+            },
+        )
+
+
+class TestGetMergeGroupCommitAuthors:
+    @pytest.mark.asyncio
+    async def test_merge_commit_with_parents(self, service: GithubWebhookService):
+        """Test extracting authors from a merge group merge commit."""
+        g_mock = AsyncMock()
+
+        async def getitem_side_effect(url):
+            if url == "/repos/canonical/lxd/commits/merge_sha":
+                return {
+                    "commit": {
+                        "author": {"email": "github-merge-queue@users.noreply.github.com"},
+                        "message": "Merge pull request",
+                    },
+                    "author": {"login": "github-merge-queue[bot]"},
+                    "parents": [
+                        {"url": "https://api.github.com/repos/canonical/lxd/commits/base_sha"},
+                        {"url": "https://api.github.com/repos/canonical/lxd/commits/pr_head_sha"},
+                    ],
+                }
+            if url == "https://api.github.com/repos/canonical/lxd/commits/pr_head_sha":
+                return {
+                    "commit": {
+                        "author": {"email": "author1@example.com"},
+                        "message": "feat: my feature",
+                    },
+                    "author": {"login": "author1"},
+                }
+            return {}
+
+        g_mock.getitem.side_effect = getitem_side_effect
+
+        authors = await service._get_merge_group_commit_authors(
+            g_mock, "canonical/lxd", "merge_sha"
+        )
+
+        assert "github-merge-queue@users.noreply.github.com" in authors
+        assert "author1@example.com" in authors
+        assert authors["author1@example.com"] == {
+            "username": "author1",
+            "signed": False,
+        }
+
+    @pytest.mark.asyncio
+    async def test_single_commit_no_parents(self, service: GithubWebhookService):
+        """Test merge group with a single commit (no extra parents)."""
+        g_mock = AsyncMock()
+
+        async def getitem_side_effect(url):
+            if url == "/repos/canonical/lxd/commits/single_sha":
+                return {
+                    "commit": {
+                        "author": {"email": "author1@example.com"},
+                        "message": "feat: my feature",
+                    },
+                    "author": {"login": "author1"},
+                    "parents": [
+                        {"url": "https://api.github.com/repos/canonical/lxd/commits/base_sha"},
+                    ],
+                }
+            return {}
+
+        g_mock.getitem.side_effect = getitem_side_effect
+
+        authors = await service._get_merge_group_commit_authors(
+            g_mock, "canonical/lxd", "single_sha"
+        )
+
+        assert authors == {
+            "author1@example.com": {"username": "author1", "signed": False},
+        }
+
+    @pytest.mark.asyncio
+    async def test_implicit_license_skipped(self, service: GithubWebhookService):
+        """Test that commits with implicit licenses are skipped."""
+        g_mock = AsyncMock()
+
+        async def getitem_side_effect(url):
+            if url == "/repos/canonical/lxd/commits/merge_sha":
+                return {
+                    "commit": {
+                        "author": {"email": "author1@example.com"},
+                        "message": "feat: my feature\n\nLicense: Apache-2.0",
+                    },
+                    "author": {"login": "author1"},
+                    "parents": [],
+                }
+            return {}
+
+        g_mock.getitem.side_effect = getitem_side_effect
+
+        authors = await service._get_merge_group_commit_authors(
+            g_mock, "canonical/lxd", "merge_sha"
+        )
+
+        assert authors == {}

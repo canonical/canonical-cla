@@ -170,10 +170,12 @@ async def webhook(
     - **Pull Requests**: `Read-only`
     - **Contents**: `Read-only` (required for private repositories)
     - **Checks**: `Read & write`
+    - **Merge queues**: `Read-only`
 
     And be subscribed to the following events:
     - `Pull request`
     - `Check run`
+    - `Merge group`
     """
     payload_body = await request.body()
     signature_header = request.headers.get("x-hub-signature-256")
