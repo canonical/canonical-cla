@@ -82,7 +82,7 @@ class TestProcessWebhook:
             result = await service.process_webhook(payload)
             assert result.message == "Pull request event processed"
             update_check_run_mock.assert_awaited_once_with(
-                "test_sha", "canonical/lxd", 123, installation_id=456
+                "test_sha", "canonical/lxd", 456, 123
             )
 
     @pytest.mark.asyncio
@@ -103,7 +103,7 @@ class TestProcessWebhook:
             result = await service.process_webhook(payload)
             assert result.message == "Re-run event processed"
             update_check_run_mock.assert_awaited_once_with(
-                "test_sha", "canonical/lxd", 123, installation_id=456
+                "test_sha", "canonical/lxd", 456, 123
             )
 
     @pytest.mark.asyncio
@@ -158,7 +158,7 @@ class TestProcessWebhook:
             result = await service.process_webhook(payload)
             assert result.message == "Merge group event processed"
             update_check_run_mock.assert_awaited_once_with(
-                "merge_group_sha", "canonical/lxd", installation_id=456
+                "merge_group_sha", "canonical/lxd", 456
             )
 
 
@@ -359,7 +359,7 @@ async def test_update_check_run(service: GithubWebhookService):
             {"title": "Success", "summary": "All signed"},
         )
 
-        await service.update_check_run("test_sha", "canonical/lxd", 123, installation_id=456)
+        await service.update_check_run("test_sha", "canonical/lxd", 456, 123)
 
         get_api_mock.assert_awaited_once_with("canonical", 456)
         get_authors_mock.assert_awaited_once_with(
@@ -392,7 +392,7 @@ async def test_update_check_run_excluded_repo(service: GithubWebhookService):
             service, "_update_or_create_check_run", new_callable=AsyncMock
         ) as update_run_mock,
     ):
-        await service.update_check_run("test_sha", "canonical/excluded-repo", 123, installation_id=456)
+        await service.update_check_run("test_sha", "canonical/excluded-repo", 456, 123)
 
         get_api_mock.assert_awaited_once_with("canonical", 456)
         get_authors_mock.assert_not_awaited()

@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 import re
-from typing import TypedDict
+from typing import TypedDict, cast
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -153,9 +153,7 @@ class GithubWebhookService:
             sha = payload.pull_request.head.sha
             pr_number = payload.pull_request.number
             installation_id = payload.installation.id
-            await self.update_check_run(
-                sha, repo_full_name, pr_number, installation_id=installation_id
-            )
+            await self.update_check_run(sha, repo_full_name, installation_id, pr_number)
             return WebhookResponse(message="Pull request event processed")
 
         # Handle the "Re-run" event from the GitHub UI
@@ -165,7 +163,7 @@ class GithubWebhookService:
                 pr_number = payload.check_run.pull_requests[0].number
                 installation_id = payload.installation.id
                 await self.update_check_run(
-                    sha, repo_full_name, pr_number, installation_id=installation_id
+                    sha, repo_full_name, installation_id, pr_number
                 )
                 return WebhookResponse(message="Re-run event processed")
             else:
@@ -175,9 +173,7 @@ class GithubWebhookService:
         elif payload.merge_group and payload.action == "checks_requested":
             sha = payload.merge_group.head_sha
             installation_id = payload.installation.id
-            await self.update_check_run(
-                sha, repo_full_name, installation_id=installation_id
-            )
+            await self.update_check_run(sha, repo_full_name, installation_id)
             return WebhookResponse(message="Merge group event processed")
 
         return WebhookResponse(message="Event not processed")
@@ -186,9 +182,8 @@ class GithubWebhookService:
         self,
         sha: str,
         repo_full_name: str,
-        pr_number: int | None = None,
-        *,
         installation_id: int,
+        pr_number: int | None = None,
     ):
         """
         Creates or updates the 'Canonical CLA' check run for a given commit.
@@ -205,12 +200,12 @@ class GithubWebhookService:
         # Check if the repository is excluded from CLA checks
         if await self._is_repo_excluded(repo_full_name):
             conclusion = "success"
-            output: CheckRunOutput = {
-                "title": "CLA check not required",
-                "summary": (
+            output = CheckRunOutput(
+                title="CLA check not required",
+                summary=(
                     f"The repository {repo_full_name} is excluded from CLA checks."
                 ),
-            }
+            )
             await self._update_or_create_check_run(
                 g, repo_full_name, sha, conclusion, output
             )
@@ -274,7 +269,7 @@ class GithubWebhookService:
         commits = g.getiter(pr_commits_url)
 
         async for commit_data in commits:
-            commit = await g.getitem(commit_data["url"])
+            commit = cast(GitHubCommit, await g.getitem(commit_data["url"]))
             # Check for implicit license
             if has_implicit_license(commit["commit"]["message"], repo_full_name):
                 continue
@@ -305,7 +300,7 @@ class GithubWebhookService:
         """
         commit_authors: CommitAuthors = {}
         commit_url = f"/repos/{repo_full_name}/commits/{head_sha}"
-        commit = await g.getitem(commit_url)
+        commit = cast(GitHubCommit, await g.getitem(commit_url))
 
         self._collect_commit_author(commit, repo_full_name, commit_authors)
 
@@ -315,7 +310,7 @@ class GithubWebhookService:
         # which represent the queued PR heads.
         parents = commit.get("parents", [])
         for parent in parents[1:]:
-            parent_commit = await g.getitem(parent["url"])
+            parent_commit = cast(GitHubCommit, await g.getitem(parent["url"]))
             self._collect_commit_author(parent_commit, repo_full_name, commit_authors)
 
         return commit_authors
@@ -408,10 +403,10 @@ class GithubWebhookService:
             summary = "All contributors have signed the CLA. Thank you!"
             if signed_authors:
                 summary += "\n\n" + "\n".join(signed_authors)
-            output: CheckRunOutput = {
-                "title": "All contributors have signed the CLA.",
-                "summary": summary,
-            }
+            output = CheckRunOutput(
+                title="All contributors have signed the CLA.",
+                summary=summary,
+            )
         else:
             conclusion = "failure"
             all_authors_status = unsigned_authors + signed_authors
@@ -423,7 +418,7 @@ class GithubWebhookService:
                 + "\n\nPlease head over to "
                 "https://ubuntu.com/legal/contributors to sign the CLA."
             )
-            output: CheckRunOutput = {"title": "CLA Check Failed", "summary": summary}
+            output = CheckRunOutput(title="CLA Check Failed", summary=summary)
         return conclusion, output
 
     async def _update_or_create_check_run(
