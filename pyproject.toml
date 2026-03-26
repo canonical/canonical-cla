@@ -49,6 +49,7 @@ sentry-sdk = { extras = [
 ], version = "^2.48.0" }
 ipython = "^8.38.0"
 nest-asyncio = "^1.6.0"
+litellm = "1.82.3"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.8.0"
